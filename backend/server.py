@@ -143,18 +143,24 @@ def api_all_changes():
 @app.route('/api/summary')
 def api_summary():
     from datetime import datetime, timedelta
-    cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+    cutoff_dt  = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff_day = cutoff_dt[:10]
     db_rows = db.get_summary()
     if _IS_CLOUD:
         sheets_rows: list = []
         try:
             import sheets
             all_data = sheets.read_all_cached()
-            sheets_rows = [r for r in all_data if str(r.get('published_at', ''))[:10] >= cutoff]
+            # collected_at 기준 우선, 없으면 published_at 날짜로 fallback
+            def _is_recent(r: dict) -> bool:
+                col = str(r.get('collected_at') or '')
+                if col >= cutoff_dt:
+                    return True
+                return str(r.get('published_at', ''))[:10] >= cutoff_day
+            sheets_rows = [r for r in all_data if _is_recent(r)]
         except Exception as e:
             log.error(f"[api_summary] Sheets error: {e}")
-        # summary는 24시간 이내 항목만 — SQLite는 collected_at 기준이라 날짜 필터 별도
-        db_recent = [r for r in db_rows if str(r.get('published_at', ''))[:10] >= cutoff]
+        db_recent = [r for r in db_rows if str(r.get('published_at', ''))[:10] >= cutoff_day]
         return jsonify(_merge_data(sheets_rows, db_recent, limit=200))
     return jsonify(db_rows)
 
