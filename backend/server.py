@@ -37,30 +37,101 @@ def static_files(filename):
 
 # ── API ─────────────────────────────────────────────────
 
+_IS_CLOUD = bool(os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_SERVICE_ID'))
+
 @app.route('/api/status')
 def api_status():
-    return jsonify(db.get_status())
+    status = db.get_status()
+    # 클라우드 배포 환경에서는 크롤러 자동 실행 방지
+    # Sheets 데이터 유무로 crawled_today 판단
+    if _IS_CLOUD and not status['crawled_today']:
+        try:
+            import sheets
+            sheet_data = sheets.read_all_cached()
+            if sheet_data:
+                status['crawled_today'] = True
+                status['today_total'] = len(sheet_data)
+            else:
+                # 데이터 없어도 크롤 트리거 막기 (서버에서 크롤 불가)
+                status['crawled_today'] = True
+                status['today_total'] = 0
+        except Exception:
+            status['crawled_today'] = True
+    return jsonify(status)
 
 @app.route('/api/services')
 def api_services():
+    if _IS_CLOUD:
+        try:
+            import sheets
+            sheet_data = sheets.read_all_cached()
+            if sheet_data:
+                from collections import defaultdict
+                svc_map = defaultdict(lambda: {'id': '', 'name_ko': '', 'count': 0})
+                for row in sheet_data:
+                    sid = row.get('service_id', '')
+                    svc_map[sid]['id'] = sid
+                    svc_map[sid]['name_ko'] = row.get('name_ko', sid)
+                    svc_map[sid]['count'] = svc_map[sid]['count'] + 1
+                return jsonify(list(svc_map.values()))
+        except Exception:
+            pass
     return jsonify(db.get_services())
 
 @app.route('/api/changes/<svc_id>')
 def api_changes(svc_id):
+    if _IS_CLOUD:
+        try:
+            import sheets
+            all_data = sheets.read_all_cached()
+            filtered = [r for r in all_data if svc_id == '__all__' or r.get('service_id') == svc_id]
+            filtered.sort(key=lambda x: x.get('published_at', ''), reverse=True)
+            return jsonify(filtered[:200])
+        except Exception:
+            pass
     return jsonify(db.get_changes(svc_id))
 
 @app.route('/api/all_changes')
 def api_all_changes():
     change_type = request.args.get('type') or None
+    if _IS_CLOUD:
+        try:
+            import sheets
+            all_data = sheets.read_all_cached()
+            if change_type:
+                all_data = [r for r in all_data if r.get('change_type') == change_type]
+            all_data.sort(key=lambda x: x.get('published_at', ''), reverse=True)
+            return jsonify(all_data[:500])
+        except Exception:
+            pass
     return jsonify(db.get_all_changes(change_type=change_type))
 
 @app.route('/api/summary')
 def api_summary():
+    if _IS_CLOUD:
+        try:
+            import sheets
+            from datetime import datetime, timedelta
+            cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+            all_data = sheets.read_all_cached()
+            recent = [r for r in all_data if str(r.get('published_at', ''))[:10] >= cutoff]
+            return jsonify(recent)
+        except Exception:
+            pass
     return jsonify(db.get_summary())
 
 @app.route('/api/search')
 def api_search():
-    query = request.args.get('q', '')
+    query = request.args.get('q', '').lower()
+    if _IS_CLOUD and query:
+        try:
+            import sheets
+            all_data = sheets.read_all_cached()
+            results = [r for r in all_data if query in (r.get('title') or '').lower()
+                       or query in (r.get('summary') or '').lower()]
+            return jsonify(results[:100])
+        except Exception:
+            pass
     return jsonify(db.search_features(query))
 
 @app.route('/api/app_stats')
