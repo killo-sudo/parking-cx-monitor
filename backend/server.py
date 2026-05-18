@@ -61,22 +61,20 @@ def api_status():
 
 @app.route('/api/services')
 def api_services():
+    svcs = db.get_services()
     if _IS_CLOUD:
         try:
             import sheets
             sheet_data = sheets.read_all_cached()
-            if sheet_data:
-                from collections import defaultdict
-                svc_map = defaultdict(lambda: {'id': '', 'name_ko': '', 'count': 0})
-                for row in sheet_data:
-                    sid = row.get('service_id', '')
-                    svc_map[sid]['id'] = sid
-                    svc_map[sid]['name_ko'] = row.get('name_ko', sid)
-                    svc_map[sid]['count'] = svc_map[sid]['count'] + 1
-                return jsonify(list(svc_map.values()))
+            count_map = {}
+            for row in sheet_data:
+                sid = row.get('service_id', '')
+                count_map[sid] = count_map.get(sid, 0) + 1
+            for svc in svcs:
+                svc['count'] = count_map.get(svc['id'], 0)
         except Exception:
             pass
-    return jsonify(db.get_services())
+    return jsonify(svcs)
 
 @app.route('/api/changes/<svc_id>')
 def api_changes(svc_id):

@@ -211,6 +211,22 @@ html, body {
 .svc-badge.visible { display: block; }
 .svc-operator { display: none; }
 
+.svc-group-header {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 14px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--text-3, #999);
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-left: 1px solid var(--border);
+  margin-left: 8px;
+  height: 100%;
+  flex-shrink: 0;
+}
+
 /* ─────────────────────────────────────────────
    카테고리 필터 바
 ───────────────────────────────────────────── */

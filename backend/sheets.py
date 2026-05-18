@@ -45,7 +45,7 @@ def _get_client():
         "https://www.googleapis.com/auth/drive",
     ]
 
-    creds_json = os.environ.get("GOOGLE_CREDENTIALS", "")
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS", "").lstrip('﻿').strip()
     if creds_json:
         try:
             creds_dict = json.loads(creds_json)

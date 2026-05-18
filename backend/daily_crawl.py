@@ -758,6 +758,38 @@ def _parse_date_str(raw: str) -> str | None:
     return None
 
 
+def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
+    """같은 서비스+날짜 내 제목 유사도 기반 중복 제거.
+    자카드 유사도 >= threshold 인 제목은 먼저 수집된 것만 유지.
+    """
+    from collections import defaultdict
+
+    def tokenize(t: str) -> set:
+        return set(re.findall(r'[가-힣a-z0-9]{2,}', (t or '').lower()))
+
+    def jaccard(s1: set, s2: set) -> float:
+        if not s1 or not s2:
+            return 0.0
+        return len(s1 & s2) / len(s1 | s2)
+
+    groups: dict[str, list] = defaultdict(list)
+    for item in items:
+        key = f"{item.get('service_id', '')}|{item.get('published_at', '')}"
+        groups[key].append(item)
+
+    result = []
+    for group_items in groups.values():
+        kept_tokens: list[set] = []
+        for item in group_items:
+            tokens = tokenize(item.get('title', ''))
+            if any(jaccard(tokens, kt) >= threshold for kt in kept_tokens):
+                continue  # 유사한 제목 이미 있으면 건너뜀
+            kept_tokens.append(tokens)
+            result.append(item)
+
+    return result
+
+
 # ──────────────────────────────────────────────
 # 메인
 # ──────────────────────────────────────────────
@@ -963,7 +995,8 @@ def run() -> dict:
         try:
             import sheets as sh_mod
             svc_map = {s["id"]: s for s in services}
-            synced = sh_mod.append_items(new_items, service_map=svc_map)
+            deduped = _dedup_by_title(new_items)
+            synced = sh_mod.append_items(deduped, service_map=svc_map)
             sh_mod.invalidate_cache()
             print(f"[INFO] Google Sheets {synced}건 동기화 완료")
         except Exception as e:

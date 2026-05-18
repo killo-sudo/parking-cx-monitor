@@ -72,6 +72,41 @@ sources:
     keywords: ["모두의주차장"]
     days_back: 14
 
+  - id: naver_blog_tmap
+    type: naver_blog
+    search_type: blog
+    service_id: tmap_parking
+    keywords: ["티맵 주차", "Tmap 주차"]
+    days_back: 14
+
+  - id: naver_blog_kmpark
+    type: naver_blog
+    search_type: blog
+    service_id: kmpark
+    keywords: ["케이엠파크 주차", "케이엠파킹앤스페이스"]
+    days_back: 14
+
+  - id: naver_blog_parkingcloud
+    type: naver_blog
+    search_type: blog
+    service_id: parkingcloud
+    keywords: ["파킹클라우드 주차장"]
+    days_back: 14
+
+  - id: naver_blog_skshielders
+    type: naver_blog
+    search_type: blog
+    service_id: sk_shielders
+    keywords: ["SK쉴더스 주차", "에스케이쉴더스 주차"]
+    days_back: 14
+
+  - id: naver_blog_koreanef
+    type: naver_blog
+    search_type: blog
+    service_id: koreanef
+    keywords: ["한국전자금융 주차", "KEF 주차"]
+    days_back: 14
+
   # ══════════════════════════════════════════
   # [3] 네이버 뉴스 검색
   # ══════════════════════════════════════════
@@ -132,9 +167,75 @@ sources:
     keywords: ["모두의주차장"]
     days_back: 14
 
+  - id: naver_news_tmap
+    type: naver_news
+    search_type: news
+    service_id: tmap_parking
+    keywords: ["티맵 주차", "티맵모빌리티 주차"]
+    days_back: 14
+
+  - id: naver_news_kmpark
+    type: naver_news
+    search_type: news
+    service_id: kmpark
+    keywords: ["케이엠파크", "케이엠파킹앤스페이스"]
+    days_back: 14
+
+  - id: naver_news_parkingcloud
+    type: naver_news
+    search_type: news
+    service_id: parkingcloud
+    keywords: ["파킹클라우드"]
+    days_back: 14
+
+  - id: naver_news_skshielders
+    type: naver_news
+    search_type: news
+    service_id: sk_shielders
+    keywords: ["SK쉴더스 주차"]
+    days_back: 14
+
+  - id: naver_news_urbanport
+    type: naver_news
+    search_type: news
+    service_id: urbanport
+    keywords: ["어반포트 주차", "UrbanPort 주차"]
+    days_back: 14
+
+  - id: naver_news_koreanef
+    type: naver_news
+    search_type: news
+    service_id: koreanef
+    keywords: ["한국전자금융 주차"]
+    days_back: 14
+
   # ══════════════════════════════════════════
   # [4] 보도자료 HTML 리스트
   # ══════════════════════════════════════════
+
+  - id: tmap_home
+    type: html_diff
+    url: "https://www.tmapmobility.com/"
+    service_id: tmap_parking
+    selector: "main, .content, #main"
+
+  - id: kmpark_home
+    type: html_diff
+    url: "https://www.kmpark.co.kr/"
+    service_id: kmpark
+    selector: "main, .content, #content"
+
+  - id: parkingcloud_home
+    type: html_diff
+    url: "https://www.parkingcloud.co.kr/"
+    service_id: parkingcloud
+    selector: "main, .content, #main"
+
+  - id: koreanef_home
+    type: html_diff
+    url: "https://www.kef.co.kr/"
+    service_id: koreanef
+    selector: "main, .content, #main"
 
   - id: kakaomobility_news
     type: html_list
@@ -256,6 +357,14 @@ sources:
     window_days: 14
     flag_below_rating: 4
 
+  - id: gplay_tmap
+    type: appstore
+    platform: google_play
+    app_id: "com.skt.tmap.ku"
+    service_id: tmap_parking
+    window_days: 14
+    flag_below_rating: 4
+
   # ══════════════════════════════════════════
   # [5] iOS App Store 리뷰 (iTunes RSS — 인증 불필요)
   # ══════════════════════════════════════════
@@ -300,6 +409,12 @@ sources:
     type: ios_appstore
     app_id: "6711335059"         # 투루파킹
     service_id: highparking
+    flag_below_rating: 4
+
+  - id: ios_tmap
+    type: ios_appstore
+    app_id: "431589174"          # Tmap
+    service_id: tmap_parking
     flag_below_rating: 4
 
   # ══════════════════════════════════════════
@@ -378,6 +493,18 @@ sources:
     app_id: "780174422"
     service_id: moduparking
 
+  - id: appinfo_tmap_gplay
+    type: app_info
+    platform: google_play
+    app_id: "com.skt.tmap.ku"
+    service_id: tmap_parking
+
+  - id: appinfo_tmap_ios
+    type: app_info
+    platform: ios
+    app_id: "431589174"
+    service_id: tmap_parking
+
   # ══════════════════════════════════════════
   # [7] YouTube 채널 RSS (공개 채널 — 인증 불필요)
   # ══════════════════════════════════════════
@@ -440,6 +567,42 @@ sources:
     type: naver_cafe
     service_id: moduparking
     keywords: ["모두의주차장"]
+    days_back: 14
+
+  - id: naver_cafe_tmap
+    type: naver_cafe
+    service_id: tmap_parking
+    keywords: ["티맵 주차", "Tmap 주차"]
+    days_back: 14
+
+  - id: naver_cafe_kmpark
+    type: naver_cafe
+    service_id: kmpark
+    keywords: ["케이엠파크 주차"]
+    days_back: 14
+
+  - id: naver_cafe_parkingcloud
+    type: naver_cafe
+    service_id: parkingcloud
+    keywords: ["파킹클라우드 주차"]
+    days_back: 14
+
+  - id: naver_cafe_skshielders
+    type: naver_cafe
+    service_id: sk_shielders
+    keywords: ["SK쉴더스 주차"]
+    days_back: 14
+
+  - id: naver_cafe_urbanport
+    type: naver_cafe
+    service_id: urbanport
+    keywords: ["어반포트 주차"]
+    days_back: 14
+
+  - id: naver_cafe_koreanef
+    type: naver_cafe
+    service_id: koreanef
+    keywords: ["한국전자금융 주차"]
     days_back: 14
 
   # ══════════════════════════════════════════

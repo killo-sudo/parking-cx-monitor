@@ -7,13 +7,37 @@
 // 서비스 색상 테이블
 // ──────────────────────────────────────────────
 const SVC_COLORS = {
+  moduparking:     '#3A3020',
   kakaot_parking:  '#7A1818',
-  amano_korea:     '#1A2D5A',
+  tmap_parking:    '#1A3A50',
+  iparking:        '#1A4060',
+  nicepark:        '#2A1A60',
   highparking:     '#1A3D20',
   parkingfriends:  '#3A1860',
   zoomansa:        '#1A4228',
-  moduparking:     '#3A3020',
+  amano_korea:     '#1A2D5A',
+  kmpark:          '#1A3A3A',
+  parkingcloud:    '#2A3A1A',
+  sk_shielders:    '#3A2A10',
+  urbanport:       '#3A1A2A',
+  koreanef:        '#2A1A1A',
 }
+
+// 서비스 카테고리 그룹 (sidebar 분류용)
+const SVC_GROUPS = [
+  {
+    label: '내부',
+    ids: ['moduparking'],
+  },
+  {
+    label: 'B2C 앱 경쟁사',
+    ids: ['kakaot_parking', 'tmap_parking', 'iparking', 'nicepark', 'highparking', 'parkingfriends', 'zoomansa'],
+  },
+  {
+    label: 'B2B 운영사·인프라',
+    ids: ['amano_korea', 'kmpark', 'parkingcloud', 'sk_shielders', 'urbanport', 'koreanef'],
+  },
+]
 
 // ──────────────────────────────────────────────
 // 상태
@@ -121,11 +145,10 @@ async function init () {
 
 function renderServiceList () {
   svcList.innerHTML = ''
-  const newMap = STATUS.per_service_new || {}
+  const newMap    = STATUS.per_service_new || {}
+  const svcById   = Object.fromEntries(SERVICES.map(s => [s.id, s]))
 
   // 전체 보기
-  const allEntry = document.createElement('div')
-  allEntry.className = 'svc-entry'
   const allItem = document.createElement('div')
   allItem.className = 'svc-item'
   allItem.dataset.id = '__all__'
@@ -135,36 +158,49 @@ function renderServiceList () {
     <div class="svc-badge"></div>
   `
   allItem.addEventListener('click', () => selectService('__all__'))
-  allEntry.appendChild(allItem)
-  svcList.appendChild(allEntry)
+  svcList.appendChild(allItem)
 
-  const divider = document.createElement('div')
-  divider.className = 'svc-divider'
-  svcList.appendChild(divider)
+  // 카테고리 그룹 — 순서: SVC_GROUPS 우선, 나머지는 기타로
+  const assignedIds = new Set(SVC_GROUPS.flatMap(g => g.ids))
+  const extraIds    = SERVICES.map(s => s.id).filter(id => !assignedIds.has(id))
+  const groups      = extraIds.length > 0
+    ? [...SVC_GROUPS, { label: '기타', ids: extraIds }]
+    : SVC_GROUPS
 
-  SERVICES.forEach(svc => {
-    const newCnt = newMap[svc.id] || 0
+  groups.forEach(group => {
+    const groupSvcs = group.ids.map(id => svcById[id]).filter(Boolean)
+    if (groupSvcs.length === 0) return
 
-    const entry = document.createElement('div')
-    entry.className = 'svc-entry'
+    // 그룹 헤더
+    const header = document.createElement('div')
+    header.className = 'svc-group-header'
+    header.textContent = group.label
+    svcList.appendChild(header)
 
-    const item = document.createElement('div')
-    item.className = 'svc-item'
-    item.dataset.id = svc.id
-    item.innerHTML = `
-      <div class="svc-dot ${newCnt > 0 ? 'has-new' : ''}"></div>
-      <div class="svc-name">${svc.name_ko}</div>
-      <div class="svc-badge ${newCnt > 0 ? 'visible' : ''}">${newCnt}</div>
-    `
-    item.addEventListener('click', () => selectService(svc.id))
-    entry.appendChild(item)
+    groupSvcs.forEach(svc => {
+      const newCnt = newMap[svc.id] || 0
 
-    const op = document.createElement('div')
-    op.className = 'svc-operator'
-    op.textContent = svc.operator
-    entry.appendChild(op)
+      const entry = document.createElement('div')
+      entry.className = 'svc-entry'
 
-    svcList.appendChild(entry)
+      const item = document.createElement('div')
+      item.className = 'svc-item'
+      item.dataset.id = svc.id
+      item.innerHTML = `
+        <div class="svc-dot ${newCnt > 0 ? 'has-new' : ''}"></div>
+        <div class="svc-name">${svc.name_ko}</div>
+        <div class="svc-badge ${newCnt > 0 ? 'visible' : ''}">${newCnt}</div>
+      `
+      item.addEventListener('click', () => selectService(svc.id))
+      entry.appendChild(item)
+
+      const op = document.createElement('div')
+      op.className = 'svc-operator'
+      op.textContent = svc.operator
+      entry.appendChild(op)
+
+      svcList.appendChild(entry)
+    })
   })
 }
 
@@ -203,7 +239,7 @@ async function selectService (svcId) {
     contentTitle.textContent = '전체 서비스 타임라인'
     colorBar.style.background = 'var(--ink)'
     const filterNote = ACTIVE_FILTER ? ` · 필터: ${ACTIVE_FILTER}` : ''
-    subtitle.textContent = `6개 주차 플랫폼 VOC · 뉴스 · 앱 업데이트 · 홈페이지 변경 종합${filterNote}`
+    subtitle.textContent = `${SERVICES.length}개 주차 플랫폼 VOC · 뉴스 · 앱 업데이트 · 홈페이지 변경 종합${filterNote}`
     timeline.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>'
     try {
       const changes = await window.api.getAllChanges(ACTIVE_FILTER || null)
