@@ -1,0 +1,39 @@
+name: 매일 자동 수집 (KST 04:00)
+
+on:
+  schedule:
+    - cron: '0 19 * * *'   # UTC 19:00 = KST 04:00
+  workflow_dispatch:        # 수동 실행 버튼
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: SQLite DB 캐시 복원 (중복 방지)
+        uses: actions/cache@v4
+        with:
+          path: monitor.db
+          key: monitor-db-${{ github.run_id }}
+          restore-keys: monitor-db-
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 패키지 설치
+        run: pip install -r backend/requirements.txt
+
+      - name: 크롤러 실행
+        env:
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          GOOGLE_CREDENTIALS:  ${{ secrets.GOOGLE_CREDENTIALS }}
+          SPREADSHEET_ID:      ${{ secrets.SPREADSHEET_ID }}
+          PYTHONUTF8: '1'
+        run: python backend/daily_crawl.py

@@ -1,0 +1,459 @@
+# 매일 크롤링할 소스 정의
+# type: rss / html_list / html_diff / appstore / ios_appstore / app_info / youtube_rss
+
+sources:
+
+  # ══════════════════════════════════════════
+  # [1] 뉴스 RSS — Google News (서비스별 키워드는 services.json 참조)
+  # ══════════════════════════════════════════
+
+  - id: google_news_rss
+    type: rss
+    url_template: "https://news.google.com/rss/search?q={KEYWORD}+when:7d&hl=ko&gl=KR&ceid=KR:ko"
+    days_back: 7
+
+  # ══════════════════════════════════════════
+  # [2] 네이버 블로그 검색
+  # ══════════════════════════════════════════
+
+  - id: naver_blog_kakaot
+    type: naver_blog
+    search_type: blog
+    service_id: kakaot_parking
+    keywords: ["카카오T 주차", "카카오모빌리티 주차장", "케이엠파킹"]
+    days_back: 14
+
+  - id: naver_blog_iparking
+    type: naver_blog
+    search_type: blog
+    service_id: iparking
+    keywords: ["아이파킹 주차", "파킹클라우드 주차"]
+    days_back: 14
+
+  - id: naver_blog_nicepark
+    type: naver_blog
+    search_type: blog
+    service_id: nicepark
+    keywords: ["나이스파크 주차", "NICEPARK"]
+    days_back: 14
+
+  - id: naver_blog_amano
+    type: naver_blog
+    search_type: blog
+    service_id: amano_korea
+    keywords: ["아마노코리아 주차", "아마노 주차장"]
+    days_back: 14
+
+  - id: naver_blog_highparking
+    type: naver_blog
+    search_type: blog
+    service_id: highparking
+    keywords: ["투루파킹", "하이파킹 주차", "휴맥스모빌리티 주차"]
+    days_back: 14
+
+  - id: naver_blog_parkingfriends
+    type: naver_blog
+    search_type: blog
+    service_id: parkingfriends
+    keywords: ["파킹프렌즈", "MDS모빌리티 주차"]
+    days_back: 14
+
+  - id: naver_blog_zoomansa
+    type: naver_blog
+    search_type: blog
+    service_id: zoomansa
+    keywords: ["주만사 주차", "주만사 월정기권"]
+    days_back: 14
+
+  - id: naver_blog_moduparking
+    type: naver_blog
+    search_type: blog
+    service_id: moduparking
+    keywords: ["모두의주차장"]
+    days_back: 14
+
+  # ══════════════════════════════════════════
+  # [3] 네이버 뉴스 검색
+  # ══════════════════════════════════════════
+
+  - id: naver_news_kakaot
+    type: naver_news
+    search_type: news
+    service_id: kakaot_parking
+    keywords: ["카카오T 주차", "카카오모빌리티 주차"]
+    days_back: 14
+
+  - id: naver_news_iparking
+    type: naver_news
+    search_type: news
+    service_id: iparking
+    keywords: ["아이파킹", "파킹클라우드 주차"]
+    days_back: 14
+
+  - id: naver_news_nicepark
+    type: naver_news
+    search_type: news
+    service_id: nicepark
+    keywords: ["나이스파크 주차"]
+    days_back: 14
+
+  - id: naver_news_amano
+    type: naver_news
+    search_type: news
+    service_id: amano_korea
+    keywords: ["아마노코리아 주차"]
+    days_back: 14
+
+  - id: naver_news_highparking
+    type: naver_news
+    search_type: news
+    service_id: highparking
+    keywords: ["투루파킹", "하이파킹"]
+    days_back: 14
+
+  - id: naver_news_parkingfriends
+    type: naver_news
+    search_type: news
+    service_id: parkingfriends
+    keywords: ["파킹프렌즈"]
+    days_back: 14
+
+  - id: naver_news_zoomansa
+    type: naver_news
+    search_type: news
+    service_id: zoomansa
+    keywords: ["주만사 주차"]
+    days_back: 14
+
+  - id: naver_news_moduparking
+    type: naver_news
+    search_type: news
+    service_id: moduparking
+    keywords: ["모두의주차장"]
+    days_back: 14
+
+  # ══════════════════════════════════════════
+  # [4] 보도자료 HTML 리스트
+  # ══════════════════════════════════════════
+
+  - id: kakaomobility_news
+    type: html_list
+    url: "https://www.kakaomobility.com/newsroom"
+    service_id: kakaot_parking
+    item_selector: "article, .news-item, li.item, .newsroom-item"
+    title_selector: "h2 a, h3 a, .title a, a"
+    date_selector: ".date, time, .news-date"
+    link_selector: "h2 a, h3 a, .title a, a"
+    base_url: "https://www.kakaomobility.com"
+
+  - id: humax_news
+    type: html_list
+    url: "https://holdings.humaxdigital.com/category/news"
+    service_id: highparking
+    item_selector: "article"
+    title_selector: "h2 a, h3 a, .entry-title a"
+    date_selector: ".entry-date, time"
+    link_selector: "h2 a, h3 a, .entry-title a"
+    base_url: "https://holdings.humaxdigital.com"
+
+  # ══════════════════════════════════════════
+  # [3] 홈페이지 변경 감지 (실제 변경 내용 추출)
+  # ══════════════════════════════════════════
+
+  - id: kakaot_home
+    type: html_diff
+    url: "https://www.kakaomobility.com/service-kakaot/parking"
+    service_id: kakaot_parking
+    selector: "main, .content, #main"
+
+  - id: amano_home
+    type: html_diff
+    url: "https://www.amano.co.kr/"
+    service_id: amano_korea
+    selector: ".news, .notice, #news, main"
+
+  - id: highparking_home
+    type: html_diff
+    url: "https://turuparking.com/"
+    service_id: highparking
+    selector: "main, .content"
+
+  - id: parkingfriends_home
+    type: html_diff
+    url: "https://www.hmobility.co.kr/parking"
+    service_id: parkingfriends
+    selector: "main, #content"
+
+  - id: zoomansa_home
+    type: html_diff
+    url: "https://www.zoomansa.com"
+    service_id: zoomansa
+    selector: "main, #content, .content"
+
+  - id: moduparking_home
+    type: html_diff
+    url: "https://www.moduparking.com"
+    service_id: moduparking
+    selector: "main, .content, #main"
+
+  # ══════════════════════════════════════════
+  # [4] Google Play 리뷰 (★3 이하)
+  # ══════════════════════════════════════════
+
+  - id: gplay_kakaot
+    type: appstore
+    platform: google_play
+    app_id: "com.kakao.taxi"
+    service_id: kakaot_parking
+    window_days: 14
+    flag_below_rating: 4
+
+  - id: gplay_iparking
+    type: appstore
+    platform: google_play
+    app_id: "kr.co.iparking.android"
+    service_id: iparking
+    window_days: 14
+    flag_below_rating: 4
+
+  - id: gplay_nicepark
+    type: appstore
+    platform: google_play
+    app_id: "kr.co.nicetcm.nice_m"
+    service_id: nicepark
+    window_days: 14
+    flag_below_rating: 4
+
+  - id: gplay_highparking
+    type: appstore
+    platform: google_play
+    app_id: "kr.co.turu.parking"
+    service_id: highparking
+    window_days: 14
+    flag_below_rating: 4
+
+  - id: gplay_parkingfriends
+    type: appstore
+    platform: google_play
+    app_id: "com.misconct.parkingfriends"
+    service_id: parkingfriends
+    window_days: 14
+    flag_below_rating: 4
+
+  - id: gplay_zoomansa
+    type: appstore
+    platform: google_play
+    app_id: "com.zoomansa.parking"
+    service_id: zoomansa
+    window_days: 14
+    flag_below_rating: 4
+
+  - id: gplay_moduparking
+    type: appstore
+    platform: google_play
+    app_id: "com.parkingshare.mobile"
+    service_id: moduparking
+    window_days: 14
+    flag_below_rating: 4
+
+  # ══════════════════════════════════════════
+  # [5] iOS App Store 리뷰 (iTunes RSS — 인증 불필요)
+  # ══════════════════════════════════════════
+
+  - id: ios_kakaot
+    type: ios_appstore
+    app_id: "981110422"          # 카카오T
+    service_id: kakaot_parking
+    flag_below_rating: 4
+
+  - id: ios_iparking
+    type: ios_appstore
+    app_id: "978597106"          # 아이파킹
+    service_id: iparking
+    flag_below_rating: 4
+
+  - id: ios_nicepark
+    type: ios_appstore
+    app_id: "1556588504"         # 나이스파크
+    service_id: nicepark
+    flag_below_rating: 4
+
+  - id: ios_moduparking
+    type: ios_appstore
+    app_id: "780174422"          # 모두의주차장
+    service_id: moduparking
+    flag_below_rating: 4
+
+  - id: ios_parkingfriends
+    type: ios_appstore
+    app_id: "1437488741"         # 파킹프렌즈
+    service_id: parkingfriends
+    flag_below_rating: 4
+
+  - id: ios_zoomansa
+    type: ios_appstore
+    app_id: "1472478299"         # 주만사
+    service_id: zoomansa
+    flag_below_rating: 4
+
+  - id: ios_highparking
+    type: ios_appstore
+    app_id: "6711335059"         # 투루파킹
+    service_id: highparking
+    flag_below_rating: 4
+
+  # ══════════════════════════════════════════
+  # [6] 앱 평점 · 버전 변화 추적
+  # ══════════════════════════════════════════
+
+  - id: appinfo_kakaot_gplay
+    type: app_info
+    platform: google_play
+    app_id: "com.kakao.taxi"
+    service_id: kakaot_parking
+
+  - id: appinfo_kakaot_ios
+    type: app_info
+    platform: ios
+    app_id: "981110422"
+    service_id: kakaot_parking
+
+  - id: appinfo_iparking_gplay
+    type: app_info
+    platform: google_play
+    app_id: "kr.co.iparking.android"
+    service_id: iparking
+
+  - id: appinfo_iparking_ios
+    type: app_info
+    platform: ios
+    app_id: "978597106"
+    service_id: iparking
+
+  - id: appinfo_nicepark_gplay
+    type: app_info
+    platform: google_play
+    app_id: "kr.co.nicetcm.nice_m"
+    service_id: nicepark
+
+  - id: appinfo_nicepark_ios
+    type: app_info
+    platform: ios
+    app_id: "1556588504"
+    service_id: nicepark
+
+  - id: appinfo_highparking_gplay
+    type: app_info
+    platform: google_play
+    app_id: "kr.co.turu.parking"
+    service_id: highparking
+
+  - id: appinfo_highparking_ios
+    type: app_info
+    platform: ios
+    app_id: "6711335059"
+    service_id: highparking
+
+  - id: appinfo_parkingfriends_gplay
+    type: app_info
+    platform: google_play
+    app_id: "com.misconct.parkingfriends"
+    service_id: parkingfriends
+
+  - id: appinfo_zoomansa_gplay
+    type: app_info
+    platform: google_play
+    app_id: "com.zoomansa.parking"
+    service_id: zoomansa
+
+  - id: appinfo_moduparking_gplay
+    type: app_info
+    platform: google_play
+    app_id: "com.parkingshare.mobile"
+    service_id: moduparking
+
+  - id: appinfo_moduparking_ios
+    type: app_info
+    platform: ios
+    app_id: "780174422"
+    service_id: moduparking
+
+  # ══════════════════════════════════════════
+  # [7] YouTube 채널 RSS (공개 채널 — 인증 불필요)
+  # ══════════════════════════════════════════
+
+  - id: youtube_kakaomobility
+    type: youtube_rss
+    channel_id: "UCKopLuBYfMnNLqhJJ1RHSWA"   # 카카오모빌리티 공식
+    service_id: kakaot_parking
+    days_back: 30
+
+  - id: youtube_humax
+    type: youtube_rss
+    channel_id: "UCy5HJnFhZa3mvRqYiMxq1Ow"   # 휴맥스모빌리티
+    service_id: highparking
+    days_back: 30
+
+  # ══════════════════════════════════════════
+  # [8] 네이버 카페 (커뮤니티 VOC / SNS 동향)
+  # 환경변수 NAVER_CLIENT_ID + NAVER_CLIENT_SECRET 있으면 공식 API 사용
+  # 없으면 HTML 스크래핑 fallback
+  # ══════════════════════════════════════════
+
+  - id: naver_cafe_kakaot
+    type: naver_cafe
+    service_id: kakaot_parking
+    keywords: ["카카오T 주차", "카카오모빌리티 주차"]
+    days_back: 14
+
+  - id: naver_cafe_iparking
+    type: naver_cafe
+    service_id: iparking
+    keywords: ["아이파킹 주차", "파킹클라우드 주차"]
+    days_back: 14
+
+  - id: naver_cafe_nicepark
+    type: naver_cafe
+    service_id: nicepark
+    keywords: ["나이스파크 주차"]
+    days_back: 14
+
+  - id: naver_cafe_highparking
+    type: naver_cafe
+    service_id: highparking
+    keywords: ["투루파킹", "하이파킹 주차"]
+    days_back: 14
+
+  - id: naver_cafe_parkingfriends
+    type: naver_cafe
+    service_id: parkingfriends
+    keywords: ["파킹프렌즈"]
+    days_back: 14
+
+  - id: naver_cafe_zoomansa
+    type: naver_cafe
+    service_id: zoomansa
+    keywords: ["주만사 주차"]
+    days_back: 14
+
+  - id: naver_cafe_moduparking
+    type: naver_cafe
+    service_id: moduparking
+    keywords: ["모두의주차장"]
+    days_back: 14
+
+  # ══════════════════════════════════════════
+  # iOS 앱 ID 찾는 방법 (주석)
+  # ══════════════════════════════════════════
+  # 브라우저에서 아래 URL 접속 후 trackId 값을 app_id로 사용:
+  # https://itunes.apple.com/search?term=앱이름&country=kr&entity=software&limit=5
+  # 예) term=투루파킹, term=파킹프렌즈, term=주만사
+
+  # ══════════════════════════════════════════
+  # SNS 수집 가능 여부 정리
+  # ══════════════════════════════════════════
+  # YouTube  : 위 [7]번에서 공식 RSS로 수집 중 ✅
+  # NaverCafe: 위 [8]번에서 수집 중 ✅
+  # Twitter/X: 유료 API만 가능 ($100/월), 무료 스크래핑 불안정 ❌
+  # Instagram: 강력한 봇 차단, 공식 API도 비즈니스 계정 필요 ❌
+  # Facebook : 공개 콘텐츠 API 종료됨 ❌

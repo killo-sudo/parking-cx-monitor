@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "features": [
+    {
+      "id": "ai_demand_prediction",
+      "name_ko": "AI 수요/만차 예측",
+      "synonyms": ["만차예측", "혼잡도", "주차 가능 예측"],
+      "providers": ["kakaot_parking", "highparking"]
+    },
+    {
+      "id": "dynamic_pricing",
+      "name_ko": "AI 다이나믹 프라이싱",
+      "synonyms": ["요금 자동 조정", "시간대별 요금"],
+      "providers": ["highparking"]
+    },
+    {
+      "id": "indoor_navigation",
+      "name_ko": "실내 내비게이션",
+      "synonyms": ["지하 길안내", "주차 유도"],
+      "providers": ["kakaot_parking", "amano_korea"]
+    },
+    {
+      "id": "auto_lpr",
+      "name_ko": "차량번호 자동 인식",
+      "synonyms": ["LPR", "번호판 인식", "자동 입출차"],
+      "providers": ["kakaot_parking", "amano_korea", "highparking", "parkingfriends", "moduparking"]
+    },
+    {
+      "id": "valet_service",
+      "name_ko": "발레/주차대행",
+      "synonyms": ["발렛", "주차대행"],
+      "providers": ["kakaot_parking", "amano_korea", "highparking"]
+    },
+    {
+      "id": "monthly_pass_autopay",
+      "name_ko": "월정기권 자동이체",
+      "synonyms": ["월주차 자동결제"],
+      "providers": ["zoomansa"]
+    },
+    {
+      "id": "residential_sharing",
+      "name_ko": "거주자우선 주차 공유",
+      "synonyms": ["거주자 공유", "골목길 주차"],
+      "providers": ["parkingfriends", "zoomansa", "moduparking"]
+    },
+    {
+      "id": "free_lot_info",
+      "name_ko": "무료 주차장 정보",
+      "synonyms": ["공영주차장", "무료주차"],
+      "providers": ["parkingfriends", "zoomansa", "moduparking"]
+    },
+    {
+      "id": "hipass_payment",
+      "name_ko": "하이패스 자동결제",
+      "synonyms": ["하이패스", "Non-stop 결제"],
+      "providers": ["highparking"]
+    },
+    {
+      "id": "mechanical_unmanned",
+      "name_ko": "기계식 주차 무인 운영",
+      "synonyms": ["무인주차", "기계식 주차"],
+      "providers": ["amano_korea"]
+    },
+    {
+      "id": "autonomous_ready",
+      "name_ko": "자율주행 대응 인프라",
+      "synonyms": ["자율주행 주차", "로보택시"],
+      "providers": ["kakaot_parking", "highparking"]
+    },
+    {
+      "id": "mpass",
+      "name_ko": "MPASS 자동결제",
+      "synonyms": ["엠패스", "후불 자동결제"],
+      "providers": ["moduparking"]
+    },
+    {
+      "id": "pre_purchase",
+      "name_ko": "사전구매(단기권)",
+      "synonyms": ["공항주차 예약", "단기권"],
+      "providers": ["moduparking", "kakaot_parking"]
+    },
+    {
+      "id": "ev_charging",
+      "name_ko": "전기차 충전 연계",
+      "synonyms": ["EV 충전", "전기차"],
+      "providers": ["kakaot_parking", "highparking", "moduparking"]
+    }
+  ]
+}

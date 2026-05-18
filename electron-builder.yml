@@ -1,0 +1,49 @@
+appId: kr.socar.parking-cx-monitor
+productName: "주차 서비스 CX 모니터"
+copyright: "Copyright © 2026 SOCAR"
+
+directories:
+  output: dist-installer
+  buildResources: build-resources
+
+# 앱 소스 파일
+files:
+  - src/**
+  - "!src/**/*.map"
+
+# 앱 외부 리소스 (process.resourcesPath 로 접근)
+# 개발: backend/ + data/ 직접 참조
+# 배포: backend-dist/ 의 .exe + data/ 를 resources/ 에 번들
+extraResources:
+  - from: backend-dist/
+    to: backend/
+    filter:
+      - "*.exe"
+  - from: data/
+    to: data/
+    filter:
+      - "*.json"
+      - "*.yaml"
+
+# Windows 빌드 설정
+win:
+  target:
+    - target: nsis
+      arch:
+        - arm64   # 내 기기 (Samsung Galaxy Book, Snapdragon)
+        - x64     # 일반 Intel/AMD PC
+  icon: build-resources/icon.ico
+
+# NSIS 인스톨러 설정
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "주차 CX 모니터"
+  installerLanguages:
+    - ko_KR
+  include: build-resources/installer.nsh
+
+compression: normal

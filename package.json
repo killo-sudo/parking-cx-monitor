@@ -1,0 +1,19 @@
+{
+  "name": "parking-cx-monitor",
+  "version": "1.0.0",
+  "description": "국내 주차 서비스 CX 모니터링 데스크톱 앱",
+  "main": "src/main.js",
+  "author": "SOCAR",
+  "scripts": {
+    "start": "set ELECTRON_RUN_AS_NODE=& electron .",
+    "build:backend": "powershell -ExecutionPolicy Bypass -File scripts/build-backend.ps1",
+    "build:installer": "npm run build:backend && electron-builder --win",
+    "build:installer:arm64": "npm run build:backend && electron-builder --win --arm64",
+    "build:installer:x64": "npm run build:backend && electron-builder --win --x64"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^36.9.5",
+    "electron-builder": "^24.0.0"
+  }
+}
