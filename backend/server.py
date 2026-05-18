@@ -218,8 +218,7 @@ def api_debug():
 def api_crawl():
     """크롤러 실행 + stdout을 Server-Sent Events로 실시간 전송."""
     def generate():
-        venv_py = ROOT_DIR / '.venv' / 'Scripts' / 'python.exe'
-        py_cmd  = str(venv_py) if venv_py.exists() else 'python'
+        py_cmd  = sys.executable   # 현재 실행 중인 Python 인터프리터 (로컬·Railway 공통)
         crawler = ROOT_DIR / 'backend' / 'daily_crawl.py'
 
         proc = subprocess.Popen(

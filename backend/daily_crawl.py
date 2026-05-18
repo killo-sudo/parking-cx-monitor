@@ -150,6 +150,52 @@ _GENERIC_WORDS = {
     "차량", "입차", "출차", "정기", "할인", "모두의", "the", "and", "of",
 }
 
+# 서비스별 필수 브랜드 키워드 — 본문에 없으면 수집 제외
+_BRAND_REQUIRED: dict[str, list[str]] = {
+    'moduparking':    ['모두의주차장', '모두의 주차장'],
+    'iparking':       ['아이파킹'],
+    'nicepark':       ['나이스파크', 'nicepark'],
+    'urbanport':      ['어반포트', 'urbanport'],
+    'koreanef':       ['한국전자금융'],
+    'sk_shielders':   ['sk쉴더스', 'sk 쉴더스', 'sk쉴더'],
+    'kmpark':         ['케이엠파크', '케이엠파킹'],
+    'parkingcloud':   ['파킹클라우드'],
+    'parkingfriends': ['파킹프렌즈', 'mds모빌리티'],
+    'amano_korea':    ['아마노코리아', '아마노 주차'],
+    'highparking':    ['하이파킹', '투루파킹', '휴맥스모빌리티'],
+    'zoomansa':       ['주만사'],
+    'kakaot_parking': ['카카오t', '카카오모빌리티', '케이엠파킹'],
+    'tmap_parking':   ['티맵 주차', 'tmap 주차', '티맵모빌리티 주차'],
+}
+
+_PARKING_KW = [
+    '주차', '파킹', 'parking', '입차', '출차', '정기권', '월정기',
+    '주차요금', '주차비', '무료주차', '유료주차', '주차면', '발렛', '주차권', '주차장',
+]
+
+
+def _brand_validate(service_id: str, title: str, desc: str) -> bool:
+    """서비스 브랜드명이 본문에 실제로 포함되어 있는지 검증."""
+    brands = _BRAND_REQUIRED.get(service_id)
+    if not brands:
+        return True
+    chk = (title + " " + desc).lower()
+    return any(b in chk for b in brands)
+
+
+def _parking_summary(text: str, max_chars: int = 500) -> str:
+    """텍스트에서 주차 관련 문장만 추출해 요약 생성.
+    '어떤 주차 내용이 담긴 글인지'를 보여주기 위한 필터.
+    """
+    if not text:
+        return ""
+    sents = re.split(r'[.!?\n]+', text)
+    rel = [s.strip() for s in sents
+           if len(s.strip()) >= 10 and any(kw in s.lower() for kw in _PARKING_KW)]
+    if rel:
+        return ' '.join(rel[:4])[:max_chars]
+    return text[:max_chars]
+
 def _normalize_news_title(title: str) -> str:
     """Google News 제목에서 ' – 언론사명' 접미사 제거."""
     return re.sub(r'\s*[\-–—]\s*[^\-–—]{1,35}$', '', title or '').strip()
@@ -179,13 +225,14 @@ def _is_relevant(title: str, summary: str, svc: dict) -> bool:
 # ──────────────────────────────────────────────
 
 def crawl_html_list(source: dict) -> list[dict]:
-    url       = source.get("url", "")
-    sid       = source.get("service_id", "")
-    item_sel  = source.get("item_selector", "article, li")
-    title_sel = source.get("title_selector", "h2 a, h3 a, a")
-    date_sel  = source.get("date_selector")
-    link_sel  = source.get("link_selector", "h2 a, h3 a, a")
-    base_url  = source.get("base_url", "").rstrip("/")
+    url            = source.get("url", "")
+    sid            = source.get("service_id", "")
+    item_sel       = source.get("item_selector", "article, li")
+    title_sel      = source.get("title_selector", "h2 a, h3 a, a")
+    date_sel       = source.get("date_selector")
+    link_sel       = source.get("link_selector", "h2 a, h3 a, a")
+    base_url       = source.get("base_url", "").rstrip("/")
+    keyword_filter = [k.lower() for k in source.get("keyword_filter", [])]
 
     resp = _get(url)
     resp.raise_for_status()
@@ -198,6 +245,10 @@ def crawl_html_list(source: dict) -> list[dict]:
             continue
         title = title_el.get_text(strip=True)
         if not title:
+            continue
+
+        # keyword_filter가 있으면 제목에 관련 키워드가 있을 때만 수집
+        if keyword_filter and not any(kw in title.lower() for kw in keyword_filter):
             continue
 
         link_el = el.select_one(link_sel) if link_sel else title_el
@@ -530,9 +581,10 @@ def _fetch_ios_info(app_id: str) -> tuple:
 
 def crawl_youtube_rss(source: dict) -> list[dict]:
     """YouTube 채널 최신 영상 수집 (공개 RSS — 인증 불필요)."""
-    channel_id = source.get("channel_id", "")
-    sid        = source.get("service_id", "")
-    days_back  = source.get("days_back", 7)
+    channel_id     = source.get("channel_id", "")
+    sid            = source.get("service_id", "")
+    days_back      = source.get("days_back", 7)
+    keyword_filter = [k.lower() for k in source.get("keyword_filter", [])]
 
     if not channel_id:
         return []
@@ -560,6 +612,12 @@ def crawl_youtube_rss(source: dict) -> list[dict]:
             title   = entry.get("title", "")
             summary = (entry.get("summary") or "")[:300]
             link    = entry.get("link", "")
+
+            # keyword_filter가 있으면 제목/요약에 관련 키워드가 있을 때만 수집
+            if keyword_filter:
+                combined = (title + " " + summary).lower()
+                if not any(kw in combined for kw in keyword_filter):
+                    continue
 
             items.append({
                 "service_id":   sid,
@@ -639,18 +697,15 @@ def crawl_naver_search(source: dict) -> list[dict]:
                                     continue
                             except ValueError:
                                 pass
-                    # 모두의주차장 소스는 브랜드명 정확 포함 여부 검증
-                    if service_id == 'moduparking':
-                        chk = (title + " " + desc).lower()
-                        if '모두의주차장' not in chk and '모두의 주차장' not in chk:
-                            continue
+                    if not _brand_validate(service_id, title, desc):
+                        continue
                     results.append({
                         "service_id":   service_id,
                         "published_at": pub_str,
                         "source_type":  src_type,
                         "change_type":  classify_change_type(title, desc),
                         "title":        title,
-                        "summary":      desc or None,
+                        "summary":      _parking_summary(desc) or None,
                         "url":          href,
                         "sentiment":    classify_sentiment(title, desc),
                     })
@@ -683,18 +738,15 @@ def crawl_naver_search(source: dict) -> list[dict]:
                                     continue
                             except ValueError:
                                 pass
-                    # 모두의주차장 소스는 브랜드명 정확 포함 여부 검증
-                    if service_id == 'moduparking':
-                        chk = (title + " " + desc).lower()
-                        if '모두의주차장' not in chk and '모두의 주차장' not in chk:
-                            continue
+                    if not _brand_validate(service_id, title, desc):
+                        continue
                     results.append({
                         "service_id":   service_id,
                         "published_at": pub_str,
                         "source_type":  src_type,
                         "change_type":  classify_change_type(title, desc),
                         "title":        title,
-                        "summary":      desc or None,
+                        "summary":      _parking_summary(desc) or None,
                         "url":          href,
                         "sentiment":    classify_sentiment(title, desc),
                     })
@@ -842,6 +894,8 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
                     if not title or href in seen:
                         continue
                     seen.add(href)
+                    if not _brand_validate(service_id, title, desc):
+                        continue
                     disp = f"[카페:{cafe}] {title}" if cafe else title
                     results.append({
                         'service_id':   service_id,
@@ -849,7 +903,7 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
                         'source_type':  'cafe',
                         'change_type':  classify_change_type(title, desc),
                         'title':        disp,
-                        'summary':      desc or None,
+                        'summary':      _parking_summary(desc) or None,
                         'url':          href,
                         'sentiment':    classify_sentiment(title, desc),
                     })
@@ -892,6 +946,8 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
                             except ValueError:
                                 pass
 
+                    if not _brand_validate(service_id, title, desc):
+                        continue
                     disp = f"[카페:{cafe}] {title}" if cafe else title
                     results.append({
                         'service_id':   service_id,
@@ -899,7 +955,7 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
                         'source_type':  'cafe',
                         'change_type':  classify_change_type(title, desc),
                         'title':        disp,
-                        'summary':      desc or None,
+                        'summary':      _parking_summary(desc) or None,
                         'url':          href,
                         'sentiment':    classify_sentiment(title, desc),
                     })

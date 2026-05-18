@@ -129,7 +129,7 @@ sources:
     type: naver_news
     search_type: news
     service_id: iparking
-    keywords: ["아이파킹", "파킹클라우드 주차"]
+    keywords: ["아이파킹 주차", "파킹클라우드 주차"]
     days_back: 14
 
   - id: naver_news_nicepark
@@ -253,6 +253,7 @@ sources:
     date_selector: ".date, time, .news-date"
     link_selector: "h2 a, h3 a, .title a, a"
     base_url: "https://www.kakaomobility.com"
+    keyword_filter: ["주차", "파킹", "parking"]
 
   - id: humax_news
     type: html_list
@@ -402,6 +403,7 @@ sources:
     channel_id: "UCKopLuBYfMnNLqhJJ1RHSWA"   # 카카오모빌리티 공식
     service_id: kakaot_parking
     days_back: 30
+    keyword_filter: ["주차", "파킹", "parking"]
 
   - id: youtube_humax
     type: youtube_rss
