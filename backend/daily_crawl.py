@@ -988,10 +988,23 @@ def run() -> dict:
     db.init_db()
     db.import_services()
 
-    # 최초 실행 여부 — 수집 로그가 없거나 데이터가 30건 미만이면 1년치 수집
+    # 최초 실행 여부 판단
+    # SQLite 기준: 로그 없거나 데이터 30건 미만
     run_status   = db.get_status()
     total_items  = db.get_total_count()
     is_first_run = (run_status.get('last_run') is None) or (total_items < 30)
+
+    # Sheets에 이미 데이터가 충분하면 최초 실행이 아님
+    # (GitHub Actions처럼 SQLite가 항상 초기화되는 환경 대응)
+    if is_first_run:
+        try:
+            import sheets as _sh
+            sheet_count = len(_sh.read_all_cached())
+            if sheet_count >= 50:
+                is_first_run = False
+                print(f"[INFO] Sheets {sheet_count}건 확인 — 증분 수집 모드")
+        except Exception:
+            pass
 
     sources  = load_sources()
     services = load_services()

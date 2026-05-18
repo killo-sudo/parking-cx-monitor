@@ -1,6 +1,7 @@
 /**
  * 대시보드 렌더러 로직
- * 흐름: 스플래시 → 상태 확인 → (필요 시 크롤) → 대시보드 표시
+ * 흐름: 스플래시 → 상태 확인 → 대시보드 표시
+ * 데이터 수집은 GitHub Actions 크론(매일 KST 04:00)이 담당.
  */
 
 // ──────────────────────────────────────────────
@@ -42,7 +43,7 @@ let SERVICES      = []
 let STATUS        = {}
 let ACTIVE_SVC    = null
 let ACTIVE_FILTER = null
-let CRAWLING      = false
+// CRAWLING 플래그 제거 — 수동 수집 기능 없음
 
 // ──────────────────────────────────────────────
 // DOM 참조
@@ -58,7 +59,6 @@ const contentTitle  = $('content-title-text')
 const colorBar      = $('svc-color-bar')
 const subtitle      = $('content-subtitle')
 const lastUpdated   = $('last-updated')
-const btnRefresh    = $('btn-refresh')
 const searchInput   = $('search-input')
 const searchResults = $('search-results')
 const summaryList   = $('summary-list')
@@ -93,19 +93,8 @@ async function init () {
   showSplash('데이터 확인 중...')
   setupFilterChips()
 
-  window.api.onCrawlLog(line => {
-    appendSplashLog(line)
-    if (line.includes('[DONE]')) splashMsg.textContent = '대시보드 로드 중...'
-  })
-
   try {
     STATUS = await window.api.getStatus()
-
-    if (!STATUS.crawled_today) {
-      showSplash('새 데이터 수집 중... (약 30초 소요)')
-      await window.api.runCrawl()
-      STATUS = await window.api.getStatus()
-    }
 
     const svcData = await window.api.getServices()
     SERVICES = svcData
@@ -585,37 +574,7 @@ async function doSearch () {
   }
 }
 
-// ──────────────────────────────────────────────
-// 수동 새로고침 버튼
-// ──────────────────────────────────────────────
-
-btnRefresh.addEventListener('click', async () => {
-  if (CRAWLING) return
-  CRAWLING = true
-  btnRefresh.disabled = true
-
-  showSplash('데이터 수집 중...')
-  splashLog.textContent = ''
-  window.api.offCrawlLog()
-  window.api.onCrawlLog(line => { appendSplashLog(line) })
-
-  try {
-    await window.api.runCrawl()
-    STATUS = await window.api.getStatus()
-    renderServiceList()
-    await renderSummary()
-    await renderAppStats()
-    updateLastUpdated()
-    if (ACTIVE_SVC) await selectService(ACTIVE_SVC)
-  } catch (err) {
-    appendSplashLog(`\n[오류] ${err.message}`)
-    await sleep(2000)
-  } finally {
-    hideSplash()
-    CRAWLING = false
-    btnRefresh.disabled = false
-  }
-})
+// 수동 수집 제거 — 데이터 수집은 GitHub Actions 크론(매일 KST 04:00) 담당
 
 // ──────────────────────────────────────────────
 // 헬퍼
