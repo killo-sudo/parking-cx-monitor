@@ -1025,6 +1025,18 @@ def run() -> dict:
                 src['url_template'] = src['url_template'].replace('when:7d', 'when:1y')
             extended.append(src)
         sources = extended
+    else:
+        # 증분 모드 — 전날~당일 2일치만 수집 (daily cron 기준)
+        print("[INFO] 증분 수집 모드 — 최근 2일치")
+        extended = []
+        for src in sources:
+            src = dict(src)
+            if 'days_back'   in src: src['days_back']   = 2
+            if 'window_days' in src: src['window_days'] = 2
+            if 'url_template' in src:
+                src['url_template'] = src['url_template'].replace('when:7d', 'when:2d')
+            extended.append(src)
+        sources = extended
 
     added     = 0
     errors    = 0

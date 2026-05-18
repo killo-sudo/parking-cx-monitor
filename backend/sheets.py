@@ -93,15 +93,32 @@ def _get_worksheet():
 
 
 def append_items(items: list[dict], service_map: dict | None = None) -> int:
-    """신규 항목을 Google Sheets에 일괄 추가. 추가된 행 수 반환."""
+    """신규 항목을 Google Sheets에 일괄 추가 (URL 기반 dedup). 추가된 행 수 반환."""
     if not items:
         return 0
     ws = _get_worksheet()
     if not ws:
         return 0
 
+    # 기존 URL 목록 수집 — Sheets 중복 방지 (GitHub Actions 등 SQLite 없는 환경 대응)
+    existing_urls: set = set()
+    try:
+        url_col_idx = HEADERS.index("URL")  # 7번 컬럼 (0-based)
+        existing = ws.col_values(url_col_idx + 1)  # gspread는 1-based
+        existing_urls = {v.strip() for v in existing if v.strip()}
+    except Exception as e:
+        log.warning(f"[Sheets] 기존 URL 조회 실패 (dedup 스킵): {e}")
+
     rows = []
+    skipped = 0
     for item in items:
+        url = (item.get("url") or "").strip()
+        if url and url in existing_urls:
+            skipped += 1
+            continue
+        if url:
+            existing_urls.add(url)  # 이번 배치 내 중복도 방지
+
         svc_id   = item.get("service_id", "")
         svc_name = (service_map or {}).get(svc_id, {}).get("name_ko", svc_id)
         rows.append([
@@ -112,10 +129,15 @@ def append_items(items: list[dict], service_map: dict | None = None) -> int:
             item.get("change_type", ""),
             item.get("title", ""),
             item.get("summary") or "",
-            item.get("url") or "",
+            url,
             item.get("sentiment", "neutral"),
             item.get("collected_at") or "",
         ])
+
+    if skipped:
+        log.info(f"[Sheets] 중복 {skipped}건 제외")
+    if not rows:
+        return 0
 
     try:
         ws.append_rows(rows, value_input_option="USER_ENTERED")
