@@ -30,12 +30,8 @@ const SVC_GROUPS = [
     ids: ['moduparking'],
   },
   {
-    label: 'B2C 앱 경쟁사',
-    ids: ['kakaot_parking', 'tmap_parking', 'iparking', 'nicepark', 'highparking', 'parkingfriends', 'zoomansa'],
-  },
-  {
-    label: 'B2B 운영사·인프라',
-    ids: ['amano_korea', 'kmpark', 'parkingcloud', 'sk_shielders', 'urbanport', 'koreanef'],
+    label: '경쟁사',
+    ids: ['kakaot_parking', 'tmap_parking', 'iparking', 'nicepark', 'highparking', 'parkingfriends', 'zoomansa', 'amano_korea', 'kmpark', 'parkingcloud', 'sk_shielders', 'urbanport', 'koreanef'],
   },
 ]
 
@@ -335,7 +331,6 @@ function renderTimeline (changes, svc) {
           <span class="type-badge ${typeKl}">${c.change_type || '기타'}</span>
           <span class="source-badge">${srcLbl}</span>
           ${starsEl}
-          <div class="sentiment-dot ${c.sentiment || 'neutral'}"></div>
           ${urlLink}
         </div>
         <div class="card-title">
