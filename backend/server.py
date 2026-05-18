@@ -84,9 +84,12 @@ def api_changes(svc_id):
             all_data = sheets.read_all_cached()
             filtered = [r for r in all_data if svc_id == '__all__' or r.get('service_id') == svc_id]
             filtered.sort(key=lambda x: x.get('published_at', ''), reverse=True)
+            import logging; logging.getLogger(__name__).info(
+                f"[api_changes] svc={svc_id} total={len(all_data)} filtered={len(filtered)}"
+            )
             return jsonify(filtered[:200])
-        except Exception:
-            pass
+        except Exception as e:
+            import logging; logging.getLogger(__name__).error(f"[api_changes] Sheets error: {e}")
     return jsonify(db.get_changes(svc_id))
 
 @app.route('/api/all_changes')

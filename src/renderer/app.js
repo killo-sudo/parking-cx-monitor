@@ -178,7 +178,8 @@ function renderServiceList () {
     svcList.appendChild(header)
 
     groupSvcs.forEach(svc => {
-      const newCnt = newMap[svc.id] || 0
+      // Sheets 기반 카운트 우선, 없으면 SQLite per_service_new
+      const newCnt = (svc.count != null ? svc.count : 0) || newMap[svc.id] || 0
 
       const entry = document.createElement('div')
       entry.className = 'svc-entry'
