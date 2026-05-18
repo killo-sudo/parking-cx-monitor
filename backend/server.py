@@ -139,6 +139,35 @@ def api_app_stats():
     return jsonify(db.get_app_stats())
 
 
+@app.route('/api/debug')
+def api_debug():
+    """환경 진단 — 배포 후 확인용."""
+    import sys
+    info = {
+        'is_cloud': _IS_CLOUD,
+        'env_railway_env': bool(os.environ.get('RAILWAY_ENVIRONMENT')),
+        'env_railway_svc': bool(os.environ.get('RAILWAY_SERVICE_ID')),
+        'env_google_creds': bool(os.environ.get('GOOGLE_CREDENTIALS')),
+        'env_spreadsheet_id': bool(os.environ.get('SPREADSHEET_ID')),
+        'spreadsheet_id_value': (os.environ.get('SPREADSHEET_ID') or '')[:20],
+        'creds_starts_with': '',
+        'sheets_row_count': 0,
+        'sheets_error': '',
+        'python': sys.version,
+    }
+    creds = os.environ.get('GOOGLE_CREDENTIALS', '')
+    info['creds_len'] = len(creds)
+    info['creds_starts_with'] = repr(creds[:10]) if creds else ''
+    try:
+        import sheets
+        data = sheets.read_all_cached()
+        info['sheets_row_count'] = len(data)
+        info['sheets_sample_ids'] = list({r.get('service_id') for r in data[:50]})
+    except Exception as e:
+        info['sheets_error'] = str(e)
+    return jsonify(info)
+
+
 # ── 크롤러 실행 (SSE 스트리밍) ───────────────────────────
 
 @app.route('/api/crawl')
