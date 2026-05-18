@@ -9,10 +9,14 @@ jobs:
   crawl:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write        # docs/ 커밋용
 
     env:
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       SPREADSHEET_ID:     ${{ secrets.SPREADSHEET_ID }}
+      NAVER_CLIENT_ID:    ${{ secrets.NAVER_CLIENT_ID }}
+      NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
 
     steps:
       - name: Checkout
@@ -29,3 +33,17 @@ jobs:
 
       - name: Run crawler
         run: python backend/daily_crawl.py
+
+      - name: Update docs/app_info.json
+        run: |
+          if [ -f data/app_info.json ]; then
+            cp data/app_info.json docs/app_info.json
+          fi
+
+      - name: Commit updated app_info
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/app_info.json
+          git diff --staged --quiet || git commit -m "chore: update app_info.json [skip ci]"
+          git push

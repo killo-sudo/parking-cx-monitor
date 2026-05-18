@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>THE PARKING GAZETTE</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── 스플래시 오버레이 ───────────────── -->
+<div id="splash">
+  <div class="spinner"></div>
+  <div id="splash-title">THE PARKING GAZETTE</div>
+  <div id="splash-msg">데이터 확인 중...</div>
+  <div id="splash-log"></div>
+</div>
+
+<!-- ── 메인 앱 ────────────────────────── -->
+<div id="app">
+
+  <!-- 신문 masthead -->
+  <header id="header">
+    <div id="masthead-top-rule"></div>
+    <div id="masthead-name">THE PARKING GAZETTE</div>
+    <div id="masthead-tagline">국내 주차 플랫폼 CX 정보 종합 모니터 — 모두의주차장 CX운영파트</div>
+    <div id="masthead-bar">
+      <div id="masthead-vol">Vol. 1 · 주차 서비스 동향 일보</div>
+      <span id="last-updated">마지막 수집: —</span>
+      <span id="crawl-schedule">매일 04:00 자동 수집</span>
+    </div>
+  </header>
+
+  <!-- INDEX — 가로형 서비스 네비게이션 -->
+  <nav id="sidebar">
+    <div id="sidebar-label">INDEX</div>
+    <div id="service-list">
+      <!-- JS로 동적 생성 -->
+    </div>
+  </nav>
+
+  <!-- 카테고리 필터 바 -->
+  <div id="filter-bar">
+    <span id="filter-label">카테고리</span>
+    <div id="filter-chips">
+      <button class="filter-chip active" data-type="">전체</button>
+      <button class="filter-chip" data-type="VOC">VOC</button>
+      <button class="filter-chip" data-type="정책">정책</button>
+      <button class="filter-chip" data-type="기술">기술</button>
+      <button class="filter-chip" data-type="사업확장">사업확장</button>
+      <button class="filter-chip" data-type="제휴">제휴</button>
+      <button class="filter-chip" data-type="기타">기타</button>
+    </div>
+  </div>
+
+  <!-- 바디 -->
+  <div id="body">
+
+    <!-- 중앙: 변경사항 타임라인 -->
+    <main id="content">
+      <div id="content-header">
+        <div id="content-title">
+          <div class="svc-color-bar" id="svc-color-bar"></div>
+          <span id="content-title-text">서비스를 선택하세요</span>
+        </div>
+        <div id="content-subtitle"></div>
+      </div>
+      <div id="timeline">
+        <div class="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 3h2l.4 2M7 13h10l4-8H5.4"/>
+            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+          </svg>
+          <p>좌측에서 서비스를 선택하면<br>변경사항 타임라인이 표시됩니다.</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- 우측 패널: 검색 + 요약 -->
+    <aside id="right-panel">
+      <!-- 기능 검색 -->
+      <div id="search-section">
+        <div id="search-label">기능 검색</div>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="예: LPR, 발렛, 월정기권..."
+          autocomplete="off"
+        >
+        <div id="search-results"></div>
+      </div>
+
+      <!-- 오늘의 신규 항목 요약 -->
+      <div id="summary-section">
+        <div id="summary-label">
+          오늘의 신규 항목
+          <span id="today-count">0</span>
+        </div>
+        <div id="summary-list">
+          <div class="empty-state" style="padding: 20px">
+            <p style="font-size:11px">오늘 수집된 항목이 없습니다.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- /#body -->
+
+  <!-- 앱 지표 — 하단 전체폭 큰 패널 -->
+  <div id="appstats-section">
+    <div id="appstats-label">앱 지표 비교 <span id="appstats-sub">— 운영사별 평점 꺾은선 · 리뷰 수 · 앱 버전</span></div>
+    <div id="appstats-chart"></div>
+    <div id="appstats-list">
+      <div class="appstats-empty">앱 정보를 수집 중입니다.</div>
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<script src="web-api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

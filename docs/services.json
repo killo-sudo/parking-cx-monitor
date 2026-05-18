@@ -1,0 +1,218 @@
+{
+  "version": "2.1",
+  "last_updated": "2026-05-18",
+  "services": [
+    {
+      "id": "kakaot_parking",
+      "name_ko": "카카오T 주차",
+      "operator": "카카오모빌리티",
+      "category": "navigation_bundle",
+      "homepage": "https://www.kakaomobility.com/service-kakaot/parking",
+      "news_source": "https://www.kakaomobility.com/news",
+      "appstore_id_google": "com.kakao.taxi",
+      "appstore_id_ios": "981110422",
+      "youtube_channel": "UCKopLuBYfMnNLqhJJ1RHSWA",
+      "current_status": {
+        "partner_lots": "전국 1,700여 개",
+        "subsidiary": "케이엠파킹앤스페이스",
+        "gplay_rating": null,
+        "ios_rating": null
+      },
+      "monitor_keywords": ["카카오T 주차", "카카오모빌리티 주차", "케이엠파킹앤스페이스", "KakaoT parking"]
+    },
+    {
+      "id": "iparking",
+      "name_ko": "아이파킹",
+      "operator": "파킹클라우드(주)",
+      "category": "b2b_operator_with_app",
+      "homepage": "https://www.iparking.co.kr/kr/",
+      "news_source": null,
+      "appstore_id_google": "kr.co.iparking.android",
+      "appstore_id_ios": "978597106",
+      "youtube_channel": null,
+      "current_status": {
+        "gplay_rating": null,
+        "ios_rating": null
+      },
+      "monitor_keywords": ["아이파킹", "파킹클라우드", "iParking", "i-parking"]
+    },
+    {
+      "id": "nicepark",
+      "name_ko": "나이스파크",
+      "operator": "나이스파크(주)",
+      "category": "b2b_operator_with_app",
+      "homepage": "https://www.nicepark.co.kr/",
+      "news_source": null,
+      "appstore_id_google": "kr.co.nicetcm.nice_m",
+      "appstore_id_ios": "1556588504",
+      "youtube_channel": null,
+      "current_status": {
+        "gplay_rating": null,
+        "ios_rating": null
+      },
+      "monitor_keywords": ["나이스파크", "NICEPARK", "나이스파크 주차"]
+    },
+    {
+      "id": "amano_korea",
+      "name_ko": "아마노코리아",
+      "operator": "아마노그룹 한국법인",
+      "category": "b2b_infra",
+      "homepage": "https://www.amano.co.kr/",
+      "news_source": "https://www.amano.co.kr/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {
+        "branches": "전국 25개 지사",
+        "control_center": "365일 24시간 통합관제센터"
+      },
+      "monitor_keywords": ["아마노코리아", "아마노 주차", "Amano Korea"]
+    },
+    {
+      "id": "highparking",
+      "name_ko": "하이파킹 (투루파킹)",
+      "operator": "휴맥스모빌리티",
+      "category": "b2b_operator_with_app",
+      "homepage": "https://turuparking.com/",
+      "news_source": "https://holdings.humaxdigital.com/category/news",
+      "appstore_id_google": "kr.co.turu.parking",
+      "appstore_id_ios": "6711335059",
+      "youtube_channel": "UCy5HJnFhZa3mvRqYiMxq1Ow",
+      "current_status": {
+        "lots": "전국 1,400여 개",
+        "spaces": "29만 주차면",
+        "annual_cars": "연간 2,500만 대",
+        "gplay_rating": null,
+        "ios_rating": null
+      },
+      "monitor_keywords": ["하이파킹", "투루파킹", "휴맥스모빌리티", "Ai-PAS", "TrueParking"]
+    },
+    {
+      "id": "parkingfriends",
+      "name_ko": "파킹프렌즈",
+      "operator": "MDS Mobility",
+      "category": "iot_sharing",
+      "homepage": "https://www.hmobility.co.kr/parking",
+      "news_source": null,
+      "appstore_id_google": "com.misconct.parkingfriends",
+      "appstore_id_ios": "1437488741",
+      "youtube_channel": null,
+      "current_status": {
+        "version": "파킹프렌즈 시즌2",
+        "support": "365일 24시간 (1661-5806)",
+        "gplay_rating": null,
+        "ios_rating": null
+      },
+      "monitor_keywords": ["파킹프렌즈", "MDS모빌리티", "MDS Mobility", "ParkingFriends"]
+    },
+    {
+      "id": "zoomansa",
+      "name_ko": "주만사",
+      "operator": "주식회사 주만사",
+      "category": "monthly_parking_sharing",
+      "homepage": "https://www.zoomansa.com",
+      "news_source": null,
+      "appstore_id_google": "com.zoomansa.parking",
+      "appstore_id_ios": "1472478299",
+      "youtube_channel": null,
+      "current_status": {
+        "registered_lots": "3만 개 이상",
+        "cumulative_gmv": "240억 원",
+        "shared_spaces": "전국 7,700면",
+        "gplay_rating": null,
+        "ios_rating": null
+      },
+      "monitor_keywords": ["주만사", "ZOOMANSA", "주차 월정기권"]
+    },
+    {
+      "id": "kmpark",
+      "name_ko": "케이엠파크",
+      "operator": "주식회사 케이엠파크",
+      "category": "b2b_operator",
+      "homepage": "https://www.kmpark.co.kr/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["케이엠파크", "KM파크", "KMPark", "케이엠파킹앤스페이스"]
+    },
+    {
+      "id": "tmap_parking",
+      "name_ko": "Tmap 주차",
+      "operator": "티맵모빌리티",
+      "category": "navigation_bundle",
+      "homepage": "https://www.tmapmobility.com/",
+      "appstore_id_google": "com.skt.tmap.ku",
+      "appstore_id_ios": "431589174",
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["티맵 주차", "Tmap 주차", "티맵모빌리티 주차", "T map 주차"]
+    },
+    {
+      "id": "parkingcloud",
+      "name_ko": "파킹클라우드",
+      "operator": "파킹클라우드주식회사",
+      "category": "b2b_operator_with_app",
+      "homepage": "https://www.parkingcloud.co.kr/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["파킹클라우드", "ParkingCloud", "파킹 클라우드"]
+    },
+    {
+      "id": "sk_shielders",
+      "name_ko": "SK쉴더스 주차",
+      "operator": "에스케이쉴더스(주)",
+      "category": "b2b_operator",
+      "homepage": "https://www.skshieldus.com/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["SK쉴더스 주차", "에스케이쉴더스 주차", "SKS 주차"]
+    },
+    {
+      "id": "urbanport",
+      "name_ko": "어반포트",
+      "operator": "주식회사 어반포트",
+      "category": "b2b_operator",
+      "homepage": null,
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["어반포트", "UrbanPort", "어반 포트"]
+    },
+    {
+      "id": "koreanef",
+      "name_ko": "한국전자금융",
+      "operator": "한국전자금융(주)",
+      "category": "b2b_operator",
+      "homepage": "https://www.kef.co.kr/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["한국전자금융 주차", "KEF 주차", "한전금 주차"]
+    },
+    {
+      "id": "moduparking",
+      "name_ko": "모두의주차장",
+      "operator": "모두컴퍼니 (쏘카)",
+      "category": "domestic_app",
+      "is_internal": true,
+      "homepage": "https://www.moduparking.com",
+      "appstore_id_google": "com.parkingshare.mobile",
+      "appstore_id_ios": "780174422",
+      "youtube_channel": null,
+      "current_status": {
+        "mau": "약 43만 명",
+        "partner_lots": "3,500여 곳",
+        "gplay_rating": null,
+        "ios_rating": null
+      },
+      "monitor_keywords": ["모두의주차장", "모두의 주차장"]
+    }
+  ]
+}
