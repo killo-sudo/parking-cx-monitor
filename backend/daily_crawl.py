@@ -121,8 +121,10 @@ def crawl_rss(source: dict, services: list[dict]) -> list[dict]:
                         if len(fetched) > len(summary):
                             summary = fetched
 
-                    # 주차와 무관한 결과 필터링
+                    # 주차·브랜드 관련성 이중 검증
                     if not _is_relevant(title, summary, svc):
+                        continue
+                    if not _brand_validate(sid, title, summary):
                         continue
 
                     dedup_key = f"{sid}|{pub_dt.strftime('%Y-%m-%d')}|{title}"
@@ -175,10 +177,12 @@ _PARKING_KW = [
 
 
 def _brand_validate(service_id: str, title: str, desc: str) -> bool:
-    """서비스 브랜드명이 본문에 실제로 포함되어 있는지 검증."""
+    """서비스 브랜드명이 본문에 실제로 포함되어 있는지 검증.
+    _BRAND_REQUIRED에 등록되지 않은 서비스는 기본 차단 (deny-by-default).
+    """
     brands = _BRAND_REQUIRED.get(service_id)
     if not brands:
-        return True
+        return False  # 브랜드 규칙 미등록 서비스는 수집 제외
     chk = (title + " " + desc).lower()
     return any(b in chk for b in brands)
 
