@@ -1,6 +1,6 @@
 {
   "version": "2.1",
-  "last_updated": "2026-05-12",
+  "last_updated": "2026-05-18",
   "services": [
     {
       "id": "kakaot_parking",
@@ -123,6 +123,78 @@
         "ios_rating": null
       },
       "monitor_keywords": ["주만사", "ZOOMANSA", "주차 월정기권"]
+    },
+    {
+      "id": "kmpark",
+      "name_ko": "케이엠파크",
+      "operator": "주식회사 케이엠파크",
+      "category": "b2b_operator",
+      "homepage": "https://www.kmpark.co.kr/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["케이엠파크", "KM파크", "KMPark", "케이엠파킹앤스페이스"]
+    },
+    {
+      "id": "tmap_parking",
+      "name_ko": "Tmap 주차",
+      "operator": "티맵모빌리티",
+      "category": "navigation_bundle",
+      "homepage": "https://www.tmapmobility.com/",
+      "appstore_id_google": "com.skt.tmap.ku",
+      "appstore_id_ios": "431589174",
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["티맵 주차", "Tmap 주차", "티맵모빌리티 주차", "T map 주차"]
+    },
+    {
+      "id": "parkingcloud",
+      "name_ko": "파킹클라우드",
+      "operator": "파킹클라우드주식회사",
+      "category": "b2b_operator_with_app",
+      "homepage": "https://www.parkingcloud.co.kr/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["파킹클라우드", "ParkingCloud", "파킹 클라우드"]
+    },
+    {
+      "id": "sk_shielders",
+      "name_ko": "SK쉴더스 주차",
+      "operator": "에스케이쉴더스(주)",
+      "category": "b2b_operator",
+      "homepage": "https://www.skshieldus.com/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["SK쉴더스 주차", "에스케이쉴더스 주차", "SKS 주차"]
+    },
+    {
+      "id": "urbanport",
+      "name_ko": "어반포트",
+      "operator": "주식회사 어반포트",
+      "category": "b2b_operator",
+      "homepage": null,
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["어반포트", "UrbanPort", "어반 포트"]
+    },
+    {
+      "id": "koreanef",
+      "name_ko": "한국전자금융",
+      "operator": "한국전자금융(주)",
+      "category": "b2b_operator",
+      "homepage": "https://www.kef.co.kr/",
+      "appstore_id_google": null,
+      "appstore_id_ios": null,
+      "youtube_channel": null,
+      "current_status": {},
+      "monitor_keywords": ["한국전자금융 주차", "KEF 주차", "한전금 주차"]
     },
     {
       "id": "moduparking",
