@@ -45,7 +45,12 @@ def _get_client():
         "https://www.googleapis.com/auth/drive",
     ]
 
-    creds_json = os.environ.get("GOOGLE_CREDENTIALS", "").lstrip('﻿').strip()
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS", "")
+    # Strip UTF-8 BOM (﻿) that Railway sometimes prepends to env vars
+    creds_bytes = creds_json.encode('utf-8')
+    if creds_bytes.startswith(b'\xef\xbb\xbf'):
+        creds_json = creds_bytes[3:].decode('utf-8')
+    creds_json = creds_json.strip()
     if creds_json:
         try:
             creds_dict = json.loads(creds_json)
