@@ -346,7 +346,9 @@ def get_service_counts() -> dict:
 
 
 def get_app_stats() -> list[dict]:
-    """앱 평점·리뷰수·버전 현황 조회 (운영사별 사용자 규모 파악용)."""
+    """앱 평점·리뷰수·버전 현황 조회 (운영사별 사용자 규모 파악용).
+    SQLite가 비어있으면 data/app_info.json 파일로 폴백 (Railway 클라우드 모드용).
+    """
     with get_conn() as conn:
         rows = conn.execute(
             """SELECT a.service_id, a.platform, a.app_id,
@@ -356,7 +358,18 @@ def get_app_stats() -> list[dict]:
                LEFT JOIN services s ON a.service_id = s.id
                ORDER BY a.service_id, a.platform"""
         ).fetchall()
-        return [dict(r) for r in rows]
+        if rows:
+            return [dict(r) for r in rows]
+
+    # SQLite app_info 비어있으면 스냅샷 JSON 파일로 폴백
+    json_path = DATA_DIR / "app_info.json"
+    if json_path.exists():
+        try:
+            with open(json_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
 
 
 def search_features(query: str) -> list[dict]:

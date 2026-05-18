@@ -1002,6 +1002,19 @@ def run() -> dict:
         except Exception as e:
             print(f"[WARN] Sheets 동기화 실패 (수집 결과는 정상 저장됨): {e}")
 
+    # ── app_info.json 스냅샷 갱신 (Railway 클라우드 폴백용) ──
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        app_stats = db.get_app_stats()
+        if app_stats:
+            snap_path = _Path(__file__).parent.parent / "data" / "app_info.json"
+            with open(snap_path, "w", encoding="utf-8") as _f:
+                _json.dump(app_stats, _f, ensure_ascii=False, indent=2, default=str)
+            print(f"[INFO] app_info.json 갱신 완료 ({len(app_stats)}건)")
+    except Exception as e:
+        print(f"[WARN] app_info.json 갱신 실패: {e}")
+
     print(f"[DONE] 총 {added}건 신규 수집 완료 (오류 {errors}건)")
     return {"added": added, "removed": removed, "errors": errors, "status": status}
 
