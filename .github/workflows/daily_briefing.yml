@@ -1,9 +1,7 @@
 name: 매일 슬랙 브리핑 (KST 07:00)
 
 on:
-  schedule:
-    - cron: '0 22 * * *'   # UTC 22:00 = KST 07:00
-  workflow_dispatch:        # 수동 발송 버튼
+  workflow_dispatch:        # 수동 발송 버튼 (자동 스케줄 비활성화 — Slack Workflow Builder 사용)
 
 jobs:
   briefing:
