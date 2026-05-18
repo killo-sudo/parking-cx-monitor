@@ -93,6 +93,13 @@ sources:
     keywords: ["파킹클라우드 주차장"]
     days_back: 14
 
+  - id: naver_blog_urbanport
+    type: naver_blog
+    search_type: blog
+    service_id: urbanport
+    keywords: ["어반포트 주차", "어반포트 파킹"]
+    days_back: 14
+
   - id: naver_blog_skshielders
     type: naver_blog
     search_type: blog
@@ -526,6 +533,12 @@ sources:
   # 환경변수 NAVER_CLIENT_ID + NAVER_CLIENT_SECRET 있으면 공식 API 사용
   # 없으면 HTML 스크래핑 fallback
   # ══════════════════════════════════════════
+
+  - id: naver_cafe_amano
+    type: naver_cafe
+    service_id: amano_korea
+    keywords: ["아마노코리아 주차", "아마노 주차장"]
+    days_back: 14
 
   - id: naver_cafe_kakaot
     type: naver_cafe
