@@ -37,7 +37,12 @@ def static_files(filename):
 
 # ── API ─────────────────────────────────────────────────
 
-_IS_CLOUD = bool(os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_SERVICE_ID'))
+_IS_CLOUD = bool(
+    os.environ.get('RAILWAY_ENVIRONMENT') or
+    os.environ.get('RAILWAY_SERVICE_ID') or
+    os.environ.get('RAILWAY_ENVIRONMENT_ID') or
+    os.environ.get('GOOGLE_CREDENTIALS')   # Railway에 수동 설정한 변수 → 클라우드 확실
+)
 
 @app.route('/api/status')
 def api_status():
