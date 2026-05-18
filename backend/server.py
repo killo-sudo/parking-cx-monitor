@@ -47,21 +47,15 @@ _IS_CLOUD = bool(
 @app.route('/api/status')
 def api_status():
     status = db.get_status()
-    # 클라우드 배포 환경에서는 크롤러 자동 실행 방지
-    # Sheets 데이터 유무로 crawled_today 판단
-    if _IS_CLOUD and not status['crawled_today']:
+    if _IS_CLOUD:
+        # 클라우드에서는 크롤러 실행 불가 — 무조건 수집완료로 반환
+        status['crawled_today'] = True
         try:
             import sheets
             sheet_data = sheets.read_all_cached()
-            if sheet_data:
-                status['crawled_today'] = True
-                status['today_total'] = len(sheet_data)
-            else:
-                # 데이터 없어도 크롤 트리거 막기 (서버에서 크롤 불가)
-                status['crawled_today'] = True
-                status['today_total'] = 0
+            status['today_total'] = len(sheet_data)
         except Exception:
-            status['crawled_today'] = True
+            status['today_total'] = 0
     return jsonify(status)
 
 @app.route('/api/services')
