@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-installer/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+monitor.db
+data/cache.db
+logs/
+*.log
+.env
+google_credentials.json
