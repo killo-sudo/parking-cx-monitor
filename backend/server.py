@@ -23,6 +23,34 @@ RENDERER_DIR = ROOT_DIR / 'src' / 'renderer'
 
 app = Flask(__name__)
 
+import logging
+log = logging.getLogger(__name__)
+
+
+def _merge_data(sheets_rows: list, db_rows: list, limit: int = 300) -> list:
+    """Sheets 데이터와 SQLite 데이터를 URL 키 기준으로 병합·중복제거."""
+    seen: set = set()
+    results: list = []
+
+    def _key(row: dict) -> str:
+        url = (row.get('url') or '').strip()
+        if url:
+            return url
+        return (
+            f"{row.get('service_id','')}|"
+            f"{str(row.get('published_at',''))[:10]}|"
+            f"{(row.get('title') or '')[:60]}"
+        )
+
+    for row in list(sheets_rows) + list(db_rows):
+        k = _key(row)
+        if k not in seen:
+            seen.add(k)
+            results.append(row)
+
+    results.sort(key=lambda x: (x.get('published_at') or ''), reverse=True)
+    return results[:limit]
+
 
 # ── 정적 파일 (HTML / JS / CSS) ────────────────────────
 
@@ -62,63 +90,73 @@ def api_status():
 def api_services():
     svcs = db.get_services()
     if _IS_CLOUD:
+        # SQLite 기반 카운트 먼저 확보
+        db_counts = db.get_service_counts()
+        sheets_counts: dict = {}
         try:
             import sheets
             sheet_data = sheets.read_all_cached()
-            count_map = {}
             for row in sheet_data:
                 sid = row.get('service_id', '')
-                count_map[sid] = count_map.get(sid, 0) + 1
-            for svc in svcs:
-                svc['count'] = count_map.get(svc['id'], 0)
+                sheets_counts[sid] = sheets_counts.get(sid, 0) + 1
         except Exception:
             pass
+        for svc in svcs:
+            sid = svc['id']
+            # 두 소스 중 큰 값 사용 (중복 제거 후 실제 merge 개수와 근사)
+            svc['count'] = max(sheets_counts.get(sid, 0), db_counts.get(sid, 0))
     return jsonify(svcs)
 
 @app.route('/api/changes/<svc_id>')
 def api_changes(svc_id):
+    db_rows = db.get_changes(svc_id)
     if _IS_CLOUD:
+        sheets_rows: list = []
         try:
             import sheets
             all_data = sheets.read_all_cached()
-            filtered = [r for r in all_data if svc_id == '__all__' or r.get('service_id') == svc_id]
-            filtered.sort(key=lambda x: x.get('published_at', ''), reverse=True)
-            import logging; logging.getLogger(__name__).info(
-                f"[api_changes] svc={svc_id} total={len(all_data)} filtered={len(filtered)}"
-            )
-            return jsonify(filtered[:200])
+            sheets_rows = [r for r in all_data if r.get('service_id') == svc_id]
+            log.info(f"[api_changes] svc={svc_id} sheets={len(sheets_rows)} sqlite={len(db_rows)}")
         except Exception as e:
-            import logging; logging.getLogger(__name__).error(f"[api_changes] Sheets error: {e}")
-    return jsonify(db.get_changes(svc_id))
+            log.error(f"[api_changes] Sheets error: {e}")
+        return jsonify(_merge_data(sheets_rows, db_rows, limit=200))
+    return jsonify(db_rows)
 
 @app.route('/api/all_changes')
 def api_all_changes():
     change_type = request.args.get('type') or None
+    db_rows = db.get_all_changes(change_type=change_type)
     if _IS_CLOUD:
+        sheets_rows: list = []
         try:
             import sheets
             all_data = sheets.read_all_cached()
             if change_type:
                 all_data = [r for r in all_data if r.get('change_type') == change_type]
-            all_data.sort(key=lambda x: x.get('published_at', ''), reverse=True)
-            return jsonify(all_data[:500])
-        except Exception:
-            pass
-    return jsonify(db.get_all_changes(change_type=change_type))
+            sheets_rows = all_data
+            log.info(f"[api_all_changes] type={change_type} sheets={len(sheets_rows)} sqlite={len(db_rows)}")
+        except Exception as e:
+            log.error(f"[api_all_changes] Sheets error: {e}")
+        return jsonify(_merge_data(sheets_rows, db_rows, limit=500))
+    return jsonify(db_rows)
 
 @app.route('/api/summary')
 def api_summary():
+    from datetime import datetime, timedelta
+    cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
+    db_rows = db.get_summary()
     if _IS_CLOUD:
+        sheets_rows: list = []
         try:
             import sheets
-            from datetime import datetime, timedelta
-            cutoff = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d")
             all_data = sheets.read_all_cached()
-            recent = [r for r in all_data if str(r.get('published_at', ''))[:10] >= cutoff]
-            return jsonify(recent)
-        except Exception:
-            pass
-    return jsonify(db.get_summary())
+            sheets_rows = [r for r in all_data if str(r.get('published_at', ''))[:10] >= cutoff]
+        except Exception as e:
+            log.error(f"[api_summary] Sheets error: {e}")
+        # summary는 24시간 이내 항목만 — SQLite는 collected_at 기준이라 날짜 필터 별도
+        db_recent = [r for r in db_rows if str(r.get('published_at', ''))[:10] >= cutoff]
+        return jsonify(_merge_data(sheets_rows, db_recent, limit=200))
+    return jsonify(db_rows)
 
 @app.route('/api/search')
 def api_search():

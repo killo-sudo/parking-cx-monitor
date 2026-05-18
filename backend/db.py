@@ -336,6 +336,15 @@ def get_total_count() -> int:
         return row["cnt"] if row else 0
 
 
+def get_service_counts() -> dict:
+    """서비스별 전체 변경사항 수 반환."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT service_id, COUNT(*) AS cnt FROM changes GROUP BY service_id"
+        ).fetchall()
+    return {r["service_id"]: r["cnt"] for r in rows}
+
+
 def get_app_stats() -> list[dict]:
     """앱 평점·리뷰수·버전 현황 조회 (운영사별 사용자 규모 파악용)."""
     with get_conn() as conn:
