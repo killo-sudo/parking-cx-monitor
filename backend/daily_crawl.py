@@ -866,8 +866,8 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
     results: list[dict] = []
     seen: set[str] = set()
 
-    client_id     = os.environ.get('NAVER_CLIENT_ID', '')
-    client_secret = os.environ.get('NAVER_CLIENT_SECRET', '')
+    client_id     = os.environ.get('NAVER_CLIENT_ID', '').lstrip('﻿').strip()
+    client_secret = os.environ.get('NAVER_CLIENT_SECRET', '').lstrip('﻿').strip()
     use_api       = bool(client_id and client_secret)
 
     for kw in keywords:
