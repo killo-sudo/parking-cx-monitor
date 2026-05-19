@@ -5,7 +5,7 @@
 
 // ── 설정 ──────────────────────────────────────
 var CLIENT_ID = '495055817211-o0m1u8d2aglluhng1kr6fvua95u8emqp.apps.googleusercontent.com';
-var GAS_URL   = 'https://script.google.com/a/macros/socar.kr/s/AKfycbxFtyFS5wvJ6jYu8f-FZZGM8L0fdkxu41XpifuNfUTwgVor6DbvzRGfyC3GocL_a2A2qg/exec';
+var GAS_URL   = 'https://script.google.com/macros/s/AKfycbwxXILqQ5DzXSvLRwn4PkmqkWKr9METUfXwago3bXnwIylfnZXusQ9gpNxWc4U5-qW5yw/exec';
 
 var JWT_KEY  = 'pg_jwt';
 var JWT_TTL  = 6 * 60 * 60 * 1000;   // 6시간
