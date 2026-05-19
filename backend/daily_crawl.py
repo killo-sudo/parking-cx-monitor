@@ -821,6 +821,7 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
     """유사 제목 중복 제거 (2단계).
     1단계: 같은 서비스+날짜 내 자카드 유사도 >= 0.6
     2단계: 날짜 기준 크로스 서비스 자카드 유사도 >= 0.75 (다른 매체 동일 기사 제거)
+    중복 그룹 내에서 네이버 뉴스 뷰어(n.news.naver.com) URL을 우선 보존.
     """
     from collections import defaultdict
 
@@ -832,21 +833,39 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
             return 0.0
         return len(s1 & s2) / len(s1 | s2)
 
+    def _priority(item: dict) -> int:
+        """낮을수록 우선. 네이버 뷰어 > 본문 있는 기사 > 나머지."""
+        url = item.get('url', '')
+        summary_len = len(item.get('summary') or '')
+        if 'n.news.naver.com' in url:
+            return 0
+        if summary_len > 200:
+            return 1
+        return 2
+
+    # 중복 제거 전 그룹 내 우선순위 정렬 (네이버 뷰어 URL 먼저)
+    sorted_items = sorted(items, key=_priority)
+
     # 1단계: 같은 서비스+날짜 내 dedup (threshold 0.6)
     groups: dict[str, list] = defaultdict(list)
-    for item in items:
+    for item in sorted_items:
         key = f"{item.get('service_id', '')}|{item.get('published_at', '')}"
         groups[key].append(item)
 
     stage1 = []
     for group_items in groups.values():
-        kept_tokens: list[set] = []
+        kept: list[tuple[set, dict]] = []
         for item in group_items:
             tokens = tokenize(item.get('title', ''))
-            if any(jaccard(tokens, kt) >= threshold for kt in kept_tokens):
-                continue
-            kept_tokens.append(tokens)
-            stage1.append(item)
+            dup_idx = next((i for i, (kt, _) in enumerate(kept)
+                            if jaccard(tokens, kt) >= threshold), None)
+            if dup_idx is not None:
+                # 이미 보존된 것보다 현재 아이템이 더 좋으면 교체
+                if _priority(item) < _priority(kept[dup_idx][1]):
+                    kept[dup_idx] = (tokens, item)
+            else:
+                kept.append((tokens, item))
+        stage1.extend(it for _, it in kept)
 
     # 2단계: 크로스 서비스 dedup (날짜 기준, threshold 0.75)
     date_groups: dict[str, list] = defaultdict(list)
@@ -855,13 +874,17 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
 
     result = []
     for group_items in date_groups.values():
-        kept_tokens = []
+        kept: list[tuple[set, dict]] = []
         for item in group_items:
             tokens = tokenize(item.get('title', ''))
-            if any(jaccard(tokens, kt) >= 0.75 for kt in kept_tokens):
-                continue
-            kept_tokens.append(tokens)
-            result.append(item)
+            dup_idx = next((i for i, (kt, _) in enumerate(kept)
+                            if jaccard(tokens, kt) >= 0.75), None)
+            if dup_idx is not None:
+                if _priority(item) < _priority(kept[dup_idx][1]):
+                    kept[dup_idx] = (tokens, item)
+            else:
+                kept.append((tokens, item))
+        result.extend(it for _, it in kept)
 
     return result
 
