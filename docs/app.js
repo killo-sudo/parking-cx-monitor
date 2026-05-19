@@ -857,18 +857,19 @@ async function renderIntelBar () {
       }
     }
 
-    // ── 차주 예보 (최대 8개, 6초마다 롤링, 창크기 3)
+    // ── 이벤트·마라톤 예보 (최대 10개, 4초마다 롤링)
     const el = $('events-list')
     if (el) {
       if (!events || events.length === 0) {
-        el.innerHTML = '<span class="events-empty">차주 예정 이벤트 없음</span>'
+        el.innerHTML = '<span class="events-empty">예정 이벤트 없음</span>'
       } else {
         const chips = events.map(e => {
-          const cls     = e.type === 'holiday' ? 'is-holiday' : 'is-alert'
-          const icon    = e.type === 'holiday' ? '📅' : '🎪'
+          const isMara  = e.type === 'marathon'
+          const cls     = e.type === 'holiday' ? 'is-holiday' : isMara ? 'is-marathon' : 'is-alert'
+          const icon    = e.type === 'holiday' ? '📅' : isMara ? '🏃' : '🎪'
           const dateStr = e.date ? e.date.slice(5) : ''
           const locEl   = e.location ? `<span class="event-loc">📍${esc(e.location)}</span>` : ''
-          const noteEl  = e.note && !e.location ? `<span class="event-note">${esc(e.note)}</span>` : ''
+          const noteEl  = e.note ? `<span class="event-note">${esc(e.note)}</span>` : ''
           const urlAttr = e.url ? `data-url="${esc(e.url)}"` : ''
           return `<span class="event-chip ${cls}" ${urlAttr} style="cursor:${e.url?'pointer':'default'}">
             ${icon}
