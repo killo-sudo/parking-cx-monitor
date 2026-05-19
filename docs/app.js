@@ -512,6 +512,8 @@ function _renderReviewCards () {
     filtered = filtered.filter(r => r.service_id === REVIEW_BRAND)
   }
 
+  filtered = filtered.slice().sort((a, b) => (b.published_at || '') > (a.published_at || '') ? 1 : -1)
+
   const countEl = $('reviews-count')
   if (countEl) countEl.textContent = filtered.length > 0 ? `${filtered.length}건` : ''
 
