@@ -954,7 +954,7 @@ function srcLabel (type, title) {
   }
   const map = {
     news:         'Google News',
-    blog:         '보도자료',
+    blog:         '블로그',
     homepage:     '홈페이지',
     ios_appstore: 'App Store',
     youtube:      'YouTube',
