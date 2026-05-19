@@ -303,7 +303,12 @@ async function selectService (svcId) {
 // 타임라인 카드 렌더링
 // ──────────────────────────────────────────────
 
+const _REVIEW_TYPES = new Set(['appstore', 'ios_appstore'])
+
 function renderTimeline (changes, svc) {
+  // ── 앱 리뷰 제외 (우측 패널에서 별도 표시) ──
+  changes = changes.filter(c => !_REVIEW_TYPES.has(c.source_type))
+
   // ── 날짜 범위 필터 ──
   if (FILTER_DATE_FROM) {
     changes = changes.filter(c => (c.published_at || '') >= FILTER_DATE_FROM)
