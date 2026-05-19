@@ -1006,6 +1006,12 @@ def run() -> dict:
     sources  = load_sources()
     services = load_services()
 
+    # 이벤트 소스는 월요일(KST)에만 수집
+    _is_monday_kst = (datetime.utcnow() + timedelta(hours=9)).weekday() == 0
+    if not _is_monday_kst:
+        sources = [s for s in sources if s.get('service_id') != 'events']
+        print("[INFO] 월요일이 아님 — events 소스 건너뜀")
+
     if is_first_run:
         print("[INFO] 최초 실행 — 최근 1년 데이터 수집 모드")
         extended = []

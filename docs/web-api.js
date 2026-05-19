@@ -321,13 +321,19 @@ window.api = {
       return null;
     }
 
-    var today   = new Date().toISOString().slice(0,10);
-    var horizon = new Date(Date.now() + 14 * 86400000).toISOString().slice(0,10);
-    var cutoff7 = new Date(Date.now() -  7 * 86400000).toISOString().slice(0,10);
+    /* 차주 월요일 ~ 차차주 일요일 (2주 창) 계산 */
+    var _now = new Date();
+    var _dow = _now.getDay(); // 0=일, 1=월
+    var _daysToNextMon = (_dow === 1) ? 7 : (8 - _dow) % 7;
+    var _nextMon  = new Date(_now.getTime() + _daysToNextMon       * 86400000);
+    var _windowEnd = new Date(_nextMon.getTime() + 13              * 86400000);
+    var fromStr   = _nextMon.toISOString().slice(0, 10);
+    var toStr     = _windowEnd.toISOString().slice(0, 10);
+    var cutoff7   = new Date(Date.now() -  7 * 86400000).toISOString().slice(0, 10);
 
-    /* 공휴일 (14일 이내) */
+    /* 공휴일 (차주 월~차차주 일) */
     var events = KR_HOLIDAYS.filter(function (h) {
-      return h.date >= today && h.date <= horizon;
+      return h.date >= fromStr && h.date <= toStr;
     }).map(function (h) {
       return Object.assign({ type:'holiday', url: 'https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(h.name + ' 행사') }, h);
     });
@@ -335,40 +341,50 @@ window.api = {
     try {
       var data = await _loadAll();
       var EVENT_KW = ['공연','콘서트','축제','행사','이벤트','마라톤','페스티벌','경기','연등','통제','혼잡'];
-      var seen = {};
 
+      /* Phase 1: 토픽별 기사 수 집계 (많을수록 Naver 인기 이벤트) */
+      var topicMap = {};
       data.items.forEach(function (item) {
         var date = (item.collected_at||item.published_at||'').slice(0,10);
         if (date < cutoff7) return;
 
-        var text = (item.title||'') + ' ' + (item.summary||'');
+        var text    = (item.title||'') + ' ' + (item.summary||'');
         var textLow = text.toLowerCase();
-        var isEventSrc = item.service_id === 'events';
-        var hasKw = EVENT_KW.some(function(k){ return textLow.includes(k); });
-        if (!isEventSrc && !hasKw) return;
+        var isEvtSrc = item.service_id === 'events';
+        var hasKw    = EVENT_KW.some(function(k){ return textLow.includes(k); });
+        if (!isEvtSrc && !hasKw) return;
+        if (item.change_type === '기타' && !isEvtSrc) return;
 
-        /* 기타 카테고리 제외 */
-        if (item.change_type === '기타' && !isEventSrc) return;
+        var key = (item.title||'').slice(0, 15);
+        if (!topicMap[key]) topicMap[key] = { count: 0, item: item };
+        topicMap[key].count++;
+      });
 
-        var key = (item.title||'').slice(0, 24);
-        if (seen[key]) return;
-        seen[key] = true;
-
-        var loc  = extractLoc(text);
-        var name = (item.title||'').replace(/<[^>]+>/g, '').trim().slice(0, 22);
-
+      /* Phase 2: 기사 수 내림차순 → 인기 이벤트 앞에 */
+      Object.keys(topicMap).forEach(function (k) {
+        var entry = topicMap[k];
+        var item  = entry.item;
+        var text  = (item.title||'') + ' ' + (item.summary||'');
+        var loc   = extractLoc(text);
+        var name  = (item.title||'').replace(/<[^>]+>/g, '').trim().slice(0, 22);
         events.push({
-          date:     (item.published_at||date).slice(0,10),
+          date:     (item.published_at||'').slice(0,10),
           name:     name,
           location: loc,
           type:     'event',
           url:      item.url || ('https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(name)),
+          count:    entry.count,
         });
       });
     } catch (_) {}
 
-    /* 날짜순 정렬, 최대 8개 */
-    events.sort(function (a, b) { return (a.date||'').localeCompare(b.date||''); });
+    /* 공휴일 날짜순 + 이벤트 Naver 인기순(기사 수↓) */
+    events.sort(function (a, b) {
+      if (a.type === 'holiday' && b.type !== 'holiday') return -1;
+      if (b.type === 'holiday' && a.type !== 'holiday') return  1;
+      if (a.type === 'holiday') return (a.date||'').localeCompare(b.date||'');
+      return (b.count||0) - (a.count||0);
+    });
     return events.slice(0, 8);
   }
 };
