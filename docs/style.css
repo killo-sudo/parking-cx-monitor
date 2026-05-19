@@ -1,5 +1,40 @@
 /* ── Modern SaaS Dashboard Theme ── */
 
+/* ── 로그인 오버레이 ── */
+#auth-overlay {
+  display: flex;
+  position: fixed; inset: 0; z-index: 9999;
+  background: #0F172A;
+  align-items: center; justify-content: center;
+}
+#auth-card {
+  background: #1E293B;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 40px 36px;
+  width: 340px;
+  text-align: center;
+  display: flex; flex-direction: column; gap: 12px;
+  align-items: center;
+}
+#auth-logo {
+  font-family: 'Georgia', serif;
+  font-size: 18px; font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #F1F5F9;
+}
+#auth-tagline {
+  font-size: 11px; color: #64748B;
+  letter-spacing: 0.04em;
+}
+#auth-gsi-btn { margin: 8px 0; }
+#auth-msg { font-size: 12px; min-height: 18px; }
+#auth-hint { font-size: 10px; color: #475569; }
+#auth-user {
+  font-size: 11px; color: #64748B;
+  margin-left: auto;
+}
+
 :root {
   --bg:        #F1F5F9;
   --surface:   #FFFFFF;

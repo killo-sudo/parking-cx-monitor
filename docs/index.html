@@ -4,11 +4,23 @@
   <meta charset="UTF-8">
   <title>THE PARKING GAZETTE</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 
-<!-- ── 스플래시 오버레이 ───────────────── -->
-<div id="splash">
+<!-- ── 로그인 오버레이 ─────────────────────── -->
+<div id="auth-overlay">
+  <div id="auth-card">
+    <div id="auth-logo">THE PARKING GAZETTE</div>
+    <div id="auth-tagline">모두의주차장 CX운영파트 · 경쟁사 모니터링</div>
+    <div id="auth-gsi-btn"></div>
+    <div id="auth-msg"></div>
+    <div id="auth-hint">@socar.kr 계정으로만 접근 가능합니다</div>
+  </div>
+</div>
+
+<!-- ── 스플래시 오버레이 ───────────────────── -->
+<div id="splash" class="hidden">
   <div class="spinner"></div>
   <div id="splash-title">THE PARKING GAZETTE</div>
   <div id="splash-msg">데이터 확인 중...</div>
@@ -18,7 +30,6 @@
 <!-- ── 메인 앱 ────────────────────────── -->
 <div id="app">
 
-  <!-- 신문 masthead -->
   <header id="header">
     <div id="masthead-top-rule"></div>
     <div id="masthead-name">THE PARKING GAZETTE</div>
@@ -27,18 +38,15 @@
       <div id="masthead-vol">Vol. 1 · 주차 서비스 동향 일보</div>
       <span id="last-updated">마지막 수집: —</span>
       <span id="crawl-schedule">매일 04:00 자동 수집</span>
+      <span id="auth-user"></span>
     </div>
   </header>
 
-  <!-- INDEX — 가로형 서비스 네비게이션 -->
   <nav id="sidebar">
     <div id="sidebar-label">INDEX</div>
-    <div id="service-list">
-      <!-- JS로 동적 생성 -->
-    </div>
+    <div id="service-list"></div>
   </nav>
 
-  <!-- 카테고리 필터 바 -->
   <div id="filter-bar">
     <span id="filter-label">카테고리</span>
     <div id="filter-chips">
@@ -52,10 +60,7 @@
     </div>
   </div>
 
-  <!-- 바디 -->
   <div id="body">
-
-    <!-- 중앙: 변경사항 타임라인 -->
     <main id="content">
       <div id="content-header">
         <div id="content-title">
@@ -75,21 +80,12 @@
       </div>
     </main>
 
-    <!-- 우측 패널: 검색 + 요약 -->
     <aside id="right-panel">
-      <!-- 기능 검색 -->
       <div id="search-section">
         <div id="search-label">기능 검색</div>
-        <input
-          id="search-input"
-          type="text"
-          placeholder="예: LPR, 발렛, 월정기권..."
-          autocomplete="off"
-        >
+        <input id="search-input" type="text" placeholder="예: LPR, 발렛, 월정기권..." autocomplete="off">
         <div id="search-results"></div>
       </div>
-
-      <!-- 오늘의 신규 항목 요약 -->
       <div id="summary-section">
         <div id="summary-label">
           오늘의 신규 항목
@@ -102,10 +98,8 @@
         </div>
       </div>
     </aside>
+  </div>
 
-  </div><!-- /#body -->
-
-  <!-- 앱 지표 — 하단 전체폭 큰 패널 -->
   <div id="appstats-section">
     <div id="appstats-label">앱 지표 비교 <span id="appstats-sub">— 운영사별 평점 꺾은선 · 리뷰 수 · 앱 버전</span></div>
     <div id="appstats-chart"></div>
@@ -114,7 +108,7 @@
     </div>
   </div>
 
-</div><!-- /#app -->
+</div>
 
 <script src="web-api.js"></script>
 <script src="app.js"></script>
