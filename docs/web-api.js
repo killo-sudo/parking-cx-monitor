@@ -4,7 +4,7 @@
  */
 
 // ── 설정 ──────────────────────────────────────
-var CLIENT_ID = '1024138918729-3kmpkjb07fs7a0i8uhbtni6el991q4gs.apps.googleusercontent.com';
+var CLIENT_ID = '495055817211-o0m1u8d2aglluhng1kr6fvua95u8emqp.apps.googleusercontent.com';
 var GAS_URL   = 'GAS_URL_PLACEHOLDER';  // GAS 배포 후 교체
 
 var JWT_KEY  = 'pg_jwt';
