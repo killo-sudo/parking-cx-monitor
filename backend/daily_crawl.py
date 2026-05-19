@@ -127,6 +127,9 @@ def crawl_rss(source: dict, services: list[dict]) -> list[dict]:
                     if not _brand_validate(sid, title, summary):
                         continue
 
+                    # 뉴스 전문 추출 (요약과 별도)
+                    full_text = _fetch_article_text(link, max_chars=3000) if link else ""
+
                     dedup_key = f"{sid}|{pub_dt.strftime('%Y-%m-%d')}|{title}"
 
                     items.append({
@@ -136,6 +139,7 @@ def crawl_rss(source: dict, services: list[dict]) -> list[dict]:
                         "change_type":  classify_change_type(title, summary),
                         "title":        title,
                         "summary":      summary,
+                        "full_text":    full_text,
                         "url":          link,
                         "sentiment":    classify_sentiment(title, summary),
                         "dedup_key":    dedup_key,

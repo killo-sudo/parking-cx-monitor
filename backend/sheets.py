@@ -15,7 +15,7 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 SHEET_NAME = "수집데이터"
-HEADERS    = ["날짜", "서비스ID", "서비스명", "소스유형", "변경유형", "제목", "요약", "URL", "감성", "수집일시"]
+HEADERS    = ["날짜", "서비스ID", "서비스명", "소스유형", "변경유형", "제목", "요약", "URL", "감성", "수집일시", "전문"]
 
 # Sheets 컬럼명 → 내부 필드명
 _COL_MAP = {
@@ -29,6 +29,7 @@ _COL_MAP = {
     "URL":    "url",
     "감성":    "sentiment",
     "수집일시": "collected_at",
+    "전문":    "full_text",
 }
 
 
@@ -119,19 +120,22 @@ def append_items(items: list[dict], service_map: dict | None = None) -> int:
         if url:
             existing_urls.add(url)  # 이번 배치 내 중복도 방지
 
-        svc_id   = item.get("service_id", "")
-        svc_name = (service_map or {}).get(svc_id, {}).get("name_ko", svc_id)
+        svc_id      = item.get("service_id", "")
+        svc_name    = (service_map or {}).get(svc_id, {}).get("name_ko", svc_id)
+        source_type = item.get("source_type", "")
+        full_text   = item.get("full_text", "") if source_type == "news" else ""
         rows.append([
             item.get("published_at", ""),
             svc_id,
             svc_name,
-            item.get("source_type", ""),
+            source_type,
             item.get("change_type", ""),
             item.get("title", ""),
             item.get("summary") or "",
             url,
             item.get("sentiment", "neutral"),
             item.get("collected_at") or "",
+            full_text,
         ])
 
     if skipped:

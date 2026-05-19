@@ -9,13 +9,14 @@
  *   3. 배포 URL → docs/web-api.js 의 GAS_URL 에 붙여넣기
  */
 
-var SPREADSHEET_ID  = '1OOBLCnnQRD5jKm-1CQLqjEI9ZhpL4u4XDVFFdwtjZJA';
+var SPREADSHEET_ID  = '1m9I0_l0ue_eCZQ9sWcpw7TLTlPcnlp21SpNneAvYOJs';
 var SHEET_NAME      = '수집데이터';
 var ALLOWED_DOMAIN  = 'socar.kr';
 
 var COL = {
   published_at: 0, service_id: 1, name_ko: 2, source_type: 3,
-  change_type: 4, title: 5, summary: 6, url: 7, sentiment: 8, collected_at: 9
+  change_type: 4, title: 5, summary: 6, url: 7, sentiment: 8, collected_at: 9,
+  full_text: 10
 };
 
 // ── 토큰 검증 ─────────────────────────────────
@@ -65,7 +66,8 @@ function doGet (e) {
         summary:      String(r[COL.summary]       || ''),
         url:          url,
         sentiment:    String(r[COL.sentiment]     || 'neutral'),
-        collected_at: String(r[COL.collected_at]  || '')
+        collected_at: String(r[COL.collected_at]  || ''),
+        full_text:    String(r[COL.full_text]     || '')
       });
     }
 
