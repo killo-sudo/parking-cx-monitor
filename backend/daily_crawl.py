@@ -798,8 +798,23 @@ def _fetch_article_text(url: str, max_chars: int = 1500) -> str:
                     break
         if body_el is None:
             return ""
-        text = body_el.get_text(separator=" ", strip=True)
-        return " ".join(text.split())[:max_chars]
+        # 문단 단위로 추출 — p/li/h2~h4 태그를 줄바꿈으로 분리
+        paras = []
+        for el in body_el.find_all(['p', 'li', 'h2', 'h3', 'h4', 'blockquote']):
+            t = el.get_text(separator=' ', strip=True)
+            t = ' '.join(t.split())
+            if len(t) > 10:
+                paras.append(t)
+        if paras:
+            text = '\n\n'.join(paras)
+        else:
+            # 태그 구분이 없는 경우 fallback: 문장 단위 줄바꿈
+            raw = body_el.get_text(separator=' ', strip=True)
+            raw = ' '.join(raw.split())
+            # 마침표·느낌표·물음표 뒤 공백을 줄바꿈으로
+            import re as _re
+            text = _re.sub(r'(?<=[.!?])\s+', '\n\n', raw)
+        return text[:max_chars]
     except Exception:
         return ""
 
