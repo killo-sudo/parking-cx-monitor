@@ -39,6 +39,9 @@ jobs:
           if [ -f data/app_info.json ]; then
             cp data/app_info.json docs/app_info.json
           fi
+          if [ -f data/datalab_trends.json ]; then
+            cp data/datalab_trends.json docs/datalab_trends.json
+          fi
 
       - name: Commit updated app_info
         run: |

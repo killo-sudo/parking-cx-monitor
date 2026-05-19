@@ -340,20 +340,13 @@ window.api = {
 
     try {
       var data = await _loadAll();
-      var EVENT_KW = ['공연','콘서트','축제','행사','이벤트','마라톤','페스티벌','경기','연등','통제','혼잡'];
 
-      /* Phase 1: 토픽별 기사 수 집계 (많을수록 Naver 인기 이벤트) */
+      /* Phase 1: 토픽별 기사 수 집계 — service_id=events 뉴스만 */
       var topicMap = {};
       data.items.forEach(function (item) {
+        if (item.service_id !== 'events') return;
         var date = (item.collected_at||item.published_at||'').slice(0,10);
         if (date < cutoff7) return;
-
-        var text    = (item.title||'') + ' ' + (item.summary||'');
-        var textLow = text.toLowerCase();
-        var isEvtSrc = item.service_id === 'events';
-        var hasKw    = EVENT_KW.some(function(k){ return textLow.includes(k); });
-        if (!isEvtSrc && !hasKw) return;
-        if (item.change_type === '기타' && !isEvtSrc) return;
 
         var key = (item.title||'').slice(0, 15);
         if (!topicMap[key]) topicMap[key] = { count: 0, item: item };

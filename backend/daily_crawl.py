@@ -835,6 +835,99 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
 
 
 # ──────────────────────────────────────────────
+# 네이버 DataLab 검색어 트렌드
+# ──────────────────────────────────────────────
+
+def crawl_naver_datalab() -> list[dict]:
+    """네이버 DataLab API로 주차 관련 키워드 검색량 트렌드 수집.
+    최근 7일 vs 이전 7일 비교 → 상승률 기준 정렬.
+    반환: [{"keyword": str, "recent": float, "prev": float, "change": float}, ...]
+    """
+    client_id     = os.environ.get("NAVER_CLIENT_ID", "")
+    client_secret = os.environ.get("NAVER_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        log.warning("[DataLab] NAVER_CLIENT_ID/SECRET 없음 — 건너뜀")
+        return []
+
+    today   = datetime.utcnow() + timedelta(hours=9)  # KST
+    end_dt  = today - timedelta(days=1)
+    start_dt = end_dt - timedelta(days=13)  # 14일치
+    start_str = start_dt.strftime("%Y-%m-%d")
+    end_str   = end_dt.strftime("%Y-%m-%d")
+
+    # 추적 키워드 그룹 (최대 5개/요청, 복수 키워드는 OR 조건)
+    KEYWORD_GROUPS = [
+        {"groupName": "카카오T주차",   "keywords": ["카카오T주차", "카카오 주차장"]},
+        {"groupName": "모두의주차장",  "keywords": ["모두의주차장"]},
+        {"groupName": "아이파킹",      "keywords": ["아이파킹", "iparking"]},
+        {"groupName": "나이스파크",    "keywords": ["나이스파크", "nicepark"]},
+        {"groupName": "하이파킹",      "keywords": ["하이파킹", "투루파킹"]},
+        {"groupName": "티맵주차",      "keywords": ["티맵 주차", "tmap 주차"]},
+        {"groupName": "주만사",        "keywords": ["주만사"]},
+        {"groupName": "파킹프렌즈",    "keywords": ["파킹프렌즈"]},
+        {"groupName": "월정기권",      "keywords": ["월정기권", "월주차"]},
+        {"groupName": "주차요금",      "keywords": ["주차요금", "주차비"]},
+        {"groupName": "공영주차장",    "keywords": ["공영주차장"]},
+        {"groupName": "발렛주차",      "keywords": ["발렛주차", "valet주차"]},
+        {"groupName": "MPASS",         "keywords": ["엠패스 주차", "MPASS 주차"]},
+        {"groupName": "주차앱",        "keywords": ["주차앱", "주차 어플"]},
+        {"groupName": "자동주차",      "keywords": ["자동주차", "LPR 주차"]},
+    ]
+
+    headers = {
+        "X-Naver-Client-Id":     client_id,
+        "X-Naver-Client-Secret": client_secret,
+        "Content-Type":          "application/json",
+    }
+    url = "https://openapi.naver.com/v1/datalab/search"
+
+    all_results: dict[str, list[float]] = {}
+
+    # 5개씩 나눠서 요청 (API 제한)
+    for i in range(0, len(KEYWORD_GROUPS), 5):
+        batch = KEYWORD_GROUPS[i:i+5]
+        body = {
+            "startDate":    start_str,
+            "endDate":      end_str,
+            "timeUnit":     "date",
+            "keywordGroups": batch,
+        }
+        try:
+            resp = requests.post(url, headers=headers, json=body, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            for r in data.get("results", []):
+                name   = r["title"]
+                ratios = [d["ratio"] for d in r.get("data", [])]
+                all_results[name] = ratios
+        except Exception as e:
+            log.warning(f"[DataLab] 배치 {i//5+1} 오류: {e}")
+
+    if not all_results:
+        return []
+
+    # 최근 7일 / 이전 7일 평균으로 트렌드 계산
+    trends = []
+    for kw, ratios in all_results.items():
+        if len(ratios) < 2:
+            continue
+        mid   = len(ratios) // 2
+        prev  = sum(ratios[:mid]) / mid if mid else 0
+        recent = sum(ratios[mid:]) / (len(ratios) - mid)
+        change = recent - prev  # 양수 = 상승
+        trends.append({
+            "keyword": kw,
+            "recent":  round(recent, 2),
+            "prev":    round(prev, 2),
+            "change":  round(change, 2),
+        })
+
+    # 최근 검색량 높은 순 정렬 (상승률이 같으면 절대량 우선)
+    trends.sort(key=lambda x: (x["change"], x["recent"]), reverse=True)
+    return trends
+
+
+# ──────────────────────────────────────────────
 # 메인
 # ──────────────────────────────────────────────
 
@@ -1107,6 +1200,17 @@ def run() -> dict:
             print(f"[INFO] app_info.json 갱신 완료 ({len(app_stats)}건)")
     except Exception as e:
         print(f"[WARN] app_info.json 갱신 실패: {e}")
+
+    # ── 네이버 DataLab 검색어 트렌드 수집 ──────────────────
+    try:
+        trends = crawl_naver_datalab()
+        if trends:
+            trend_path = ROOT_DIR / "data" / "datalab_trends.json"
+            with open(trend_path, "w", encoding="utf-8") as _f:
+                json.dump(trends, _f, ensure_ascii=False, indent=2)
+            print(f"[INFO] datalab_trends.json 갱신 완료 ({len(trends)}개 키워드)")
+    except Exception as e:
+        print(f"[WARN] DataLab 트렌드 수집 실패: {e}")
 
     print(f"[DONE] 총 {added}건 신규 수집 완료 (오류 {errors}건)")
     return {"added": added, "removed": removed, "errors": errors, "status": status}
