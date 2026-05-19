@@ -395,10 +395,9 @@ def crawl_appstore(source: dict) -> list[dict]:
             continue
 
         pub_raw = r.get("at")
-        if isinstance(pub_raw, datetime) and pub_raw.year >= 2020:
-            pub_date_str = pub_raw.strftime("%Y-%m-%d")
-        else:
-            pub_date_str = ""  # 날짜 불명 → 공란
+        if not isinstance(pub_raw, datetime) or pub_raw.year < 2020:
+            continue  # 날짜 불명 → 제외
+        pub_date_str = pub_raw.strftime("%Y-%m-%d")
 
         content = (r.get("content") or "")[:1000]
         review_hash = hashlib.md5((content + pub_date_str + r.get('userName', '')).encode()).hexdigest()[:8]
@@ -467,10 +466,9 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
 
             # iOS 리뷰는 날짜 정보가 'updated' 필드에 있음
             updated = entry.get("updated", {}).get("label", "")
-            if updated and updated[:4] >= "2020":
-                pub_str = updated[:10]
-            else:
-                pub_str = ""  # 날짜 불명 → 공란
+            if not updated or updated[:4] < "2020":
+                continue  # 날짜 불명 → 제외
+            pub_str = updated[:10]
 
             review_hash = hashlib.md5((content + pub_str + author).encode()).hexdigest()[:8]
             items.append({
