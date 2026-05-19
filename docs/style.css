@@ -613,9 +613,11 @@ html, body {
   letter-spacing: 1px;
 }
 .card-summary {
-  font-size: 13px; color: var(--text-2);
-  line-height: 1.65;
+  font-size: 14px; color: var(--text-2);
+  line-height: 1.8;
   white-space: pre-wrap; word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 /* ─────────────────────────────────────────────

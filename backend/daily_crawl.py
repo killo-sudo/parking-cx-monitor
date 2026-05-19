@@ -714,15 +714,22 @@ def crawl_naver_search(source: dict) -> list[dict]:
                 if ct == "기타":
                     continue
 
+                # 원문 기사 본문 가져오기 (desc가 짧으면 실제 페이지 크롤링)
+                original_link = item.get("originallink") or href
+                full_body = _fetch_article_text(original_link, max_chars=3000)
+                if len(full_body) < len(desc):
+                    full_body = _fetch_article_text(href, max_chars=3000)
+                summary = full_body if len(full_body) > len(desc) else desc
+
                 results.append({
                     "service_id":   service_id,
                     "published_at": pub_str,
                     "source_type":  src_type,
                     "change_type":  ct,
                     "title":        title,
-                    "summary":      _parking_summary(desc) or None,
+                    "summary":      summary or None,
                     "url":          href,
-                    "sentiment":    classify_sentiment(title, desc),
+                    "sentiment":    classify_sentiment(title, summary),
                 })
 
         except Exception as e:
