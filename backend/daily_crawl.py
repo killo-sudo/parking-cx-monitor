@@ -115,10 +115,12 @@ def crawl_rss(source: dict, services: list[dict]) -> list[dict]:
                     title     = _normalize_news_title(raw_title)
                     summary   = _strip_html(entry.get("summary", ""))[:1500]
                     link      = entry.get("link", "")
-                    # RSS 요약이 제목 수준으로 짧으면 기사 본문 직접 추출
+                    # RSS 요약이 짧으면 기사 본문 추출 — 단, 브랜드 키워드 포함 확인
                     if len(summary) < 200 and link:
                         fetched = _fetch_article_text(link)
-                        if len(fetched) > len(summary):
+                        brand_kws = _BRAND_REQUIRED.get(sid, [])
+                        fetched_has_brand = any(b in fetched.lower() for b in brand_kws) if brand_kws else True
+                        if len(fetched) > len(summary) and fetched_has_brand:
                             summary = fetched
 
                     # 주차·브랜드 관련성 이중 검증
@@ -725,7 +727,10 @@ def crawl_naver_search(source: dict) -> list[dict]:
                     full_body = _fetch_article_text(try_url, max_chars=3000)
                     if len(full_body) > max(len(desc), 100):
                         break
-                summary = full_body if len(full_body) > len(desc) else desc
+                # full_body가 브랜드 키워드를 포함하지 않으면 보일러플레이트 가능성 높음
+                brand_kws = _BRAND_REQUIRED.get(service_id, [])
+                body_has_brand = any(b in full_body.lower() for b in brand_kws) if brand_kws else True
+                summary = full_body if (len(full_body) > len(desc) and body_has_brand) else desc
 
                 results.append({
                     "service_id":   service_id,
@@ -748,6 +753,29 @@ def crawl_naver_search(source: dict) -> list[dict]:
 # ──────────────────────────────────────────────
 # 헬퍼
 # ──────────────────────────────────────────────
+
+def _clean_article_lines(text: str) -> str:
+    """기사 본문에서 보일러플레이트 라인 제거.
+    날씨 데이터, GNB 카테고리, 단어 나열형 탐색 메뉴 등을 걸러냄.
+    """
+    cleaned = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or len(line) < 15:
+            continue
+        # 날씨 온도 데이터 (예: "흐림 동두천 23.1℃")
+        if re.search(r'\d+\.?\d*\s*[℃°]', line):
+            continue
+        # 네이버 GNB 카테고리 패턴 (예: "Y-정치 정부 국회 지자체")
+        if re.match(r'^[A-Z]-', line):
+            continue
+        # 짧은 단어 나열형 네비게이션 (한글 비율이 극단적으로 낮은 줄)
+        korean_chars = len(re.findall(r'[가-힣]', line))
+        if len(line) > 10 and korean_chars / len(line) < 0.15:
+            continue
+        cleaned.append(line)
+    return '\n\n'.join(cleaned)
+
 
 def _fetch_article_text(url: str, max_chars: int = 1500) -> str:
     """기사 URL에서 본문 텍스트 추출. 실패 시 빈 문자열 반환."""
@@ -787,8 +815,7 @@ def _fetch_article_text(url: str, max_chars: int = 1500) -> str:
             ".cont_article", ".news_article",
             "[class*='article'][class*='body']",
             "[class*='article'][class*='content']",
-            "main",
-            "body",
+            # "main" / "body" 제거: 날씨 위젯·GNB 네비게이션 등 페이지 보일러플레이트 유입 방지
         ]
         body_el = None
         for sel in SELECTORS:
@@ -813,9 +840,11 @@ def _fetch_article_text(url: str, max_chars: int = 1500) -> str:
             # 태그 구분이 없는 경우 fallback: 문장 단위 줄바꿈
             raw = body_el.get_text(separator=' ', strip=True)
             raw = ' '.join(raw.split())
-            # 마침표·느낌표·물음표 뒤 공백을 줄바꿈으로
             import re as _re
             text = _re.sub(r'(?<=[.!?])\s+', '\n\n', raw)
+        text = _clean_article_lines(text)
+        if len(text) < 50:
+            return ""
         return text[:max_chars]
     except Exception:
         return ""
