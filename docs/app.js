@@ -48,6 +48,10 @@ let FILTER_DATE_TO   = ''
 let FILTER_KW        = ''
 // CRAWLING 플래그 제거 — 수동 수집 기능 없음
 
+let _allReviews    = []
+let REVIEW_PLATFORM = ''
+let REVIEW_BRAND    = ''
+
 // ──────────────────────────────────────────────
 // DOM 참조
 // ──────────────────────────────────────────────
@@ -62,10 +66,7 @@ const contentTitle  = $('content-title-text')
 const colorBar      = $('svc-color-bar')
 const subtitle      = $('content-subtitle')
 const lastUpdated   = $('last-updated')
-const searchInput   = $('search-input')
-const searchResults = $('search-results')
-const summaryList   = $('summary-list')
-const todayCount    = $('today-count')
+const reviewsBody   = $('reviews-body')
 const appstatsList  = $('appstats-list')
 const appstatsChart = $('appstats-chart')
 const filterChips   = document.querySelectorAll('.filter-chip')
@@ -103,7 +104,8 @@ async function init () {
     SERVICES = svcData
 
     renderServiceList()
-    await renderSummary()
+    setupReviewFilters()
+    await renderReviews()
     await renderAppStats()
     await renderIntelBar()
     updateLastUpdated()
@@ -122,7 +124,7 @@ async function init () {
       const svcData = await window.api.getServices()
       SERVICES = svcData
       renderServiceList()
-      await renderSummary()
+      await renderReviews()
       await selectService('__all__')
     } catch (_) {}
   }
@@ -436,34 +438,127 @@ timeline.addEventListener('click', e => {
 })
 
 // ──────────────────────────────────────────────
-// 오늘의 요약 렌더링
+// 앱 리뷰 패널 — 플랫폼·브랜드 필터 + 시간순 스트림
 // ──────────────────────────────────────────────
 
-async function renderSummary () {
-  try {
-    const items = await window.api.getSummary()
-    todayCount.textContent = items.length
+function setupReviewFilters () {
+  const platRow  = $('review-filter-platform')
+  const brandRow = $('review-filter-brand')
 
-    if (items.length === 0) {
-      summaryList.innerHTML = `
-        <div class="empty-state" style="padding:20px">
-          <p style="font-size:11px">오늘 수집된 항목이 없습니다.</p>
-        </div>`
-      return
-    }
-
-    summaryList.innerHTML = items.map(item => `
-      <div class="summary-item" data-svc="${esc(item.service_id)}">
-        <div class="summary-item-svc">${esc(item.name_ko || item.service_id)}</div>
-        <div class="summary-item-title">${esc(item.title || '')}</div>
-      </div>`
-    ).join('')
-
-    summaryList.querySelectorAll('.summary-item').forEach(el => {
-      el.addEventListener('click', () => selectService(el.dataset.svc))
+  if (platRow) {
+    platRow.addEventListener('click', e => {
+      const chip = e.target.closest('.review-filter-chip[data-platform]')
+      if (!chip) return
+      platRow.querySelectorAll('.review-filter-chip').forEach(c => c.classList.remove('active'))
+      chip.classList.add('active')
+      REVIEW_PLATFORM = chip.dataset.platform || ''
+      _renderReviewCards()
     })
+  }
+
+  if (brandRow) {
+    brandRow.addEventListener('click', e => {
+      const chip = e.target.closest('.review-filter-chip[data-brand]')
+      if (!chip) return
+      brandRow.querySelectorAll('.review-filter-chip').forEach(c => c.classList.remove('active'))
+      chip.classList.add('active')
+      REVIEW_BRAND = chip.dataset.brand || ''
+      _renderReviewCards()
+    })
+  }
+}
+
+function _renderReviewBrandChips (brandIds) {
+  const brandRow = $('review-filter-brand')
+  if (!brandRow) return
+  const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
+  const chips = brandIds.map(sid => {
+    const name  = (svcById[sid] && svcById[sid].name_ko) || sid
+    const short = name.length > 5 ? name.slice(0, 5) + '…' : name
+    return `<button class="review-filter-chip" data-brand="${esc(sid)}">${esc(short)}</button>`
+  }).join('')
+  brandRow.innerHTML = `<button class="review-filter-chip active" data-brand="">전체</button>${chips}`
+}
+
+function _renderReviewCards () {
+  if (!reviewsBody) return
+
+  let filtered = _allReviews
+
+  if (REVIEW_PLATFORM === 'ios') {
+    filtered = filtered.filter(r =>
+      r.source_type === 'ios_appstore' || (r.title || '').startsWith('[iOS'))
+  } else if (REVIEW_PLATFORM === 'android') {
+    filtered = filtered.filter(r =>
+      r.source_type === 'appstore' && !(r.title || '').startsWith('[iOS'))
+  }
+
+  if (REVIEW_BRAND) {
+    filtered = filtered.filter(r => r.service_id === REVIEW_BRAND)
+  }
+
+  const countEl = $('reviews-count')
+  if (countEl) countEl.textContent = filtered.length > 0 ? `${filtered.length}건` : ''
+
+  if (filtered.length === 0) {
+    reviewsBody.innerHTML = `
+      <div class="empty-state" style="padding:20px">
+        <p style="font-size:11px">수집된 리뷰가 없습니다.</p>
+      </div>`
+    return
+  }
+
+  const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
+
+  reviewsBody.innerHTML = filtered.map(r => {
+    const title  = r.title || ''
+    const isIos  = r.source_type === 'ios_appstore' || title.startsWith('[iOS')
+    const platLabel = isIos ? 'iOS' : 'Android'
+    const platCls   = isIos ? 'review-card-platform--ios' : 'review-card-platform--android'
+
+    const svc       = svcById[r.service_id]
+    const brandName = svc ? svc.name_ko : (r.service_id || '')
+
+    const m     = title.match(/★(\d)/)
+    const score = m ? parseInt(m[1]) : 0
+    const stars = score > 0 ? '★'.repeat(score) + '☆'.repeat(5 - score) : ''
+
+    const dateStr = (r.published_at || '').slice(0, 10)
+    const content = (r.summary || '').replace(/\n+/g, ' ')
+
+    return `<div class="review-card">
+      <div class="review-card-date">${esc(dateStr)}</div>
+      <div class="review-card-source">
+        <span class="review-card-platform ${platCls}">${platLabel}</span>
+        <span class="review-card-brand">${esc(brandName)}</span>
+      </div>
+      ${stars ? `<div class="review-card-stars">${stars}</div>` : ''}
+      <hr class="review-card-divider">
+      <div class="review-card-body">${esc(content)}</div>
+    </div>`
+  }).join('')
+}
+
+async function renderReviews () {
+  if (!reviewsBody) return
+  try {
+    const reviews = await window.api.getRecentReviews()
+    _allReviews = reviews
+
+    const svcOrder = SVC_GROUPS.flatMap(g => g.ids)
+    const brandSet = new Set(reviews.map(r => r.service_id).filter(Boolean))
+    const brandIds = [...brandSet].sort((a, b) => {
+      const ia = svcOrder.indexOf(a), ib = svcOrder.indexOf(b)
+      if (ia === -1 && ib === -1) return 0
+      if (ia === -1) return 1
+      if (ib === -1) return -1
+      return ia - ib
+    })
+
+    _renderReviewBrandChips(brandIds)
+    _renderReviewCards()
   } catch (_) {
-    summaryList.innerHTML = ''
+    if (reviewsBody) reviewsBody.innerHTML = ''
   }
 }
 
@@ -629,45 +724,6 @@ function fmtCount (n) {
   if (n >= 10000) return `${Math.round(n / 10000)}만 `
   if (n >= 1000)  return `${(n / 1000).toFixed(1)}천 `
   return `${n} `
-}
-
-// ──────────────────────────────────────────────
-// 기능 검색
-// ──────────────────────────────────────────────
-
-let _searchTimer = null
-
-searchInput.addEventListener('input', () => {
-  clearTimeout(_searchTimer)
-  _searchTimer = setTimeout(doSearch, 250)
-})
-
-async function doSearch () {
-  const q = searchInput.value.trim()
-  if (!q) { searchResults.innerHTML = ''; return }
-
-  try {
-    const feats = await window.api.searchFeats(q)
-    if (!feats || feats.length === 0) {
-      searchResults.innerHTML = `<div style="font-size:11px;color:var(--ink-ghost);padding:4px 0">일치하는 기능 없음</div>`
-      return
-    }
-
-    searchResults.innerHTML = feats.map(f => {
-      const chips = (f.providers || []).map(pid => {
-        const svc  = SERVICES.find(s => s.id === pid)
-        const name = svc ? svc.name_ko : pid
-        return `<span class="feat-provider-chip">${esc(name)}</span>`
-      }).join('')
-      return `
-        <div class="feat-result">
-          <div class="feat-name">${esc(f.name_ko)}</div>
-          <div class="feat-providers">${chips}</div>
-        </div>`
-    }).join('')
-  } catch (_) {
-    searchResults.innerHTML = ''
-  }
 }
 
 // ──────────────────────────────────────────────

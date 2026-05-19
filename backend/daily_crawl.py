@@ -470,7 +470,7 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
             items.append({
                 "service_id":   sid,
                 "published_at": pub_str,
-                "source_type":  "appstore",
+                "source_type":  "ios_appstore",
                 "change_type":  "VOC",
                 "title":        f"[iOS ★{score}] {author}: {title[:40]}",
                 "summary":      content,

@@ -394,6 +394,136 @@ sources:
     app_id: "431589174"
     service_id: tmap_parking
 
+  - id: appinfo_parkingfriends_ios
+    type: app_info
+    platform: ios
+    app_id: "1437488741"
+    service_id: parkingfriends
+
+  - id: appinfo_zoomansa_ios
+    type: app_info
+    platform: ios
+    app_id: "1472478299"
+    service_id: zoomansa
+
+  # ══════════════════════════════════════════
+  # [5] 앱스토어 리뷰 수집 (Google Play + iOS App Store)
+  # flag_below_rating: 5 = 1~5점 전체 수집 (경쟁사 모니터링용)
+  # review_count: Google Play 최근 N개 / max_pages: iOS RSS 페이지 수(1페이지=최대50건)
+  # ══════════════════════════════════════════
+
+  # 모두의주차장
+  - id: reviews_moduparking_android
+    type: appstore
+    platform: google_play
+    app_id: "com.parkingshare.mobile"
+    service_id: moduparking
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_moduparking_ios
+    type: ios_appstore
+    app_id: "780174422"
+    service_id: moduparking
+    flag_below_rating: 5
+    max_pages: 2
+
+  # 파킹프렌즈
+  - id: reviews_parkingfriends_android
+    type: appstore
+    platform: google_play
+    app_id: "com.misconct.parkingfriends"
+    service_id: parkingfriends
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_parkingfriends_ios
+    type: ios_appstore
+    app_id: "1437488741"
+    service_id: parkingfriends
+    flag_below_rating: 5
+    max_pages: 2
+
+  # 카카오T 주차
+  - id: reviews_kakaot_android
+    type: appstore
+    platform: google_play
+    app_id: "com.kakao.taxi"
+    service_id: kakaot_parking
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_kakaot_ios
+    type: ios_appstore
+    app_id: "981110422"
+    service_id: kakaot_parking
+    flag_below_rating: 5
+    max_pages: 2
+
+  # Tmap 주차
+  - id: reviews_tmap_android
+    type: appstore
+    platform: google_play
+    app_id: "com.skt.tmap.ku"
+    service_id: tmap_parking
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_tmap_ios
+    type: ios_appstore
+    app_id: "431589174"
+    service_id: tmap_parking
+    flag_below_rating: 5
+    max_pages: 2
+
+  # 아이파킹
+  - id: reviews_iparking_android
+    type: appstore
+    platform: google_play
+    app_id: "kr.co.iparking.android"
+    service_id: iparking
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_iparking_ios
+    type: ios_appstore
+    app_id: "978597106"
+    service_id: iparking
+    flag_below_rating: 5
+    max_pages: 2
+
+  # 하이파킹 (투루파킹)
+  - id: reviews_highparking_android
+    type: appstore
+    platform: google_play
+    app_id: "kr.co.turu.parking"
+    service_id: highparking
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_highparking_ios
+    type: ios_appstore
+    app_id: "6711335059"
+    service_id: highparking
+    flag_below_rating: 5
+    max_pages: 2
+
+  # 주만사
+  - id: reviews_zoomansa_android
+    type: appstore
+    platform: google_play
+    app_id: "com.zoomansa.parking"
+    service_id: zoomansa
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_zoomansa_ios
+    type: ios_appstore
+    app_id: "1472478299"
+    service_id: zoomansa
+    flag_below_rating: 5
+    max_pages: 2
+
   # ══════════════════════════════════════════
   # [7] YouTube 채널 RSS (공개 채널 — 인증 불필요)
   # ══════════════════════════════════════════

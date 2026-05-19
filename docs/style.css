@@ -770,95 +770,119 @@ html, body {
   overflow: hidden; flex-shrink: 0;
 }
 
-#search-section {
-  padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--border);
-}
-#search-label {
-  font-size: 10px; font-weight: 700;
-  color: var(--text-3); text-transform: uppercase;
-  letter-spacing: 0.14em; margin-bottom: 6px;
-}
-#search-input {
-  width: 100%; padding: 6px 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-sm);
-  color: var(--text-1); font-size: 13px;
-  font-family: var(--f-sans);
-  outline: none;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-#search-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-bg);
-}
-#search-input::placeholder { color: var(--text-3); }
-#search-results { margin-top: 5px; display: flex; flex-direction: column; }
-
-.feat-result {
-  padding: 6px 4px;
-  border-bottom: 1px solid var(--border);
-}
-.feat-name {
-  font-size: 13px; font-weight: 600;
-  margin-bottom: 4px; color: var(--text-1);
-}
-.feat-providers { display: flex; flex-wrap: wrap; gap: 3px; }
-.feat-provider-chip {
-  font-size: 10px; padding: 1px 6px;
-  font-family: var(--f-mono);
-  border: 1px solid var(--border);
-  color: var(--text-2); border-radius: 20px;
-  background: var(--surface-2);
-}
-
-#summary-section {
+/* ─── 앱 리뷰 패널 ─── */
+#reviews-section {
   flex: 1; display: flex; flex-direction: column;
-  overflow: hidden; padding: 10px 12px 0;
-  min-height: 80px;
+  overflow: hidden; min-height: 80px;
 }
-#summary-label {
+#reviews-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 12px 7px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#reviews-title {
   font-size: 10px; font-weight: 700;
   color: var(--text-3); text-transform: uppercase;
-  letter-spacing: 0.14em; margin-bottom: 6px;
-  display: flex; align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 6px;
+  letter-spacing: 0.14em;
 }
-#today-count {
-  font-size: 10px; font-weight: 700;
-  color: #fff; background: var(--accent);
-  padding: 1px 7px; border-radius: 10px;
+#reviews-count {
+  font-size: 10px; color: var(--text-3);
   font-family: var(--f-mono);
+  margin-left: 2px;
 }
-#summary-list {
+#reviews-filters {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.review-filter-row {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.review-filter-chip {
+  padding: 2px 9px;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--f-sans);
+  border: 1px solid var(--border-2);
+  background: var(--surface); color: var(--text-2);
+  cursor: pointer; white-space: nowrap;
+  border-radius: 20px;
+  transition: all var(--transition);
+  line-height: 1.6;
+}
+.review-filter-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.review-filter-chip.active {
+  background: var(--accent); color: #fff;
+  border-color: var(--accent);
+}
+[data-theme="dark"] .review-filter-chip {
+  background: var(--surface-2);
+  border-color: var(--border-2);
+  color: var(--text-2);
+}
+[data-theme="dark"] .review-filter-chip.active {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+
+#reviews-body {
   flex: 1; overflow-y: auto;
   display: flex; flex-direction: column;
-  padding-bottom: 10px;
 }
-.summary-item {
-  padding: 7px 4px;
-  cursor: pointer;
+#reviews-body::-webkit-scrollbar { width: 3px; }
+
+/* 리뷰 카드 */
+.review-card {
+  padding: 9px 12px 8px;
   border-bottom: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  transition: background var(--transition);
+  display: flex; flex-direction: column; gap: 3px;
 }
-.summary-item:hover { background: var(--surface-2); }
-.summary-item-svc {
-  font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.08em;
-  margin-bottom: 2px; color: var(--accent);
+.review-card:last-child { border-bottom: none; }
+.review-card-date {
+  font-size: 10px; color: var(--text-3);
   font-family: var(--f-mono);
 }
-.summary-item-title {
-  font-size: 12px; color: var(--text-2);
-  line-height: 1.4;
+.review-card-source {
+  display: flex; align-items: center; gap: 5px;
+}
+.review-card-platform {
+  font-size: 9px; padding: 1px 6px;
+  border-radius: 10px; font-weight: 700;
+  font-family: var(--f-mono);
+}
+.review-card-platform--android {
+  background: #E8F5E9; color: #2E7D32;
+  border: 1px solid #A5D6A7;
+}
+.review-card-platform--ios {
+  background: #E3F2FD; color: #1565C0;
+  border: 1px solid #90CAF9;
+}
+[data-theme="dark"] .review-card-platform--android {
+  background: #0D2B10; color: #6FCF8A; border-color: #1E5E2A;
+}
+[data-theme="dark"] .review-card-platform--ios {
+  background: #0D1E35; color: #64B5F6; border-color: #1A3A5F;
+}
+.review-card-brand {
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+}
+.review-card-stars {
+  font-size: 11px; color: #F59E0B; letter-spacing: 1px;
+}
+.review-card-divider {
+  border: none; border-top: 1px solid var(--border);
+  margin: 2px 0;
+}
+.review-card-body {
+  font-size: 11px; color: var(--text-2);
+  line-height: 1.55; word-break: break-word;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical; overflow: hidden;
 }
+[data-theme="dark"] .review-card { border-bottom-color: var(--border); }
+[data-theme="dark"] .review-card-body { color: var(--text-2); }
 
 /* ─────────────────────────────────────────────
    앱 지표 — 하단 전체폭 패널

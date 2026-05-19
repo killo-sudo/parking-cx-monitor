@@ -282,6 +282,18 @@ window.api = {
 
   async getAppStats () { return await _loadAppInfo(); },
 
+  async getRecentReviews () {
+    var data = await _loadAll();
+    var reviews = data.items.filter(function (i) {
+      return i.source_type === 'appstore' || i.source_type === 'ios_appstore';
+    });
+    // 날짜 내림차순 (최신이 위)
+    reviews.sort(function (a, b) {
+      return (b.published_at||'').localeCompare(a.published_at||'');
+    });
+    return reviews;
+  },
+
   async getTrendingKeywords () {
     var data = await _loadAll();
     var now  = Date.now();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>THE PARKING GAZETTE</title>
-  <link rel="stylesheet" href="style.css?v=20260519b">
+  <link rel="stylesheet" href="style.css?v=20260519e">
   <script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
@@ -112,19 +112,24 @@
     </main>
 
     <aside id="right-panel">
-      <div id="search-section">
-        <div id="search-label">기능 검색</div>
-        <input id="search-input" type="text" placeholder="예: LPR, 발렛, 월정기권..." autocomplete="off">
-        <div id="search-results"></div>
-      </div>
-      <div id="summary-section">
-        <div id="summary-label">
-          오늘의 신규 항목
-          <span id="today-count">0</span>
+      <div id="reviews-section">
+        <div id="reviews-header">
+          <span id="reviews-title">앱 리뷰</span>
+          <span id="reviews-count"></span>
         </div>
-        <div id="summary-list">
-          <div class="empty-state" style="padding: 20px">
-            <p style="font-size:11px">오늘 수집된 항목이 없습니다.</p>
+        <div id="reviews-filters">
+          <div class="review-filter-row" id="review-filter-platform">
+            <button class="review-filter-chip active" data-platform="">전체</button>
+            <button class="review-filter-chip" data-platform="ios">iOS</button>
+            <button class="review-filter-chip" data-platform="android">Android</button>
+          </div>
+          <div class="review-filter-row" id="review-filter-brand">
+            <button class="review-filter-chip active" data-brand="">전체</button>
+          </div>
+        </div>
+        <div id="reviews-body">
+          <div class="empty-state" style="padding:20px">
+            <p style="font-size:11px">수집된 리뷰가 없습니다.</p>
           </div>
         </div>
       </div>
@@ -141,7 +146,7 @@
 
 </div>
 
-<script src="web-api.js?v=20260519b"></script>
-<script src="app.js?v=20260519b"></script>
+<script src="web-api.js?v=20260519e"></script>
+<script src="app.js?v=20260519e"></script>
 </body>
 </html>
