@@ -863,10 +863,19 @@ async function renderIntelBar () {
       if (!events || events.length === 0) {
         el.innerHTML = '<span class="events-empty">예정 이벤트 없음</span>'
       } else {
+        const ETYPE_MAP = {
+          holiday: { cls: 'is-holiday',  icon: '📅' },
+          marathon:{ cls: 'is-marathon', icon: '🏃' },
+          popup:   { cls: 'is-alert',    icon: '🏪' },
+          concert: { cls: 'is-alert',    icon: '🎵' },
+          exhibit: { cls: 'is-alert',    icon: '🎨' },
+          festival:{ cls: 'is-alert',    icon: '🎉' },
+          event:   { cls: 'is-alert',    icon: '🎪' },
+        }
         const chips = events.map(e => {
-          const isMara  = e.type === 'marathon'
-          const cls     = e.type === 'holiday' ? 'is-holiday' : isMara ? 'is-marathon' : 'is-alert'
-          const icon    = e.type === 'holiday' ? '📅' : isMara ? '🏃' : '🎪'
+          const et   = ETYPE_MAP[e.type] || ETYPE_MAP.event
+          const cls  = et.cls
+          const icon = et.icon
           const dateStr = e.date ? e.date.slice(5) : ''
           const locEl   = e.location ? `<span class="event-loc">📍${esc(e.location)}</span>` : ''
           const noteEl  = e.note ? `<span class="event-note">${esc(e.note)}</span>` : ''

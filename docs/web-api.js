@@ -435,23 +435,12 @@ window.api = {
       {date:'2027-01-01', name:'신정'},
     ];
 
-    /* 서울권 마라톤 — 주차 수요 예측용 (통상 일정 기준 추정) */
-    var KR_MARATHONS = [
-      {date:'2026-05-24', name:'서울하프마라톤',       location:'서울 잠실',      note:'잠실한강공원 출발'},
-      {date:'2026-06-07', name:'한강마라톤 봄대회',     location:'서울 여의도',     note:'여의도한강공원 출발'},
-      {date:'2026-09-20', name:'JTBC 서울마라톤',       location:'서울 잠실',      note:'잠실올림픽공원 일대'},
-      {date:'2026-10-25', name:'춘천마라톤',           location:'강원 춘천',       note:'공지천 출발'},
-      {date:'2026-11-01', name:'서울국제마라톤 (동아)', location:'서울 광화문',     note:'광화문~잠실 코스'},
-      {date:'2026-11-08', name:'수원화성국제마라톤',    location:'경기 수원',       note:'팔달문 일대'},
-      {date:'2026-11-15', name:'인천마라톤',           location:'인천 송도',       note:'센트럴파크 출발'},
-    ];
-
     /* 지역명 추출용 */
     var REGIONS = [
       '서울','부산','대구','인천','광주','대전','울산','수원','성남','제주',
       '강남','강북','종로','마포','홍대','여의도','광화문','잠실','코엑스',
       '한강','강릉','전주','춘천','경기','인천공항','김포','속초','경주',
-      '상암','송도','올림픽공원','잠실한강','여의도한강','한강공원'
+      '상암','송도','성수','을지로','명동','동대문','신촌','이태원'
     ];
     function extractLoc (text) {
       for (var i = 0; i < REGIONS.length; i++) {
@@ -460,29 +449,28 @@ window.api = {
       return null;
     }
 
+    /* 제목 키워드로 이벤트 유형 자동 분류 */
+    function classifyEvent (title) {
+      var t = title || '';
+      if (/마라톤|달리기 대회|런 대회|하프마라톤/.test(t)) return 'marathon';
+      if (/팝업|팝-업|pop.?up/i.test(t))                   return 'popup';
+      if (/콘서트|공연|뮤지컬|페스티벌|페스타|쇼케이스/.test(t)) return 'concert';
+      if (/전시|박람회|아트페어|갤러리|아트 페어/.test(t))  return 'exhibit';
+      if (/축제|불꽃|불꽃놀이|플리마켓|마켓|카니발/.test(t)) return 'festival';
+      return 'event';
+    }
+
     /* 5일 전 ~ 21일 후 창 (진행 중 이벤트 포함) */
     var _now = new Date();
-    var fromStr      = new Date(_now.getTime() - 5 * 86400000).toISOString().slice(0, 10);
-    var _windowEnd   = new Date(_now.getTime() + 21 * 86400000);
-    var toStr        = _windowEnd.toISOString().slice(0, 10);
-    var marathonEnd  = new Date(_now.getTime() + 60 * 86400000).toISOString().slice(0, 10);
-    var cutoff14     = new Date(_now.getTime() - 14 * 86400000).toISOString().slice(0, 10);
+    var fromStr  = new Date(_now.getTime() - 5 * 86400000).toISOString().slice(0, 10);
+    var toStr    = new Date(_now.getTime() + 21 * 86400000).toISOString().slice(0, 10);
+    var cutoff14 = new Date(_now.getTime() - 14 * 86400000).toISOString().slice(0, 10);
 
     /* 공휴일 (5일 전 ~ 21일 후) */
     var events = KR_HOLIDAYS.filter(function (h) {
       return h.date >= fromStr && h.date <= toStr;
     }).map(function (h) {
       return Object.assign({ type:'holiday', url: 'https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(h.name + ' 행사') }, h);
-    });
-
-    /* 마라톤 (5일 전 ~ 60일 후) — 주차 수요 미리 파악용 */
-    KR_MARATHONS.forEach(function (m) {
-      if (m.date >= fromStr && m.date <= marathonEnd) {
-        events.push(Object.assign({
-          type: 'marathon',
-          url: 'https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(m.name)
-        }, m));
-      }
     });
 
     try {
@@ -500,30 +488,30 @@ window.api = {
         topicMap[key].count++;
       });
 
-      /* Phase 2: 기사 수 내림차순 → 인기 이벤트 뒤에 추가 */
+      /* Phase 2: 기사 수 내림차순 → 이벤트 유형 자동 분류 후 추가 */
       Object.keys(topicMap).forEach(function (k) {
-        var entry = topicMap[k];
-        var item  = entry.item;
-        var text  = (item.title||'') + ' ' + (item.summary||'');
-        var loc   = extractLoc(text);
-        var name  = (item.title||'').replace(/<[^>]+>/g, '').trim();
+        var entry  = topicMap[k];
+        var item   = entry.item;
+        var text   = (item.title||'') + ' ' + (item.summary||'');
+        var loc    = extractLoc(text);
+        var name   = (item.title||'').replace(/<[^>]+>/g, '').trim();
+        var etype  = classifyEvent(name);
         events.push({
-          date:     (item.published_at||'').slice(0,10),
+          date:     (item.published_at||item.collected_at||'').slice(0,10),
           name:     name,
           location: loc,
-          type:     'event',
+          type:     etype,
           url:      item.url || ('https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(name)),
           count:    entry.count,
         });
       });
     } catch (_) {}
 
-    /* 공휴일·마라톤 날짜순 → 기타 이벤트 기사수 내림차순 */
+    /* 공휴일 날짜순 → 나머지 기사수 내림차순 */
     events.sort(function (a, b) {
-      var isFixed = function (x) { return x.type === 'holiday' || x.type === 'marathon'; };
-      if (isFixed(a) && !isFixed(b)) return -1;
-      if (!isFixed(a) && isFixed(b)) return  1;
-      if (isFixed(a) && isFixed(b)) return (a.date||'').localeCompare(b.date||'');
+      if (a.type === 'holiday' && b.type !== 'holiday') return -1;
+      if (b.type === 'holiday' && a.type !== 'holiday') return  1;
+      if (a.type === 'holiday') return (a.date||'').localeCompare(b.date||'');
       return (b.count||0) - (a.count||0);
     });
     return events.slice(0, 10);
