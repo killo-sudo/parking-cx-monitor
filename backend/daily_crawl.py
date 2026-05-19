@@ -1185,6 +1185,56 @@ CRAWLER_MAP = {
 }
 
 
+def _export_data_json(services: list[dict]) -> None:
+    """SQLite 전체 데이터를 docs/data.json으로 내보냅니다 (GAS 대체 정적 파일)."""
+    svc_map = {s["id"]: s for s in services}
+
+    with db.get_conn() as conn:
+        rows = conn.execute("""
+            SELECT c.service_id, c.published_at, c.source_type, c.change_type,
+                   c.title, c.summary, c.url, c.sentiment, c.collected_at,
+                   s.name_ko, s.operator
+            FROM changes c
+            LEFT JOIN services s ON c.service_id = s.id
+            WHERE c.url IS NOT NULL AND c.url != ''
+            ORDER BY c.published_at DESC, c.collected_at DESC
+        """).fetchall()
+
+    seen: set[str] = set()
+    items: list[dict] = []
+    for row in rows:
+        d = dict(row)
+        url = (d.get("url") or "").strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        pub = str(d.get("published_at") or "")[:10]
+        col = str(d.get("collected_at") or "")[:16]
+        items.append({
+            "published_at": pub,
+            "service_id":   d.get("service_id", ""),
+            "name_ko":      d.get("name_ko") or svc_map.get(d.get("service_id", ""), {}).get("name_ko", ""),
+            "source_type":  d.get("source_type", ""),
+            "change_type":  d.get("change_type", ""),
+            "title":        d.get("title", ""),
+            "summary":      d.get("summary", ""),
+            "url":          url,
+            "sentiment":    d.get("sentiment") or "neutral",
+            "collected_at": col,
+            "full_text":    "",
+        })
+
+    out = {
+        "ok": True, "auth": True,
+        "items": items, "total": len(items),
+        "last_updated": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    docs_path = ROOT_DIR / "docs" / "data.json"
+    with open(docs_path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
+    print(f"[INFO] docs/data.json: {len(items)}건 내보내기 완료")
+
+
 def run() -> dict:
     db.init_db()
     db.import_services()
@@ -1305,6 +1355,12 @@ def run() -> dict:
             print(f"[INFO] Google Sheets {synced}건 동기화 완료")
         except Exception as e:
             print(f"[WARN] Sheets 동기화 실패 (수집 결과는 정상 저장됨): {e}")
+
+    # ── docs/data.json 생성 (GitHub Pages 직접 서빙용, GAS 불필요) ──
+    try:
+        _export_data_json(services)
+    except Exception as e:
+        print(f"[WARN] docs/data.json 생성 실패: {e}")
 
     # ── app_info.json 스냅샷 갱신 (Railway 클라우드 폴백용) ──
     try:

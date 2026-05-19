@@ -187,22 +187,18 @@ async function _loadAll () {
   var now = Date.now();
   if (_allData && now - _cacheTs < CACHE_TTL) return _allData;
 
-  if (!GAS_URL || GAS_URL === 'GAS_URL_PLACEHOLDER') {
-    throw new Error('GAS_URL이 설정되지 않았습니다.');
-  }
-
-  var token = _getStoredJwt();
-  var url   = GAS_URL + (token ? '?token=' + encodeURIComponent(token) : '');
-  var res   = await fetch(url);
-  var json  = await res.json();
-
-  if (json.auth === false) {
-    localStorage.removeItem(JWT_KEY);
+  // 로그인 확인
+  if (!_getStoredJwt()) {
     _showAuthOverlay();
     _initGis();
-    throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+    throw new Error('로그인이 필요합니다.');
   }
-  if (!json.ok) throw new Error(json.error || 'GAS 오류');
+
+  // 정적 data.json 직접 로드 (GAS 불필요)
+  var res  = await fetch('./data.json?t=' + Math.floor(now / 60000));
+  if (!res.ok) throw new Error('data.json 로드 실패 (' + res.status + ')');
+  var json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'data.json 오류');
 
   // 정제 + 정렬 (A열 published_at 우선, 없으면 J열 collected_at, 최신순)
   json.items = json.items
@@ -324,42 +320,63 @@ window.api = {
     var now  = Date.now();
     var d7   = new Date(now - 7  * 86400000).toISOString().slice(0, 10);
     var d14  = new Date(now - 14 * 86400000).toISOString().slice(0, 10);
+
     var STOP = new Set([
       // 주차 도메인 범용
-      '주차','이용','서비스','주차장','고객','주차권','안내','제공','관련','통해',
-      '대한','진행','운영','기준','경우','이번','없음','완료','처리','가능','위해',
-      '통한','하여','으로','에서','있는','있어','있습','합니다','됩니다',
-      // 시간·수량 범용
-      '시간','오전','오후','하루','당일','매일','매주','매월','분간','올해','지난','최근','현재','지금',
-      // 형용사·부사 범용
-      '너무','정말','매우','아직','바로','계속','특히','다른','여러','가장','조금','많은','적은',
-      // 비주차 명사
-      '카페','맛집','후기','방문','식당','음식','웨이팅','블로그','사람','직접',
+      '주차','이용','서비스','주차장','고객','주차권','안내','제공','관련','통해','대한',
+      '진행','운영','기준','경우','이번','없음','완료','처리','가능','위해','통한',
+      '하여','있는','있어','있습','합니다','됩니다','입니다','했습','했다','한다',
+      // 추상명사 (단독으로는 의미 없음)
+      '역량','전략','방향','목표','계획','추진','강화','개선','확대','도입','발표',
+      '시작','종료','확인','사용','출시','시행','참여','구축','활용','지원','협력',
+      '성장','혁신','변화','효과','성과','결과','현황','상황','부분','내용','사항',
+      '방법','정보','시스템','솔루션','플랫폼','서비스','기술','기능','기준','기반',
+      // 시간·수량
+      '시간','오전','오후','하루','당일','매일','매주','매월','올해','지난','최근','현재',
+      // 형용사·부사
+      '너무','정말','매우','아직','바로','계속','특히','다른','여러','가장','조금',
+      // 지역 (단독으로는 노이즈)
+      '서울','부산','경기','인천','전국','지역',
+      // 비주차 노이즈
+      '카페','맛집','후기','방문','식당','블로그','사람',
       // 일반 명사
-      '모두','전체','일부','이용자','사용자','소비자','방법','정보','내용','사항','부분','상황','결과',
-      '지역','전국','서울','부산','경기','인천','사업','기업','업체','회사','시장','업계',
-      // 동사형
-      '시작','종료','확인','사용','제공','운영','출시','시행','도입','강화','개선','발표','진출','참여',
+      '모두','전체','일부','이용자','사용자','소비자','기업','업체','회사','시장','업계',
+      '사업','투자','규모','분야','관계자','담당자','대표','관련사','파트너',
     ]);
-    var _NEWS_TYPES = new Set(['news']); // news만 — blog(맛집후기 등)·homepage·리뷰 제외
-    function tok (t) { return ((t||'').match(/[가-힣]{3,}/g)||[]); } // 3자 이상만
+
+    var _JOSA = /[을를이가은는도으로에서의와과만까지에게부터]/g;
+    function stripJosa(w) { var s = w.replace(_JOSA, ''); return s.length >= 2 ? s : w; }
+    // 제목에서 의미 토큰 추출 (3자 이상 한글, 2자 이상 영문)
+    function tokTitle(t) {
+      return ((t||'').match(/[가-힣]{2,}|[A-Za-z]{2,}/g)||[]).map(stripJosa).filter(function(w){
+        return w.length >= 2 && !STOP.has(w);
+      });
+    }
+
     var thisW = {}, prevW = {};
     data.items.forEach(function (item) {
-      if (!_NEWS_TYPES.has(item.source_type)) return; // 블로그·앱리뷰 제외
-      var date = (item.collected_at||item.published_at||'').slice(0,10);
-      tok((item.title||'')+' '+(item.summary||'')).forEach(function (w) {
-        if (STOP.has(w)) return;
-        if (date >= d7)       { thisW[w] = (thisW[w]||0) + 1; }
-        else if (date >= d14) { prevW[w] = (prevW[w]||0) + 1; }
+      if (item.source_type !== 'news') return;
+      var date = (item.collected_at||item.published_at||'').slice(0, 10);
+      var tokens = tokTitle(item.title || '');
+
+      // 단어 + 인접 2단어 조합(바이그램)으로 문맥 있는 키워드 생성
+      var candidates = tokens.slice();
+      for (var i = 0; i < tokens.length - 1; i++) {
+        candidates.push(tokens[i] + ' ' + tokens[i + 1]);
+      }
+      candidates.forEach(function(w) {
+        if (date >= d7)       thisW[w] = (thisW[w]||0) + 1;
+        else if (date >= d14) prevW[w] = (prevW[w]||0) + 1;
       });
     });
+
     return Object.keys(thisW)
-      .filter(function (w) { return thisW[w] >= 2; })
-      .map(function (w) {
+      .filter(function(w) { return thisW[w] >= 2; })
+      .map(function(w) {
         var c = thisW[w], p = prevW[w]||0;
         return { word: w, curr: c, prev: p, score: c * (c / (p + 1)) };
       })
-      .sort(function (a, b) { return b.score - a.score; })
+      .sort(function(a, b) { return b.score - a.score; })
       .slice(0, 8);
   },
 
