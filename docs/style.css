@@ -282,6 +282,8 @@ html, body {
 }
 .event-date { font-size: 9px; color: var(--text-3); font-family: var(--f-mono); }
 .event-name { font-weight: 600; }
+.event-loc  { font-size: 9px; color: var(--accent); font-weight: 700; }
+.event-note { font-size: 9px; color: var(--text-3); }
 .events-empty { font-size: 10px; color: var(--text-3); }
 
 /* ─────────────────────────────────────────────

@@ -579,6 +579,28 @@ async function doSearch () {
 // 인텔리전스 바
 // ──────────────────────────────────────────────
 
+/* 인텔바 패널 자동 롤링 헬퍼 */
+function _intelRoll (el, chips, window_size, interval_ms) {
+  if (!el) return
+  if (!chips || chips.length === 0) return
+  if (chips.length <= window_size) { el.innerHTML = chips.join(''); return }
+
+  let idx = 0
+  function show () {
+    const slice = []
+    for (let i = 0; i < window_size; i++) slice.push(chips[(idx + i) % chips.length])
+    el.style.opacity = '0'
+    el.style.transition = 'opacity 0.25s'
+    setTimeout(() => {
+      el.innerHTML = slice.join('')
+      el.style.opacity = '1'
+    }, 250)
+    idx = (idx + 1) % chips.length
+  }
+  show()
+  setInterval(show, interval_ms)
+}
+
 async function renderIntelBar () {
   try {
     const [keywords, rivals, events] = await Promise.all([
@@ -587,13 +609,13 @@ async function renderIntelBar () {
       window.api.getUpcomingEvents(),
     ])
 
-    // ── 급상승 키워드
+    // ── 급상승 키워드 (최대 8개, 5초마다 롤링, 창크기 5)
     const tl = $('trending-list')
     if (tl) {
       if (!keywords || keywords.length === 0) {
         tl.innerHTML = '<span class="intel-loading">데이터 부족</span>'
       } else {
-        tl.innerHTML = keywords.map((k, i) => {
+        const chips = keywords.map((k, i) => {
           const arrow = k.prev === 0 ? '<span class="trend-arrow-up">NEW</span>'
                       : k.curr > k.prev ? '<span class="trend-arrow-up">▲</span>'
                       : k.curr < k.prev ? '<span class="trend-arrow-down">▼</span>'
@@ -604,18 +626,19 @@ async function renderIntelBar () {
             ${arrow}
             <span class="trend-cnt">${k.curr}</span>
           </span>`
-        }).join('')
+        })
+        _intelRoll(tl, chips, 5, 5000)
       }
     }
 
-    // ── 경쟁사 동향
+    // ── 경쟁사 동향 (최대 6개, 5초마다 롤링, 창크기 4)
     const rl = $('rival-list')
     if (rl) {
       if (!rivals || rivals.length === 0) {
         rl.innerHTML = '<span class="intel-loading">데이터 부족</span>'
       } else {
         const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
-        rl.innerHTML = rivals.map(r => {
+        const chips = rivals.map(r => {
           const name = (svcById[r.service_id] && svcById[r.service_id].name_ko) || r.service_id
           const short = name.length > 6 ? name.slice(0, 6) + '…' : name
           const deltaEl = r.delta > 0 ? `<span class="rival-delta-up">+${r.delta}</span>`
@@ -626,26 +649,32 @@ async function renderIntelBar () {
             <span class="rival-cnt">${r.count}건</span>
             ${deltaEl}
           </span>`
-        }).join('')
+        })
+        _intelRoll(rl, chips, 4, 5000)
       }
     }
 
-    // ── 차주 예보
+    // ── 차주 예보 (최대 8개, 6초마다 롤링, 창크기 3)
     const el = $('events-list')
     if (el) {
       if (!events || events.length === 0) {
         el.innerHTML = '<span class="events-empty">차주 예정 이벤트 없음</span>'
       } else {
-        el.innerHTML = events.map(e => {
-          const cls = e.type === 'holiday' ? 'is-holiday' : 'is-alert'
-          const icon = e.type === 'holiday' ? '📅' : '🚗'
+        const chips = events.map(e => {
+          const cls     = e.type === 'holiday' ? 'is-holiday' : 'is-alert'
+          const icon    = e.type === 'holiday' ? '📅' : '🎪'
           const dateStr = e.date ? e.date.slice(5) : ''
+          const locEl   = e.location ? `<span class="event-loc">📍${esc(e.location)}</span>` : ''
+          const noteEl  = e.note && !e.location ? `<span class="event-note">${esc(e.note)}</span>` : ''
           return `<span class="event-chip ${cls}">
             ${icon}
             <span class="event-date">${esc(dateStr)}</span>
+            ${locEl}
             <span class="event-name">${esc(e.name)}</span>
+            ${noteEl}
           </span>`
-        }).join('')
+        })
+        _intelRoll(el, chips, 3, 6000)
       }
     }
   } catch (_) {

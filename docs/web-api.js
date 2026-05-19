@@ -293,44 +293,80 @@ window.api = {
 
   async getUpcomingEvents () {
     var KR_HOLIDAYS = [
-      {date:'2026-05-25', name:'부처님오신날', note:'주차 수요 증가 예상'},
-      {date:'2026-06-06', name:'현충일'},
-      {date:'2026-08-14', name:'광복절 연휴'},
-      {date:'2026-08-15', name:'광복절'},
-      {date:'2026-09-24', name:'추석 연휴'},
-      {date:'2026-09-25', name:'추석'},
-      {date:'2026-09-26', name:'추석 연휴'},
-      {date:'2026-09-27', name:'추석 연휴'},
+      {date:'2026-05-25', name:'부처님오신날', note:'연등행렬·법회'},
+      {date:'2026-06-06', name:'현충일', note:'추모 행사'},
+      {date:'2026-08-14', name:'광복절 연휴', note:'귀향 차량 증가'},
+      {date:'2026-08-15', name:'광복절', note:'행사·집회'},
+      {date:'2026-09-24', name:'추석 연휴', note:'귀성 차량 증가'},
+      {date:'2026-09-25', name:'추석', note:'명절'},
+      {date:'2026-09-26', name:'추석 연휴', note:'귀경 차량 증가'},
+      {date:'2026-09-27', name:'추석 연휴', note:'귀경 차량 증가'},
       {date:'2026-10-03', name:'개천절'},
       {date:'2026-10-09', name:'한글날'},
-      {date:'2026-12-25', name:'크리스마스'},
-      {date:'2026-12-31', name:'연말'},
+      {date:'2026-12-25', name:'크리스마스', note:'쇼핑몰 주차 혼잡'},
+      {date:'2026-12-31', name:'연말', note:'카운트다운 행사'},
       {date:'2027-01-01', name:'신정'},
     ];
+
+    /* 지역명 추출용 */
+    var REGIONS = [
+      '서울','부산','대구','인천','광주','대전','울산','수원','성남','제주',
+      '강남','강북','종로','마포','홍대','여의도','광화문','잠실','코엑스',
+      '한강','강릉','전주','춘천','경기','인천공항','김포','속초','경주'
+    ];
+    function extractLoc (text) {
+      for (var i = 0; i < REGIONS.length; i++) {
+        if (text.includes(REGIONS[i])) return REGIONS[i];
+      }
+      return null;
+    }
+
     var today   = new Date().toISOString().slice(0,10);
     var horizon = new Date(Date.now() + 14 * 86400000).toISOString().slice(0,10);
-    var events  = KR_HOLIDAYS.filter(function (h) {
+    var cutoff7 = new Date(Date.now() -  7 * 86400000).toISOString().slice(0,10);
+
+    /* 공휴일 (14일 이내) */
+    var events = KR_HOLIDAYS.filter(function (h) {
       return h.date >= today && h.date <= horizon;
     }).map(function (h) { return Object.assign({type:'holiday'}, h); });
 
     try {
       var data = await _loadAll();
-      var EVENT_KW = ['공연','콘서트','축제','행사','이벤트','대회','마라톤','페스티벌','경기'];
-      var cutoff3  = new Date(Date.now() - 5 * 86400000).toISOString().slice(0,10);
+      var EVENT_KW = ['공연','콘서트','축제','행사','이벤트','마라톤','페스티벌','경기','연등','통제','혼잡'];
       var seen = {};
+
       data.items.forEach(function (item) {
         var date = (item.collected_at||item.published_at||'').slice(0,10);
-        if (date < cutoff3) return;
-        var text = ((item.title||'')+' '+(item.summary||'')).toLowerCase();
-        if (!EVENT_KW.some(function(k){ return text.includes(k); })) return;
-        var key = (item.title||'').slice(0,20);
+        if (date < cutoff7) return;
+
+        var text = (item.title||'') + ' ' + (item.summary||'');
+        var textLow = text.toLowerCase();
+        var isEventSrc = item.service_id === 'events';
+        var hasKw = EVENT_KW.some(function(k){ return textLow.includes(k); });
+        if (!isEventSrc && !hasKw) return;
+
+        /* 기타 카테고리 제외 */
+        if (item.change_type === '기타' && !isEventSrc) return;
+
+        var key = (item.title||'').slice(0, 24);
         if (seen[key]) return;
         seen[key] = true;
-        events.push({date: date, name: (item.title||'').slice(0,22), type:'event', service: item.name_ko||''});
+
+        var loc  = extractLoc(text);
+        var name = (item.title||'').replace(/<[^>]+>/g, '').trim().slice(0, 22);
+
+        events.push({
+          date:     (item.published_at||date).slice(0,10),
+          name:     name,
+          location: loc,
+          type:     'event',
+        });
       });
     } catch (_) {}
 
-    return events.slice(0, 5);
+    /* 날짜순 정렬, 최대 8개 */
+    events.sort(function (a, b) { return (a.date||'').localeCompare(b.date||''); });
+    return events.slice(0, 8);
   }
 };
 

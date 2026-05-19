@@ -502,6 +502,55 @@ sources:
     days_back: 14
 
   # ══════════════════════════════════════════
+  # [9] 이벤트/행사 — 주차 수요 예보용 (인텔바 차주 예보 패널)
+  # ══════════════════════════════════════════
+
+  - id: naver_news_events
+    type: naver_news
+    search_type: news
+    service_id: events
+    keywords:
+      - "축제 주차 통제"
+      - "마라톤 주차 통제"
+      - "콘서트 주차장"
+      - "연등행렬 주차"
+      - "어린이날 행사 주차"
+      - "모터쇼 주차"
+      - "페스티벌 주차 혼잡"
+      - "야구 주차 혼잡"
+      - "K리그 주차"
+      - "전시회 주차"
+      - "박람회 주차"
+    days_back: 7
+
+  - id: naver_blog_events
+    type: naver_blog
+    search_type: blog
+    service_id: events
+    keywords:
+      - "주차 혼잡 행사"
+      - "주차 통제 축제"
+      - "이번주 축제 주차"
+      - "연등축제 주차"
+      - "공연 주차 꿀팁"
+      - "경기장 주차"
+    days_back: 7
+
+  - id: naver_news_crowd_events
+    type: naver_news
+    search_type: news
+    service_id: events
+    keywords:
+      - "인구이동 행사"
+      - "대규모 집회 교통"
+      - "주말 행사 교통 통제"
+      - "팝업스토어 주차"
+      - "플리마켓 주차"
+      - "불꽃축제 주차"
+      - "한강 행사 주차"
+    days_back: 7
+
+  # ══════════════════════════════════════════
   # iOS 앱 ID 찾는 방법 (주석)
   # ══════════════════════════════════════════
   # 브라우저에서 아래 URL 접속 후 trackId 값을 app_id로 사용:
