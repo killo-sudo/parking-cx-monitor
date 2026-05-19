@@ -511,6 +511,8 @@ html, body {
   transition: box-shadow var(--transition);
 }
 .change-card:hover { box-shadow: var(--shadow); }
+.change-card.has-url { cursor: pointer; }
+.change-card.has-url:hover { background: var(--surface-2); }
 .change-card.is-new { border-left-color: var(--c-voc); }
 .change-card[data-type="VOC"]      { border-left-color: var(--c-voc); }
 .change-card[data-type="정책"]     { border-left-color: var(--c-policy); }

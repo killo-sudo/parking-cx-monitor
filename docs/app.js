@@ -311,31 +311,14 @@ function renderTimeline (changes, svc) {
 
     const starsEl = renderStars(c.title || '')
 
-    // 50자 이상이고 제목과 앞 30자가 다르면 진짜 요약으로 판단
-    const hasSummary = c.summary &&
-                       c.summary.trim().length > 50 &&
-                       c.summary.trim().slice(0, 30) !== (c.title || '').trim().slice(0, 30)
-
-    // 진짜 요약 있을 때만 expand; URL은 카드 우측에 작은 링크로 항상 노출
-    const hasExpand  = hasSummary
-
-    const urlLink    = c.url
+    const urlLink = c.url
       ? `<a class="card-url-link" href="${esc(c.url)}" target="_blank">↗ 원문</a>`
       : ''
 
-    const expandSection = hasSummary ? `
-      <div class="card-expand">
-        <div class="card-summary">${esc(c.summary)}</div>
-        ${c.url
-          ? `<a class="card-goto-btn" href="${esc(c.url)}" target="_blank">↗ 원문 바로가기</a>`
-          : ''
-        }
-      </div>` : ''
-
     return `
-      <div class="change-card ${isNew ? 'is-new' : ''}"
+      <div class="change-card ${isNew ? 'is-new' : ''} ${c.url ? 'has-url' : ''}"
            data-type="${esc(c.change_type || '기타')}"
-           ${hasExpand ? 'data-expandable="true"' : ''}>
+           ${c.url ? `data-url="${esc(c.url)}"` : ''}>
         <div class="card-meta">
           <span class="card-date">${c.published_at || ''}</span>
           ${svcBadge}
@@ -344,21 +327,17 @@ function renderTimeline (changes, svc) {
           ${starsEl}
           ${urlLink}
         </div>
-        <div class="card-title">
-          ${esc(c.title || '')}
-          ${hasExpand ? '<span class="card-expand-icon">▾</span>' : ''}
-        </div>
-        ${expandSection}
+        <div class="card-title">${esc(c.title || '')}</div>
       </div>`
   }).join('')
 }
 
-// 카드 클릭 시 요약 펼치기/접기 (이벤트 위임)
+// 카드 클릭 → 원문 이동 (이벤트 위임)
 timeline.addEventListener('click', e => {
-  if (e.target.closest('a')) return   // 링크 클릭은 통과
-  const card = e.target.closest('.change-card[data-expandable]')
+  if (e.target.closest('a')) return   // 링크 자체 클릭은 그대로 통과
+  const card = e.target.closest('.change-card[data-url]')
   if (!card) return
-  card.dataset.expanded = card.dataset.expanded === 'true' ? 'false' : 'true'
+  window.open(card.dataset.url, '_blank')
 })
 
 // ──────────────────────────────────────────────
