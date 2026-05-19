@@ -892,15 +892,15 @@ function fmt (dt) {
 function _fmtCardDate (raw) {
   if (!raw) return ''
   // 이미 YYYY-MM-DD 형식이면 시간 없이 날짜만
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/)
-  if (iso) {
-    const base = `${iso[1]}.${iso[2]}.${iso[3]}`
-    return iso[4] ? `${base} ${iso[4]}:${iso[5]}` : base
-  }
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) return `${iso[1]}.${iso[2]}.${iso[3]}`
   // Sheets 자동변환 Date 문자열 ("Tue May 19 2026 00:00:00 GMT+0900 ..." 등)
   try {
     const d = new Date(raw)
-    if (!isNaN(d.getTime())) return fmt(d).replace(/-/g, '.')
+    if (!isNaN(d.getTime())) {
+      const pad = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`
+    }
   } catch(_) {}
   return raw.slice(0, 10)
 }
