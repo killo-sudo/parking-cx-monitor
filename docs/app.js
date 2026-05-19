@@ -315,10 +315,24 @@ function renderTimeline (changes, svc) {
       ? `<a class="card-url-link" href="${esc(c.url)}" target="_blank">↗ 원문</a>`
       : ''
 
+    const hasSummary = c.summary &&
+                       c.summary.trim().length > 30 &&
+                       c.summary.trim().slice(0, 30) !== (c.title || '').trim().slice(0, 30)
+
+    const expandBody = hasSummary
+      ? `<div class="card-summary">${esc(c.summary)}</div>`
+      : `<div class="card-summary-empty">크롤링된 본문이 없습니다.</div>`
+
+    const expandSection = `
+      <div class="card-expand">
+        ${expandBody}
+        ${c.url ? `<a class="card-goto-btn" href="${esc(c.url)}" target="_blank">↗ 원문 바로가기</a>` : ''}
+      </div>`
+
     return `
-      <div class="change-card ${isNew ? 'is-new' : ''} ${c.url ? 'has-url' : ''}"
+      <div class="change-card ${isNew ? 'is-new' : ''}"
            data-type="${esc(c.change_type || '기타')}"
-           ${c.url ? `data-url="${esc(c.url)}"` : ''}>
+           data-expandable="true">
         <div class="card-meta">
           <span class="card-date">${c.published_at || ''}</span>
           ${svcBadge}
@@ -327,17 +341,21 @@ function renderTimeline (changes, svc) {
           ${starsEl}
           ${urlLink}
         </div>
-        <div class="card-title">${esc(c.title || '')}</div>
+        <div class="card-title">
+          ${esc(c.title || '')}
+          <span class="card-expand-icon">▾</span>
+        </div>
+        ${expandSection}
       </div>`
   }).join('')
 }
 
-// 카드 클릭 → 원문 이동 (이벤트 위임)
+// 카드 클릭 → 본문 펼치기/접기
 timeline.addEventListener('click', e => {
-  if (e.target.closest('a')) return   // 링크 자체 클릭은 그대로 통과
-  const card = e.target.closest('.change-card[data-url]')
+  if (e.target.closest('a')) return
+  const card = e.target.closest('.change-card[data-expandable]')
   if (!card) return
-  window.open(card.dataset.url, '_blank')
+  card.dataset.expanded = card.dataset.expanded === 'true' ? 'false' : 'true'
 })
 
 // ──────────────────────────────────────────────
