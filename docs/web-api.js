@@ -162,7 +162,7 @@ function _cleanItem (item) {
   return Object.assign({}, item, { title: t, summary: s });
 }
 
-// Sheets가 날짜를 "Tue Feb 19 2026 00:00:00 GMT+0900..." 문자열로 반환하므로 new Date() 파싱
+// GAS가 published_at을 YYYY-MM-DD로 반환 (Code.gs _fmtDate). new Date()로 파싱하여 비교.
 function _dateMs (raw) {
   if (!raw) return 0;
   var d = new Date(raw);

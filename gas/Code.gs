@@ -19,6 +19,12 @@ var COL = {
   full_text: 10
 };
 
+function _fmtDate (val) {
+  if (!val) return '';
+  if (val instanceof Date) return Utilities.formatDate(val, 'Asia/Seoul', 'yyyy-MM-dd');
+  return String(val).slice(0, 10);
+}
+
 // ── 토큰 검증 ─────────────────────────────────
 function _verifyToken (token) {
   if (!token) return null;
@@ -57,7 +63,7 @@ function doGet (e) {
       var url = String(r[COL.url] || '').trim();
       if (!url) continue;
       items.push({
-        published_at: String(r[COL.published_at] || ''),
+        published_at: _fmtDate(r[COL.published_at]),
         service_id:   String(r[COL.service_id]   || ''),
         name_ko:      String(r[COL.name_ko]       || ''),
         source_type:  String(r[COL.source_type]   || ''),
