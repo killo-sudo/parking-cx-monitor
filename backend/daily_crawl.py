@@ -1185,6 +1185,9 @@ CRAWLER_MAP = {
 }
 
 
+_REVIEW_TYPES = {"appstore", "ios_appstore"}
+
+
 def _export_data_json(services: list[dict]) -> None:
     """SQLite + Google Sheets 전체 데이터를 docs/data.json으로 내보냅니다."""
     svc_map = {s["id"]: s for s in services}
@@ -1208,8 +1211,11 @@ def _export_data_json(services: list[dict]) -> None:
         url = (d.get("url") or "").strip()
         if not url or url in seen_url:
             continue
-        seen_url.add(url)
         pub = str(d.get("published_at") or "")[:10]
+        # 리뷰인데 날짜 불명이면 제외
+        if d.get("source_type") in _REVIEW_TYPES and not pub:
+            continue
+        seen_url.add(url)
         col = str(d.get("collected_at") or "")[:16]
         items.append({
             "published_at": pub,
@@ -1232,12 +1238,15 @@ def _export_data_json(services: list[dict]) -> None:
         added_from_sheet = 0
         for row in sheet_rows:
             src = row.get("source_type", "")
+            pub = str(row.get("published_at") or "")[:10]
+            # 리뷰인데 날짜 불명이면 제외
+            if src in _REVIEW_TYPES and not pub:
+                continue
             url = (row.get("url") or "").strip()
             if url and url in seen_url:
                 continue  # SQLite에서 이미 포함됨
             if url:
                 seen_url.add(url)
-            pub = str(row.get("published_at") or "")[:10]
             col = str(row.get("collected_at") or "")[:16]
             sid = row.get("service_id", "")
             items.append({
