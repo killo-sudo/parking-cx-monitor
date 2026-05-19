@@ -765,11 +765,10 @@ html, body {
 #right-panel {
   flex: 4;
   min-width: 260px;
-  max-width: 480px;
   background: var(--surface);
   border-left: 1px solid var(--border);
   display: flex; flex-direction: column;
-  overflow: hidden; flex-shrink: 0;
+  overflow: hidden; min-width: 0;
 }
 
 /* ─── 앱 리뷰 패널 ─── */
