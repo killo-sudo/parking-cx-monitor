@@ -100,7 +100,7 @@ function _onGisCallback (response) {
 
   _storeJwt(token);
   _hideAuthOverlay();
-  if (authUser) authUser.textContent = payload.name || payload.email;
+  if (authUser) { var _e = payload.email || ''; authUser.textContent = _e.split('@')[0] || _e; }
 
   // 앱 초기화 재시작
   if (typeof init === 'function') init();

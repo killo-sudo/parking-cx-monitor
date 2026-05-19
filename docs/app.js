@@ -279,6 +279,27 @@ function renderTimeline (changes, svc) {
 
   const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
+  // 같은 날 제목 단어 30% 이상 겹치면 대표 1건만 표시 (접속사·조사 제외)
+  const _STOP = new Set(['이','가','을','를','의','에','에서','으로','로','과','와','도','은','는','그','이','저','것','수','등','및','또','더','각','한','된','할','될','하는','있는','없는','위한','통한','대한','관련','함께','모든','이번','해당','국내','서울','지난'])
+  function _words (title) {
+    return new Set((title || '').split(/[\s\-·,·…]+/).filter(w => w.length > 1 && !_STOP.has(w)))
+  }
+  function _similar (wa, wb) {
+    if (wa.size === 0 || wb.size === 0) return false
+    let inter = 0
+    wa.forEach(w => { if (wb.has(w)) inter++ })
+    return inter / (wa.size + wb.size - inter) >= 0.3
+  }
+  const _seenItems = []
+  changes = changes.filter(c => {
+    const day = (c.published_at || '').slice(0, 10)
+    const ws  = _words(c.title)
+    const dup = _seenItems.some(s => s.day === day && _similar(ws, s.ws))
+    if (dup) return false
+    _seenItems.push({ day, ws })
+    return true
+  })
+
   timeline.innerHTML = changes.map(c => {
     const isNew   = new Date(c.collected_at) > cutoff24h
     const typeKl  = `type-${c.change_type || '기타'}`
@@ -772,5 +793,20 @@ function sleep (ms) { return new Promise(r => setTimeout(r, ms)) }
 // ──────────────────────────────────────────────
 // 시작
 // ──────────────────────────────────────────────
+
+// ── 다크/라이트 테마 토글 ────────────────────────
+;(function () {
+  var saved = localStorage.getItem('theme') || 'light'
+  var btn   = document.getElementById('theme-toggle')
+  function _apply (t) {
+    document.documentElement.setAttribute('data-theme', t)
+    localStorage.setItem('theme', t)
+    if (btn) btn.textContent = t === 'dark' ? '☀' : '🌙'
+  }
+  _apply(saved)
+  if (btn) btn.addEventListener('click', function () {
+    _apply(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark')
+  })
+})()
 
 window.addEventListener('DOMContentLoaded', init)
