@@ -43,6 +43,9 @@ let SERVICES      = []
 let STATUS        = {}
 let ACTIVE_SVC    = null
 let ACTIVE_FILTER = null
+let FILTER_DATE_FROM = ''
+let FILTER_DATE_TO   = ''
+let FILTER_KW        = ''
 // CRAWLING 플래그 제거 — 수동 수집 기능 없음
 
 // ──────────────────────────────────────────────
@@ -208,6 +211,43 @@ function setupFilterChips () {
       await reloadTimeline()
     })
   })
+
+  // 날짜 필터
+  const dateFrom  = $('filter-date-from')
+  const dateTo    = $('filter-date-to')
+  const dateClear = $('filter-date-clear')
+  const kwInput   = $('filter-kw-input')
+  const kwClear   = $('filter-kw-clear')
+
+  if (dateFrom) dateFrom.addEventListener('change', async () => {
+    FILTER_DATE_FROM = dateFrom.value
+    await reloadTimeline()
+  })
+  if (dateTo) dateTo.addEventListener('change', async () => {
+    FILTER_DATE_TO = dateTo.value
+    await reloadTimeline()
+  })
+  if (dateClear) dateClear.addEventListener('click', async () => {
+    FILTER_DATE_FROM = ''; FILTER_DATE_TO = ''
+    if (dateFrom) dateFrom.value = ''
+    if (dateTo)   dateTo.value   = ''
+    await reloadTimeline()
+  })
+
+  // 키워드 검색 (300ms 디바운스)
+  let _kwTimer = null
+  if (kwInput) kwInput.addEventListener('input', () => {
+    clearTimeout(_kwTimer)
+    _kwTimer = setTimeout(async () => {
+      FILTER_KW = kwInput.value.trim()
+      await reloadTimeline()
+    }, 300)
+  })
+  if (kwClear) kwClear.addEventListener('click', async () => {
+    FILTER_KW = ''
+    if (kwInput) kwInput.value = ''
+    await reloadTimeline()
+  })
 }
 
 async function reloadTimeline () {
@@ -262,7 +302,27 @@ async function selectService (svcId) {
 // ──────────────────────────────────────────────
 
 function renderTimeline (changes, svc) {
+  // ── 날짜 범위 필터 ──
+  if (FILTER_DATE_FROM) {
+    changes = changes.filter(c => (c.published_at || '') >= FILTER_DATE_FROM)
+  }
+  if (FILTER_DATE_TO) {
+    changes = changes.filter(c => (c.published_at || '') <= FILTER_DATE_TO)
+  }
+
+  // ── 키워드 검색 필터 ──
+  if (FILTER_KW) {
+    const kws = FILTER_KW.toLowerCase().split(/\s+/).filter(Boolean)
+    changes = changes.filter(c => {
+      const hay = ((c.title || '') + ' ' + (c.summary || '')).toLowerCase()
+      return kws.every(k => hay.includes(k))
+    })
+  }
+
   if (!changes || changes.length === 0) {
+    const msg = (FILTER_DATE_FROM || FILTER_DATE_TO || FILTER_KW)
+      ? '검색 조건에 맞는 결과가 없습니다.'
+      : '수집된 변경사항이 없습니다.'
     timeline.innerHTML = `
       <div class="empty-state">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
@@ -271,8 +331,7 @@ function renderTimeline (changes, svc) {
           <line x1="12" y1="8" x2="12" y2="12"/>
           <line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
-        <p>수집된 변경사항이 없습니다.</p>
-        <p style="font-size:11px">상단 "다시 수집" 버튼으로 갱신해보세요.</p>
+        <p>${msg}</p>
       </div>`
     return
   }

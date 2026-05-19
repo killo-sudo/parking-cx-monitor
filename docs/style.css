@@ -461,12 +461,14 @@ html, body {
 #filter-bar {
   display: flex;
   align-items: center;
-  height: 36px;
+  min-height: 36px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   padding: 0 16px;
   gap: 8px;
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 #filter-label {
   font-size: 10px; font-weight: 700;
@@ -495,6 +497,61 @@ html, body {
   background: var(--accent); color: #fff;
   border-color: var(--accent);
 }
+
+/* 날짜·키워드 검색 그룹 */
+#filter-search-group {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+#filter-date-group {
+  display: flex; align-items: center; gap: 4px;
+}
+.filter-date-sep {
+  font-size: 11px; color: var(--text-3);
+}
+#filter-date-from,
+#filter-date-to {
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: var(--f-sans);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: var(--text-1);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+#filter-date-from:focus,
+#filter-date-to:focus { border-color: var(--accent); }
+#filter-date-clear,
+#filter-kw-clear {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none;
+  color: var(--text-3); font-size: 11px; cursor: pointer;
+  border-radius: 4px;
+  transition: color var(--transition), background var(--transition);
+}
+#filter-date-clear:hover,
+#filter-kw-clear:hover { color: var(--text-1); background: var(--surface-3); }
+#filter-kw-group {
+  display: flex; align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  padding: 0 4px 0 8px;
+  transition: border-color var(--transition);
+}
+#filter-kw-group:focus-within { border-color: var(--accent); }
+#filter-kw-input {
+  border: none; outline: none; background: transparent;
+  font-size: 11px; font-family: var(--f-sans);
+  color: var(--text-1); width: 160px;
+  padding: 2px 0;
+}
+#filter-kw-input::placeholder { color: var(--text-3); }
 
 /* ─────────────────────────────────────────────
    BODY
