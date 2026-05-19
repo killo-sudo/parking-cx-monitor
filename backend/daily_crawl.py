@@ -1253,7 +1253,11 @@ def run() -> dict:
         try:
             import sheets as sh_mod
             svc_map = {s["id"]: s for s in services}
-            deduped = _dedup_by_title(new_items)
+            # 리뷰(appstore/ios_appstore)는 제목 기반 dedup 제외 — 익명 리뷰 등 유사 제목이 많아 오탈락 방지
+            _review_types = {'appstore', 'ios_appstore'}
+            reviews_only  = [i for i in new_items if i.get('source_type') in _review_types]
+            non_reviews   = [i for i in new_items if i.get('source_type') not in _review_types]
+            deduped = _dedup_by_title(non_reviews) + reviews_only
             synced = sh_mod.append_items(deduped, service_map=svc_map)
             sh_mod.invalidate_cache()
             print(f"[INFO] Google Sheets {synced}건 동기화 완료")

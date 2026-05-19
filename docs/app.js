@@ -523,7 +523,7 @@ function _renderReviewCards () {
     const score = m ? parseInt(m[1]) : 0
     const stars = score > 0 ? '★'.repeat(score) + '☆'.repeat(5 - score) : ''
 
-    const dateStr = (r.published_at || '').slice(0, 10)
+    const dateStr = _fmtReviewDate(r.published_at || '')
     const content = (r.summary || '').replace(/\n+/g, ' ')
 
     return `<div class="review-card">
@@ -883,6 +883,22 @@ function updateLastUpdated () {
 function fmt (dt) {
   const pad = n => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`
+}
+
+function _fmtReviewDate (raw) {
+  if (!raw) return ''
+  // 이미 YYYY-MM-DD 형식이면 YYYY.MM.DD로 변환
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) return `${iso[1]}.${iso[2]}.${iso[3]}`
+  // Sheets가 날짜를 자동변환한 경우 ("Tue Nov 11 2025..." 등) Date로 파싱
+  try {
+    const d = new Date(raw)
+    if (!isNaN(d.getTime())) {
+      const pad = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`
+    }
+  } catch(_) {}
+  return raw.slice(0, 10)
 }
 
 function renderStars (title) {
