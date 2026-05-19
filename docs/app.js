@@ -418,7 +418,7 @@ function renderTimeline (changes, svc) {
            data-type="${esc(c.change_type || '기타')}"
            data-expandable="true">
         <div class="card-meta">
-          <span class="card-date">${c.published_at || ''}</span>
+          <span class="card-date">${_fmtCardDate(c.published_at || '')}</span>
           ${svcBadge}
           <span class="type-badge ${typeKl}">${c.change_type || '기타'}</span>
           <span class="source-badge">${srcLbl}</span>
@@ -887,6 +887,22 @@ function updateLastUpdated () {
 function fmt (dt) {
   const pad = n => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`
+}
+
+function _fmtCardDate (raw) {
+  if (!raw) return ''
+  // 이미 YYYY-MM-DD 형식이면 시간 없이 날짜만
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/)
+  if (iso) {
+    const base = `${iso[1]}.${iso[2]}.${iso[3]}`
+    return iso[4] ? `${base} ${iso[4]}:${iso[5]}` : base
+  }
+  // Sheets 자동변환 Date 문자열 ("Tue May 19 2026 00:00:00 GMT+0900 ..." 등)
+  try {
+    const d = new Date(raw)
+    if (!isNaN(d.getTime())) return fmt(d).replace(/-/g, '.')
+  } catch(_) {}
+  return raw.slice(0, 10)
 }
 
 function _fmtReviewDate (raw) {
