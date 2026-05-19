@@ -162,6 +162,13 @@ function _cleanItem (item) {
   return Object.assign({}, item, { title: t, summary: s });
 }
 
+// Sheets가 날짜를 "Tue Feb 19 2026 00:00:00 GMT+0900..." 문자열로 반환하므로 new Date() 파싱
+function _dateMs (raw) {
+  if (!raw) return 0;
+  var d = new Date(raw);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
 async function _loadAll () {
   var now = Date.now();
   if (_allData && now - _cacheTs < CACHE_TTL) return _allData;
@@ -187,9 +194,7 @@ async function _loadAll () {
   json.items = json.items
     .map(_cleanItem)
     .filter(function(c){ return (c.title || '').length > 2; })
-    .sort(function (a, b) {
-      return (b.published_at || '').localeCompare(a.published_at || '');
-    });
+    .sort(function (a, b) { return _dateMs(b.published_at) - _dateMs(a.published_at); });
 
   _allData = json;
   _cacheTs = now;
@@ -287,9 +292,9 @@ window.api = {
     var reviews = data.items.filter(function (i) {
       return i.source_type === 'appstore' || i.source_type === 'ios_appstore';
     });
-    // 날짜 내림차순 (최신이 위)
+    // 날짜 내림차순 (Sheets Date 문자열 → new Date() 파싱)
     reviews.sort(function (a, b) {
-      return (b.published_at||'').localeCompare(a.published_at||'');
+      return _dateMs(b.published_at) - _dateMs(a.published_at);
     });
     return reviews;
   },

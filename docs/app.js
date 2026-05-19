@@ -512,7 +512,10 @@ function _renderReviewCards () {
     filtered = filtered.filter(r => r.service_id === REVIEW_BRAND)
   }
 
-  filtered = filtered.slice().sort((a, b) => (b.published_at || '') > (a.published_at || '') ? 1 : -1)
+  filtered = filtered.slice().sort((a, b) => {
+    const ms = r => { try { const d = new Date(r.published_at || ''); return isNaN(d) ? 0 : d.getTime() } catch(_) { return 0 } }
+    return ms(b) - ms(a)
+  })
 
   const countEl = $('reviews-count')
   if (countEl) countEl.textContent = filtered.length > 0 ? `${filtered.length}건` : ''
