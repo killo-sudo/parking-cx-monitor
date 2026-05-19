@@ -205,6 +205,7 @@ html, body {
   border: 1px solid var(--border);
   transition: background 0.1s;
 }
+.trend-chip { cursor: pointer; }
 .trend-chip:hover { background: var(--surface-3); }
 .trend-rank {
   font-size: 9px;
@@ -243,6 +244,8 @@ html, body {
   background: var(--surface);
   border: 1px solid var(--border);
 }
+.rival-chip { cursor: pointer; }
+.rival-chip:hover { background: var(--surface-3); }
 .rival-name { font-weight: 600; }
 .rival-cnt  { font-size: 9px; color: var(--text-3); font-family: var(--f-mono); }
 .rival-delta-up   { font-size: 9px; color: #DC2626; }

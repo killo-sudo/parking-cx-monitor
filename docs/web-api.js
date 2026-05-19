@@ -328,7 +328,9 @@ window.api = {
     /* 공휴일 (14일 이내) */
     var events = KR_HOLIDAYS.filter(function (h) {
       return h.date >= today && h.date <= horizon;
-    }).map(function (h) { return Object.assign({type:'holiday'}, h); });
+    }).map(function (h) {
+      return Object.assign({ type:'holiday', url: 'https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(h.name + ' 행사') }, h);
+    });
 
     try {
       var data = await _loadAll();
@@ -360,6 +362,7 @@ window.api = {
           name:     name,
           location: loc,
           type:     'event',
+          url:      item.url || ('https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(name)),
         });
       });
     } catch (_) {}

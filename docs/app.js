@@ -601,6 +601,36 @@ function _intelRoll (el, chips, window_size, interval_ms) {
   setInterval(show, interval_ms)
 }
 
+/* 인텔바 클릭 이벤트 위임 */
+function _setupIntelClicks () {
+  // 차주 예보 → 원문 URL 또는 Naver 검색
+  const evEl = $('events-list')
+  if (evEl) {
+    evEl.addEventListener('click', e => {
+      const chip = e.target.closest('[data-url]')
+      if (chip && chip.dataset.url) window.open(chip.dataset.url, '_blank')
+    })
+  }
+  // 급상승 키워드 → Naver 뉴스 검색
+  const tEl = $('trending-list')
+  if (tEl) {
+    tEl.addEventListener('click', e => {
+      const chip = e.target.closest('[data-kw]')
+      if (chip && chip.dataset.kw) {
+        window.open('https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(chip.dataset.kw + ' 주차'), '_blank')
+      }
+    })
+  }
+  // 경쟁사 동향 → 해당 서비스 타임라인
+  const rEl = $('rival-list')
+  if (rEl) {
+    rEl.addEventListener('click', e => {
+      const chip = e.target.closest('[data-svc]')
+      if (chip && chip.dataset.svc) selectService(chip.dataset.svc)
+    })
+  }
+}
+
 async function renderIntelBar () {
   try {
     const [keywords, rivals, events] = await Promise.all([
@@ -620,7 +650,7 @@ async function renderIntelBar () {
                       : k.curr > k.prev ? '<span class="trend-arrow-up">▲</span>'
                       : k.curr < k.prev ? '<span class="trend-arrow-down">▼</span>'
                       : '<span class="trend-arrow-same">—</span>'
-          return `<span class="trend-chip">
+          return `<span class="trend-chip" data-kw="${esc(k.word)}">
             <span class="trend-rank">${i+1}</span>
             <span class="trend-word">${esc(k.word)}</span>
             ${arrow}
@@ -644,7 +674,7 @@ async function renderIntelBar () {
           const deltaEl = r.delta > 0 ? `<span class="rival-delta-up">+${r.delta}</span>`
                         : r.delta < 0 ? `<span class="rival-delta-down">${r.delta}</span>`
                         : `<span class="rival-delta-same">±0</span>`
-          return `<span class="rival-chip">
+          return `<span class="rival-chip" data-svc="${esc(r.service_id)}">
             <span class="rival-name">${esc(short)}</span>
             <span class="rival-cnt">${r.count}건</span>
             ${deltaEl}
@@ -666,7 +696,8 @@ async function renderIntelBar () {
           const dateStr = e.date ? e.date.slice(5) : ''
           const locEl   = e.location ? `<span class="event-loc">📍${esc(e.location)}</span>` : ''
           const noteEl  = e.note && !e.location ? `<span class="event-note">${esc(e.note)}</span>` : ''
-          return `<span class="event-chip ${cls}">
+          const urlAttr = e.url ? `data-url="${esc(e.url)}"` : ''
+          return `<span class="event-chip ${cls}" ${urlAttr} style="cursor:${e.url?'pointer':'default'}">
             ${icon}
             <span class="event-date">${esc(dateStr)}</span>
             ${locEl}
@@ -677,6 +708,7 @@ async function renderIntelBar () {
         _intelRoll(el, chips, 3, 6000)
       }
     }
+    _setupIntelClicks()
   } catch (_) {
     // intel bar 실패해도 앱은 계속 동작
   }
