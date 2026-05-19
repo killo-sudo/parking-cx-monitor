@@ -479,8 +479,7 @@ function _renderReviewBrandChips (brandIds) {
   const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
   const chips = brandIds.map(sid => {
     const name  = (svcById[sid] && svcById[sid].name_ko) || sid
-    const short = name.length > 5 ? name.slice(0, 5) + '…' : name
-    return `<button class="review-filter-chip" data-brand="${esc(sid)}">${esc(short)}</button>`
+    return `<button class="review-filter-chip" data-brand="${esc(sid)}">${esc(name)}</button>`
   }).join('')
   brandRow.innerHTML = `<button class="review-filter-chip active" data-brand="">전체</button>${chips}`
 }
