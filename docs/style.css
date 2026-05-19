@@ -78,8 +78,8 @@
   --border:    #2A3A52;
   --border-2:  #374B66;
   --text-1:    #E2E8F0;
-  --text-2:    #94A3B8;
-  --text-3:    #475569;
+  --text-2:    #C4CFDE;
+  --text-3:    #64748B;
   --accent:    #3B82F6;
   --accent-bg: #1E3A5F;
   --c-voc:        #F87171; --c-voc-bg:     #2D1515;
@@ -90,6 +90,60 @@
   --c-other:      #9CA3AF; --c-other-bg:   #1A1E2A;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
   --shadow:    0 1px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  color-scheme: dark;
+}
+
+/* 다크모드 하드코딩 색상 오버라이드 */
+[data-theme="dark"] #auth-user {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+[data-theme="dark"] .event-chip.is-holiday {
+  background: #1E3A5F;
+  border-color: #2A4A7F;
+  color: #93C5FD;
+}
+[data-theme="dark"] .event-chip.is-alert {
+  background: #2D2000;
+  border-color: #4A3800;
+  color: #FCD34D;
+}
+[data-theme="dark"] .card-summary {
+  color: #D1D9E6;
+}
+[data-theme="dark"] .card-summary-empty {
+  color: var(--text-3);
+}
+[data-theme="dark"] .card-title {
+  color: #F1F5F9;
+}
+[data-theme="dark"] .card-meta {
+  color: var(--text-3);
+}
+[data-theme="dark"] #filter-date-from,
+[data-theme="dark"] #filter-date-to {
+  background: var(--surface-2);
+  border-color: var(--border-2);
+  color: var(--text-1);
+  color-scheme: dark;
+}
+[data-theme="dark"] #filter-kw-group {
+  background: var(--surface-2);
+  border-color: var(--border-2);
+}
+[data-theme="dark"] #filter-kw-input {
+  color: var(--text-1);
+}
+[data-theme="dark"] .card-expand {
+  border-top-color: var(--border);
+}
+[data-theme="dark"] .change-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+[data-theme="dark"] .intel-panel-label {
+  color: var(--text-3);
 }
 
 #theme-toggle {
