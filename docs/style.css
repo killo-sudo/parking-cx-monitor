@@ -31,8 +31,13 @@
 #auth-msg { font-size: 12px; min-height: 18px; }
 #auth-hint { font-size: 10px; color: #475569; }
 #auth-user {
-  font-size: 11px; color: #64748B;
+  font-size: 12px; color: #475569;
   margin-left: auto;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-family: var(--f-sans);
 }
 
 :root {
@@ -130,11 +135,11 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  background: #0F172A;
-  border-bottom: 1px solid #1E293B;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  min-height: 52px;
-  max-height: 60px;
+  min-height: 48px;
+  max-height: 56px;
   overflow: hidden;
   padding: 0 16px;
   gap: 0;
@@ -144,7 +149,7 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 0 8px;
   min-width: 0;
   overflow: hidden;
@@ -153,27 +158,27 @@ html, body {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #64748B;
+  color: var(--text-3);
   text-transform: uppercase;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .intel-sub {
   font-size: 9px;
-  color: #475569;
+  color: var(--text-3);
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
 }
 .intel-divider {
   width: 1px;
-  background: #1E293B;
+  background: var(--border);
   margin: 10px 0;
   flex-shrink: 0;
 }
 .intel-loading {
   font-size: 10px;
-  color: #334155;
+  color: var(--text-3);
   font-family: var(--f-mono);
 }
 
@@ -181,7 +186,7 @@ html, body {
 #trending-list {
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
   overflow: hidden;
   flex: 1;
@@ -191,29 +196,29 @@ html, body {
   align-items: center;
   gap: 3px;
   font-size: 11px;
-  color: #CBD5E1;
+  color: var(--text-1);
   white-space: nowrap;
   cursor: default;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 10px;
-  background: #1E293B;
-  border: 1px solid #334155;
+  background: var(--surface);
+  border: 1px solid var(--border);
   transition: background 0.1s;
 }
-.trend-chip:hover { background: #293548; }
+.trend-chip:hover { background: var(--surface-3); }
 .trend-rank {
   font-size: 9px;
-  color: #475569;
+  color: var(--text-3);
   font-family: var(--f-mono);
   min-width: 12px;
 }
 .trend-word { font-weight: 600; }
-.trend-arrow-up   { color: #EF4444; font-size: 9px; }
-.trend-arrow-same { color: #64748B; font-size: 9px; }
-.trend-arrow-down { color: #3B82F6; font-size: 9px; }
+.trend-arrow-up   { color: #DC2626; font-size: 9px; }
+.trend-arrow-same { color: var(--text-3); font-size: 9px; }
+.trend-arrow-down { color: var(--accent); font-size: 9px; }
 .trend-cnt {
   font-size: 9px;
-  color: #64748B;
+  color: var(--text-3);
   font-family: var(--f-mono);
 }
 
@@ -221,7 +226,7 @@ html, body {
 #rival-list {
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
   overflow: hidden;
   flex: 1;
@@ -231,24 +236,24 @@ html, body {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #CBD5E1;
+  color: var(--text-1);
   white-space: nowrap;
   padding: 2px 7px;
   border-radius: 10px;
-  background: #1E293B;
-  border: 1px solid #334155;
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 .rival-name { font-weight: 600; }
-.rival-cnt  { font-size: 9px; color: #64748B; font-family: var(--f-mono); }
-.rival-delta-up   { font-size: 9px; color: #EF4444; }
-.rival-delta-down { font-size: 9px; color: #3B82F6; }
-.rival-delta-same { font-size: 9px; color: #475569; }
+.rival-cnt  { font-size: 9px; color: var(--text-3); font-family: var(--f-mono); }
+.rival-delta-up   { font-size: 9px; color: #DC2626; }
+.rival-delta-down { font-size: 9px; color: var(--accent); }
+.rival-delta-same { font-size: 9px; color: var(--text-3); }
 
 /* 차주 예보 */
 #events-list {
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
   overflow: hidden;
   flex: 1;
@@ -258,26 +263,26 @@ html, body {
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  color: #CBD5E1;
+  color: var(--text-1);
   white-space: nowrap;
   padding: 2px 8px;
   border-radius: 10px;
-  background: #1E293B;
-  border: 1px solid #334155;
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 .event-chip.is-holiday {
-  background: #1A2540;
-  border-color: #2563EB44;
-  color: #93C5FD;
+  background: var(--accent-bg);
+  border-color: #BFDBFE;
+  color: #1E40AF;
 }
 .event-chip.is-alert {
-  background: #1F1A14;
-  border-color: #F5922244;
-  color: #FCD34D;
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  color: #92400E;
 }
-.event-date { font-size: 9px; color: #475569; font-family: var(--f-mono); }
+.event-date { font-size: 9px; color: var(--text-3); font-family: var(--f-mono); }
 .event-name { font-weight: 600; }
-.events-empty { font-size: 10px; color: #334155; }
+.events-empty { font-size: 10px; color: var(--text-3); }
 
 /* ─────────────────────────────────────────────
    HEADER

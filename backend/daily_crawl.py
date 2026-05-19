@@ -648,118 +648,85 @@ def crawl_youtube_rss(source: dict) -> list[dict]:
 # ──────────────────────────────────────────────
 
 def crawl_naver_search(source: dict) -> list[dict]:
-    """네이버 블로그 또는 뉴스 검색 결과 HTML 스크래핑 (API 키 불필요)."""
+    """네이버 블로그·뉴스 공식 검색 API 수집."""
     search_type = source.get("search_type", "blog")
     service_id  = source.get("service_id", "")
     keywords    = source.get("keywords", [])
     days_back   = source.get("days_back", 14)
     cutoff      = datetime.now() - timedelta(days=days_back)
+
+    client_id     = os.environ.get("NAVER_CLIENT_ID", "").lstrip("﻿").strip()
+    client_secret = os.environ.get("NAVER_CLIENT_SECRET", "").lstrip("﻿").strip()
+    if not client_id or not client_secret:
+        log.warning("NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 미설정 — naver_search 건너뜀")
+        return []
+
+    endpoint = "news" if search_type == "news" else "blog"
+    src_type  = search_type  # "news" | "blog"
     results: list[dict] = []
     seen: set[str] = set()
 
     for kw in keywords:
         try:
-            if search_type == "news":
-                url = (
-                    f"https://search.naver.com/search.naver?where=news"
-                    f"&query={quote(kw)}&sm=tab_opt&sort=1&nso=so:dd,p:1y"
-                )
-                src_type = "news"
-            else:
-                url = (
-                    f"https://search.naver.com/search.naver?where=blog"
-                    f"&query={quote(kw)}&sm=tab_opt&sort=1&nso=so:dd,p:1y"
-                )
-                src_type = "blog"
-
-            resp = _get(url)
+            api_url = (
+                f"https://openapi.naver.com/v1/search/{endpoint}.json"
+                f"?query={quote(kw)}&sort=date&display=20"
+            )
+            resp = requests.get(
+                api_url,
+                headers={
+                    "X-Naver-Client-Id":     client_id,
+                    "X-Naver-Client-Secret": client_secret,
+                    "User-Agent":            "parking-cx-monitor/1.0",
+                },
+                timeout=15,
+            )
             resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
+            data = resp.json()
 
-            if search_type == "news":
-                els = soup.select(".list_news .news_area, .type01 li")
-                for el in els[:25]:
-                    a = el.select_one("a.news_tit, .news_tit a, a")
-                    if not a:
-                        continue
-                    title = a.get_text(strip=True)
-                    href  = a.get("href", "")
-                    if not title or not href or href in seen:
-                        continue
-                    seen.add(href)
-                    dsc  = el.select_one(".dsc_txt, .dsc_txt_wrap")
-                    desc = dsc.get_text(strip=True)[:700] if dsc else ""
-                    # 스니펫이 짧으면 기사 본문 직접 추출
-                    if len(desc) < 200 and href:
-                        fetched = _fetch_article_text(href)
-                        if len(fetched) > len(desc):
-                            desc = fetched
-                    date_el = el.select_one(".info_group .info, .sub_txt_item")
-                    pub_str = datetime.now().strftime("%Y-%m-%d")
-                    if date_el:
-                        parsed = _parse_date_str(date_el.get_text(strip=True))
-                        if parsed:
-                            pub_str = parsed
-                            try:
-                                if datetime.strptime(pub_str, "%Y-%m-%d") < cutoff:
-                                    continue
-                            except ValueError:
-                                pass
-                    if not _brand_validate(service_id, title, desc):
-                        continue
-                    results.append({
-                        "service_id":   service_id,
-                        "published_at": pub_str,
-                        "source_type":  src_type,
-                        "change_type":  classify_change_type(title, desc),
-                        "title":        title,
-                        "summary":      _parking_summary(desc) or None,
-                        "url":          href,
-                        "sentiment":    classify_sentiment(title, desc),
-                    })
-            else:
-                els = soup.select("ul.lst_total > li, .total_wrap li")
-                for el in els[:25]:
-                    a = el.select_one("a.title_link, a.api_txt_lines, a.tit")
-                    if not a:
-                        continue
-                    title = a.get_text(strip=True)
-                    href  = a.get("href", "")
-                    if not title or not href or href in seen:
-                        continue
-                    seen.add(href)
-                    dsc  = el.select_one(".dsc_txt_inner, .dsc_txt, .api_txt_lines")
-                    desc = dsc.get_text(strip=True)[:700] if dsc else ""
-                    # 스니펫이 짧으면 블로그 본문 직접 추출
-                    if len(desc) < 200 and href:
-                        fetched = _fetch_article_text(href)
-                        if len(fetched) > len(desc):
-                            desc = fetched
-                    date_el = el.select_one(".sub_txt .detail, .sub_time, .date")
-                    pub_str = datetime.now().strftime("%Y-%m-%d")
-                    if date_el:
-                        parsed = _parse_date_str(date_el.get_text(strip=True))
-                        if parsed:
-                            pub_str = parsed
-                            try:
-                                if datetime.strptime(pub_str, "%Y-%m-%d") < cutoff:
-                                    continue
-                            except ValueError:
-                                pass
-                    if not _brand_validate(service_id, title, desc):
-                        continue
-                    results.append({
-                        "service_id":   service_id,
-                        "published_at": pub_str,
-                        "source_type":  src_type,
-                        "change_type":  classify_change_type(title, desc),
-                        "title":        title,
-                        "summary":      _parking_summary(desc) or None,
-                        "url":          href,
-                        "sentiment":    classify_sentiment(title, desc),
-                    })
+            for item in data.get("items", []):
+                # HTML 태그 제거
+                title = re.sub(r"<[^>]+>", "", item.get("title", "")).strip()
+                desc  = re.sub(r"<[^>]+>", "", item.get("description", "")).strip()
+                href  = item.get("link") or item.get("originallink", "")
+
+                if not title or not href or href in seen:
+                    continue
+                seen.add(href)
+
+                # 날짜 파싱 (pubDate: "Mon, 19 May 2026 10:30:00 +0900")
+                pub_str = datetime.now().strftime("%Y-%m-%d")
+                raw_date = item.get("pubDate", "")
+                if raw_date:
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        dt = parsedate_to_datetime(raw_date)
+                        pub_str = dt.strftime("%Y-%m-%d")
+                        if dt.replace(tzinfo=None) < cutoff:
+                            continue
+                    except Exception:
+                        pass
+
+                if not _brand_validate(service_id, title, desc):
+                    continue
+
+                ct = classify_change_type(title, desc)
+                if ct == "기타":
+                    continue
+
+                results.append({
+                    "service_id":   service_id,
+                    "published_at": pub_str,
+                    "source_type":  src_type,
+                    "change_type":  ct,
+                    "title":        title,
+                    "summary":      _parking_summary(desc) or None,
+                    "url":          href,
+                    "sentiment":    classify_sentiment(title, desc),
+                })
+
         except Exception as e:
-            log.warning(f"Naver search 실패 [{service_id}|{kw}]: {e}")
+            log.warning(f"Naver search API 실패 [{service_id}|{kw}]: {e}")
             continue
 
     return results
@@ -1084,8 +1051,13 @@ def run() -> dict:
                 log.warning(f"알 수 없는 소스 타입: {src_type}")
                 continue
 
+            _DB_FIELDS = {
+                'service_id','published_at','source_type','change_type',
+                'title','summary','url','sentiment','dedup_key'
+            }
             for item in items:
-                if db.insert_change(**item):
+                db_item = {k: v for k, v in item.items() if k in _DB_FIELDS}
+                if db.insert_change(**db_item):
                     added += 1
                     new_items.append({
                         **item,
