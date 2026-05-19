@@ -400,6 +400,7 @@ def crawl_appstore(source: dict) -> list[dict]:
             continue
 
         content = (r.get("content") or "")[:1000]
+        review_hash = hashlib.md5((content + pub_dt.strftime("%Y-%m-%d") + r.get('userName', '')).encode()).hexdigest()[:8]
         items.append({
             "service_id":   sid,
             "published_at": pub_dt.strftime("%Y-%m-%d"),
@@ -407,7 +408,7 @@ def crawl_appstore(source: dict) -> list[dict]:
             "change_type":  "VOC",
             "title":        f"[Android ★{score}] {r.get('userName', '익명')}",
             "summary":      content,
-            "url":          f"https://play.google.com/store/apps/details?id={app_id}",
+            "url":          f"https://play.google.com/store/apps/details?id={app_id}#r{review_hash}",
             "sentiment":    "negative" if score <= 2 else "neutral",
         })
 
@@ -467,6 +468,7 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
             updated = entry.get("updated", {}).get("label", "")
             pub_str = updated[:10] if updated else datetime.now().strftime("%Y-%m-%d")
 
+            review_hash = hashlib.md5((content + pub_str + author).encode()).hexdigest()[:8]
             items.append({
                 "service_id":   sid,
                 "published_at": pub_str,
@@ -474,7 +476,7 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
                 "change_type":  "VOC",
                 "title":        f"[iOS ★{score}] {author}: {title[:40]}",
                 "summary":      content,
-                "url":          f"https://apps.apple.com/kr/app/id{app_id}",
+                "url":          f"https://apps.apple.com/kr/app/id{app_id}#r{review_hash}",
                 "sentiment":    "negative" if score <= 2 else "neutral",
             })
         except Exception as e:
