@@ -2,7 +2,7 @@ name: Daily Crawl
 
 on:
   schedule:
-    - cron: "0 19 * * *"   # KST 04:00 (UTC 19:00 전일)
+    - cron: "0 22 * * *"   # KST 07:00 (UTC 22:00 전일)
   workflow_dispatch:         # 수동 실행 가능
 
 jobs:
