@@ -819,8 +819,9 @@ def _parse_date_str(raw: str) -> str | None:
 
 
 def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
-    """같은 서비스+날짜 내 제목 유사도 기반 중복 제거.
-    자카드 유사도 >= threshold 인 제목은 먼저 수집된 것만 유지.
+    """유사 제목 중복 제거 (2단계).
+    1단계: 같은 서비스+날짜 내 자카드 유사도 >= 0.6
+    2단계: 날짜 기준 크로스 서비스 자카드 유사도 >= 0.75 (다른 매체 동일 기사 제거)
     """
     from collections import defaultdict
 
@@ -832,18 +833,34 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
             return 0.0
         return len(s1 & s2) / len(s1 | s2)
 
+    # 1단계: 같은 서비스+날짜 내 dedup (threshold 0.6)
     groups: dict[str, list] = defaultdict(list)
     for item in items:
         key = f"{item.get('service_id', '')}|{item.get('published_at', '')}"
         groups[key].append(item)
 
-    result = []
+    stage1 = []
     for group_items in groups.values():
         kept_tokens: list[set] = []
         for item in group_items:
             tokens = tokenize(item.get('title', ''))
             if any(jaccard(tokens, kt) >= threshold for kt in kept_tokens):
-                continue  # 유사한 제목 이미 있으면 건너뜀
+                continue
+            kept_tokens.append(tokens)
+            stage1.append(item)
+
+    # 2단계: 크로스 서비스 dedup (날짜 기준, threshold 0.75)
+    date_groups: dict[str, list] = defaultdict(list)
+    for item in stage1:
+        date_groups[item.get('published_at', '')].append(item)
+
+    result = []
+    for group_items in date_groups.values():
+        kept_tokens = []
+        for item in group_items:
+            tokens = tokenize(item.get('title', ''))
+            if any(jaccard(tokens, kt) >= 0.75 for kt in kept_tokens):
+                continue
             kept_tokens.append(tokens)
             result.append(item)
 
