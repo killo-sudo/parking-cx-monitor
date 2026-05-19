@@ -785,11 +785,15 @@ def _fetch_article_text(url: str, max_chars: int = 1500) -> str:
             resp = requests.get(url, headers=headers, timeout=10, verify=False, allow_redirects=True)
         if resp.status_code != 200:
             return ""
-        ct = resp.headers.get("content-type", "")
+        ct = resp.headers.get("content-type", "").lower()
         if "html" not in ct:
             return ""
-        # 인코딩 보정
-        resp.encoding = resp.apparent_encoding or "utf-8"
+        # 한국 뉴스 사이트는 사실상 전부 UTF-8
+        # apparent_encoding(chardet)은 한글 콘텐츠를 오감지해 모지바케 유발 가능
+        if "euc-kr" in ct or "ks_c_5601" in ct or "euc_kr" in ct:
+            resp.encoding = "euc-kr"
+        else:
+            resp.encoding = "utf-8"
         soup = BeautifulSoup(resp.text, "html.parser")
         for tag in soup(["script", "style", "nav", "header", "footer",
                          "aside", "iframe", "noscript", "form", "figure"]):
