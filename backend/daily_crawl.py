@@ -394,6 +394,8 @@ def crawl_appstore(source: dict) -> list[dict]:
         pub_dt = r.get("at", datetime.now())
         if not isinstance(pub_dt, datetime):
             pub_dt = datetime.now()
+        if pub_dt.year < 2020:  # scraper timestamp misparse guard
+            pub_dt = datetime.now()
         if score > flag_below:
             continue
 
@@ -465,6 +467,8 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
             # iOS 리뷰는 날짜 정보가 'updated' 필드에 있음
             updated = entry.get("updated", {}).get("label", "")
             pub_str = updated[:10] if updated else datetime.now().strftime("%Y-%m-%d")
+            if pub_str[:4] < "2020":  # year sanity guard
+                pub_str = datetime.now().strftime("%Y-%m-%d")
 
             review_hash = hashlib.md5((content + pub_str + author).encode()).hexdigest()[:8]
             items.append({

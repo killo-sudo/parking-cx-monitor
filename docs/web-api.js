@@ -162,11 +162,25 @@ function _cleanItem (item) {
   return Object.assign({}, item, { title: t, summary: s });
 }
 
-// GAS가 published_at을 YYYY-MM-DD로 반환 (Code.gs _fmtDate). new Date()로 파싱하여 비교.
+// GAS published_at 파싱 — ISO(YYYY-MM-DD), 한국식(2025. 11. 10.), toString() 포맷 모두 처리
 function _dateMs (raw) {
   if (!raw) return 0;
-  var d = new Date(raw);
-  return isNaN(d.getTime()) ? 0 : d.getTime();
+  // 1) ISO prefix YYYY-MM-DD
+  var isoM = String(raw).match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (isoM) {
+    var d = new Date(isoM[1] + '-' + isoM[2] + '-' + isoM[3] + 'T12:00:00+09:00');
+    if (!isNaN(d.getTime()) && d.getFullYear() >= 2020) return d.getTime();
+  }
+  // 2) 한국식 점 구분 "2025. 11. 10."
+  var krM = String(raw).match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+  if (krM) {
+    var d2 = new Date(parseInt(krM[1]), parseInt(krM[2]) - 1, parseInt(krM[3]), 12);
+    if (!isNaN(d2.getTime()) && d2.getFullYear() >= 2020) return d2.getTime();
+  }
+  // 3) 표준 Date.toString() 계열 파싱
+  var d3 = new Date(raw);
+  if (!isNaN(d3.getTime()) && d3.getFullYear() >= 2020) return d3.getTime();
+  return 0;
 }
 
 async function _loadAll () {
@@ -190,11 +204,15 @@ async function _loadAll () {
   }
   if (!json.ok) throw new Error(json.error || 'GAS 오류');
 
-  // 정제 + 정렬
+  // 정제 + 정렬 (A열 published_at 우선, 없으면 J열 collected_at, 최신순)
   json.items = json.items
     .map(_cleanItem)
     .filter(function(c){ return (c.title || '').length > 2; })
-    .sort(function (a, b) { return _dateMs(b.published_at) - _dateMs(a.published_at); });
+    .sort(function (a, b) {
+      var dateB = _dateMs(b.published_at) || _dateMs(b.collected_at);
+      var dateA = _dateMs(a.published_at) || _dateMs(a.collected_at);
+      return dateB - dateA;
+    });
 
   _allData = json;
   _cacheTs = now;
@@ -292,9 +310,11 @@ window.api = {
     var reviews = data.items.filter(function (i) {
       return i.source_type === 'appstore' || i.source_type === 'ios_appstore';
     });
-    // 날짜 내림차순 (Sheets Date 문자열 → new Date() 파싱)
+    // A열(published_at) 우선, 공란이면 J열(collected_at), 최신순 내림차순
     reviews.sort(function (a, b) {
-      return _dateMs(b.published_at) - _dateMs(a.published_at);
+      var dateB = _dateMs(b.published_at) || _dateMs(b.collected_at);
+      var dateA = _dateMs(a.published_at) || _dateMs(a.collected_at);
+      return dateB - dateA;
     });
     return reviews;
   },
@@ -383,6 +403,7 @@ window.api = {
   async getUpcomingEvents () {
     var KR_HOLIDAYS = [
       {date:'2026-05-25', name:'부처님오신날', note:'연등행렬·법회'},
+      {date:'2026-06-03', name:'지방선거', note:'투표·교통 혼잡'},
       {date:'2026-06-06', name:'현충일', note:'추모 행사'},
       {date:'2026-08-14', name:'광복절 연휴', note:'귀향 차량 증가'},
       {date:'2026-08-15', name:'광복절', note:'행사·집회'},
@@ -410,17 +431,14 @@ window.api = {
       return null;
     }
 
-    /* 차주 월요일 ~ 차차주 일요일 (2주 창) 계산 */
+    /* 오늘 ~ 21일 후 창 */
     var _now = new Date();
-    var _dow = _now.getDay(); // 0=일, 1=월
-    var _daysToNextMon = (_dow === 1) ? 7 : (8 - _dow) % 7;
-    var _nextMon  = new Date(_now.getTime() + _daysToNextMon       * 86400000);
-    var _windowEnd = new Date(_nextMon.getTime() + 13              * 86400000);
-    var fromStr   = _nextMon.toISOString().slice(0, 10);
-    var toStr     = _windowEnd.toISOString().slice(0, 10);
-    var cutoff7   = new Date(Date.now() -  7 * 86400000).toISOString().slice(0, 10);
+    var fromStr    = _now.toISOString().slice(0, 10);
+    var _windowEnd = new Date(_now.getTime() + 21 * 86400000);
+    var toStr      = _windowEnd.toISOString().slice(0, 10);
+    var cutoff14   = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
 
-    /* 공휴일 (차주 월~차차주 일) */
+    /* 공휴일 (오늘~21일) */
     var events = KR_HOLIDAYS.filter(function (h) {
       return h.date >= fromStr && h.date <= toStr;
     }).map(function (h) {
@@ -435,7 +453,7 @@ window.api = {
       data.items.forEach(function (item) {
         if (item.service_id !== 'events') return;
         var date = (item.collected_at||item.published_at||'').slice(0,10);
-        if (date < cutoff7) return;
+        if (date < cutoff14) return;
 
         var key = (item.title||'').slice(0, 15);
         if (!topicMap[key]) topicMap[key] = { count: 0, item: item };

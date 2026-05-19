@@ -543,7 +543,8 @@ function _renderReviewCards () {
     const score = m ? parseInt(m[1]) : 0
     const stars = score > 0 ? '★'.repeat(score) + '☆'.repeat(5 - score) : ''
 
-    const dateStr = _fmtReviewDate(r.published_at || '')
+    // A열(published_at) 우선 표시, 공란이면 J열(collected_at) 표시
+    const dateStr = _fmtReviewDate(r.published_at || '') || _fmtReviewDate(r.collected_at || '')
     const content = (r.summary || '').replace(/\n+/g, ' ')
 
     return `<div class="review-card">
@@ -877,7 +878,7 @@ async function renderIntelBar () {
             ${noteEl}
           </span>`
         })
-        _intelRoll(el, chips, 3, 6000)
+        _intelRoll(el, chips, 1, 4000)
       }
     }
     _setupIntelClicks()
@@ -924,18 +925,16 @@ function _fmtCardDate (raw) {
 
 function _fmtReviewDate (raw) {
   if (!raw) return ''
-  // 이미 YYYY-MM-DD 형식이면 YYYY.MM.DD로 변환
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (iso) return `${iso[1]}.${iso[2]}.${iso[3]}`
-  // Sheets가 날짜를 자동변환한 경우 ("Tue Nov 11 2025..." 등) Date로 파싱
+  if (iso && parseInt(iso[1]) >= 2020) return `${iso[1]}.${iso[2]}.${iso[3]}`
   try {
     const d = new Date(raw)
-    if (!isNaN(d.getTime())) {
+    if (!isNaN(d.getTime()) && d.getFullYear() >= 2020) {
       const pad = n => String(n).padStart(2, '0')
       return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`
     }
   } catch(_) {}
-  return raw.slice(0, 10)
+  return ''
 }
 
 function renderStars (title) {
