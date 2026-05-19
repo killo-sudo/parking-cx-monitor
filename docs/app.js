@@ -828,7 +828,7 @@ async function renderIntelBar () {
             <span class="trend-cnt">${k.curr}</span>
           </span>`
         })
-        _intelRoll(tl, chips, 5, 5000)
+        _intelRoll(tl, chips, 1, 3000)
       }
     }
 

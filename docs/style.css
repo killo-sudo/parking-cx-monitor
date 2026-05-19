@@ -273,43 +273,41 @@ html, body {
   font-family: var(--f-mono);
 }
 
-/* 급상승 키워드 */
+/* 급상승 키워드 — 1개씩 로테이션 */
 #trending-list {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: 5px;
   align-items: center;
   flex: 1;
+  min-width: 0;
 }
 .trend-chip {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 3px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 15px;
   color: var(--text-1);
-  cursor: default;
-  padding: 2px 7px;
+  cursor: pointer;
+  padding: 3px 10px;
   border-radius: 10px;
   background: var(--surface);
   border: 1px solid var(--border);
   transition: background 0.1s;
+  white-space: nowrap;
 }
-.trend-chip { cursor: pointer; }
 .trend-chip:hover { background: var(--surface-3); }
 .trend-rank {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-3);
   font-family: var(--f-mono);
-  min-width: 12px;
+  min-width: 14px;
 }
-.trend-word { font-weight: 600; }
-.trend-arrow-up   { color: #DC2626; font-size: 12px; }
-.trend-arrow-same { color: var(--text-3); font-size: 12px; }
-.trend-arrow-down { color: var(--accent); font-size: 12px; }
+.trend-word { font-weight: 700; font-size: 16px; }
+.trend-arrow-up   { color: #DC2626; font-size: 13px; }
+.trend-arrow-same { color: var(--text-3); font-size: 13px; }
+.trend-arrow-down { color: var(--accent); font-size: 13px; }
 .trend-cnt {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-3);
   font-family: var(--f-mono);
 }
