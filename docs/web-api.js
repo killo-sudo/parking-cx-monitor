@@ -112,7 +112,7 @@ function _onGisCallback (response) {
   if (stored) {
     var payload = _decodeJwt(stored);
     _hideAuthOverlay();
-    if (authUser && payload) authUser.textContent = payload.name || payload.email;
+    if (authUser && payload) { var _e2 = payload.email || ''; authUser.textContent = _e2.split('@')[0] || _e2; }
     // app.js의 DOMContentLoaded → init() 이 자동 실행됨
   } else {
     _showAuthOverlay();
