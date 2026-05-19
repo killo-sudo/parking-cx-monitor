@@ -7,7 +7,7 @@
     "num_ratings": 19,
     "version": "2.0.0",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:31",
+    "checked_at": "2026-05-19 07:14:49",
     "name_ko": "하이파킹 (투루파킹)"
   },
   {
@@ -16,9 +16,9 @@
     "app_id": "6711335059",
     "rating": 4.06,
     "num_ratings": 18,
-    "version": "2.0.0",
-    "update_notes": "[v2.0.0]\n\n앱 안정화 및 편의성을 위한 이슈가 수정되었습니다.",
-    "checked_at": "2026-05-19 07:05:31",
+    "version": "1.0.5",
+    "update_notes": "[v1.0.5]\n\n앱 안정화 및 편의성을 위한 이슈가 수정되었습니다.",
+    "checked_at": "2026-05-19 07:14:49",
     "name_ko": "하이파킹 (투루파킹)"
   },
   {
@@ -26,10 +26,10 @@
     "platform": "google_play",
     "app_id": "kr.co.iparking.android",
     "rating": 4.58,
-    "num_ratings": 5558,
+    "num_ratings": 5559,
     "version": "2.5.1",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:30",
+    "checked_at": "2026-05-19 07:14:48",
     "name_ko": "아이파킹"
   },
   {
@@ -40,7 +40,7 @@
     "num_ratings": 3273,
     "version": "2.6.1",
     "update_notes": "- 아이파킹 서비스 안정화 및 사용성을 개선했어요.",
-    "checked_at": "2026-05-19 07:05:30",
+    "checked_at": "2026-05-19 07:14:48",
     "name_ko": "아이파킹"
   },
   {
@@ -51,7 +51,7 @@
     "num_ratings": 133988,
     "version": "7.8.1",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:30",
+    "checked_at": "2026-05-19 07:14:48",
     "name_ko": "카카오T 주차"
   },
   {
@@ -59,10 +59,10 @@
     "platform": "ios",
     "app_id": "981110422",
     "rating": 4.71,
-    "num_ratings": 463852,
+    "num_ratings": 463850,
     "version": "7.8.1",
     "update_notes": "[업데이트] \n1. 카카오 T 주차 '월 주차권 구매 기능' 오픈\n- 원하는 지역의 월 주차권을 검색하고 바로 결제할 수 있어요. \n- 정기결제를 선택하면 매달 다시 결제하지 않아도 주차장을 이용할 수 있어요.",
-    "checked_at": "2026-05-19 07:05:30",
+    "checked_at": "2026-05-19 07:14:48",
     "name_ko": "카카오T 주차"
   },
   {
@@ -73,7 +73,7 @@
     "num_ratings": 7427,
     "version": "395.0.1+LiveRelease.411",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:31",
+    "checked_at": "2026-05-19 07:14:49",
     "name_ko": "모두의주차장"
   },
   {
@@ -84,7 +84,7 @@
     "num_ratings": 4214,
     "version": "395.0.0",
     "update_notes": "이제 주차권을 미리 구매 할 수 있습니다. 내일 또는 주말 주차권을 미리 구매하고 싶으신가요?\n검색필터에서 날짜를 변경 해보세요. 내 일정에 맞는 주차권을 확인하고 바로 구매할 수 있습니다. \n이동의 계획도 역시 모두의주차장!",
-    "checked_at": "2026-05-19 07:05:31",
+    "checked_at": "2026-05-19 07:14:49",
     "name_ko": "모두의주차장"
   },
   {
@@ -95,7 +95,7 @@
     "num_ratings": 0,
     "version": "Varies with device",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:31",
+    "checked_at": "2026-05-19 07:14:48",
     "name_ko": "나이스파크"
   },
   {
@@ -106,7 +106,7 @@
     "num_ratings": 53,
     "version": "0.91",
     "update_notes": "이용자 편의 개선",
-    "checked_at": "2026-05-19 07:05:31",
+    "checked_at": "2026-05-19 07:14:48",
     "name_ko": "나이스파크"
   },
   {
@@ -117,7 +117,7 @@
     "num_ratings": 456,
     "version": "4.1.16",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:31",
+    "checked_at": "2026-05-19 07:14:49",
     "name_ko": "파킹프렌즈"
   },
   {
@@ -128,7 +128,7 @@
     "num_ratings": 174,
     "version": "4.1.17",
     "update_notes": "1. 서비스 안정성 개선 및 일부 기능 개선\n2. 일부 버그 수정 및 성능 개선",
-    "checked_at": "2026-05-19 07:05:32",
+    "checked_at": "2026-05-19 07:14:50",
     "name_ko": "파킹프렌즈"
   },
   {
@@ -139,7 +139,7 @@
     "num_ratings": 104629,
     "version": "11.2.2.3715",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:32",
+    "checked_at": "2026-05-19 07:14:50",
     "name_ko": "Tmap 주차"
   },
   {
@@ -147,10 +147,10 @@
     "platform": "ios",
     "app_id": "431589174",
     "rating": 3.37,
-    "num_ratings": 31525,
+    "num_ratings": 31523,
     "version": "11.2.2",
     "update_notes": "원활한 앱 사용을 위해 성능을 개선하였습니다",
-    "checked_at": "2026-05-19 07:05:32",
+    "checked_at": "2026-05-19 07:14:50",
     "name_ko": "Tmap 주차"
   },
   {
@@ -158,10 +158,10 @@
     "platform": "google_play",
     "app_id": "com.zoomansa.parking",
     "rating": 4.82,
-    "num_ratings": 5832,
+    "num_ratings": 5834,
     "version": "5.6.5",
     "update_notes": "",
-    "checked_at": "2026-05-19 07:05:31",
+    "checked_at": "2026-05-19 07:14:49",
     "name_ko": "주만사"
   },
   {
@@ -172,7 +172,7 @@
     "num_ratings": 2351,
     "version": "5.6.5",
     "update_notes": "회원가입시 1시간 무료 쿠폰 지급 이벤트\n더욱 발전하는 주만사가 되겠습니다.",
-    "checked_at": "2026-05-19 07:05:32",
+    "checked_at": "2026-05-19 07:14:50",
     "name_ko": "주만사"
   }
 ]
