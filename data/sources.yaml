@@ -523,19 +523,6 @@ sources:
       - "박람회 주차"
     days_back: 7
 
-  - id: naver_blog_events
-    type: naver_blog
-    search_type: blog
-    service_id: events
-    keywords:
-      - "주차 혼잡 행사"
-      - "주차 통제 축제"
-      - "이번주 축제 주차"
-      - "연등축제 주차"
-      - "공연 주차 꿀팁"
-      - "경기장 주차"
-    days_back: 7
-
   - id: naver_news_crowd_events
     type: naver_news
     search_type: news
