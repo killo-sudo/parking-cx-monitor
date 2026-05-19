@@ -1186,9 +1186,11 @@ CRAWLER_MAP = {
 
 
 def _export_data_json(services: list[dict]) -> None:
-    """SQLite 전체 데이터를 docs/data.json으로 내보냅니다 (GAS 대체 정적 파일)."""
+    """SQLite + Google Sheets 전체 데이터를 docs/data.json으로 내보냅니다."""
     svc_map = {s["id"]: s for s in services}
+    _REVIEW_TYPES = {"appstore", "ios_appstore"}
 
+    # ── 1. SQLite에서 전건 읽기
     with db.get_conn() as conn:
         rows = conn.execute("""
             SELECT c.service_id, c.published_at, c.source_type, c.change_type,
@@ -1200,14 +1202,14 @@ def _export_data_json(services: list[dict]) -> None:
             ORDER BY c.published_at DESC, c.collected_at DESC
         """).fetchall()
 
-    seen: set[str] = set()
+    seen_url: set[str] = set()
     items: list[dict] = []
     for row in rows:
-        d = dict(row)
+        d   = dict(row)
         url = (d.get("url") or "").strip()
-        if not url or url in seen:
+        if not url or url in seen_url:
             continue
-        seen.add(url)
+        seen_url.add(url)
         pub = str(d.get("published_at") or "")[:10]
         col = str(d.get("collected_at") or "")[:16]
         items.append({
@@ -1223,6 +1225,45 @@ def _export_data_json(services: list[dict]) -> None:
             "collected_at": col,
             "full_text":    "",
         })
+
+    # ── 2. Google Sheets에서 리뷰 보충 (SQLite에 없는 과거 리뷰 포함)
+    try:
+        import sheets as sh_mod
+        sheet_rows = sh_mod.read_all_cached()
+        added_from_sheet = 0
+        for row in sheet_rows:
+            src = row.get("source_type", "")
+            if src not in _REVIEW_TYPES:
+                continue
+            url = (row.get("url") or "").strip()
+            if url and url in seen_url:
+                continue  # SQLite에서 이미 포함됨
+            if url:
+                seen_url.add(url)
+            pub = str(row.get("published_at") or "")[:10]
+            col = str(row.get("collected_at") or "")[:16]
+            sid = row.get("service_id", "")
+            items.append({
+                "published_at": pub,
+                "service_id":   sid,
+                "name_ko":      row.get("name_ko") or svc_map.get(sid, {}).get("name_ko", ""),
+                "source_type":  src,
+                "change_type":  row.get("change_type", "VOC"),
+                "title":        row.get("title", ""),
+                "summary":      row.get("summary", ""),
+                "url":          url,
+                "sentiment":    row.get("sentiment") or "neutral",
+                "collected_at": col,
+                "full_text":    "",
+            })
+            added_from_sheet += 1
+        if added_from_sheet:
+            print(f"[INFO] Google Sheets 리뷰 {added_from_sheet}건 추가 병합")
+    except Exception as e:
+        print(f"[WARN] Sheets 리뷰 병합 실패 (무시): {e}")
+
+    # 최신순 정렬
+    items.sort(key=lambda x: (x.get("published_at") or "", x.get("collected_at") or ""), reverse=True)
 
     out = {
         "ok": True, "auth": True,
