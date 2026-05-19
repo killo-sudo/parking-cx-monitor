@@ -70,6 +70,42 @@
   --transition: 0.15s ease;
 }
 
+[data-theme="dark"] {
+  --bg:        #0A0E17;
+  --surface:   #111827;
+  --surface-2: #1A2236;
+  --surface-3: #243049;
+  --border:    #2A3A52;
+  --border-2:  #374B66;
+  --text-1:    #E2E8F0;
+  --text-2:    #94A3B8;
+  --text-3:    #475569;
+  --accent:    #3B82F6;
+  --accent-bg: #1E3A5F;
+  --c-voc:        #F87171; --c-voc-bg:     #2D1515;
+  --c-policy:     #60A5FA; --c-policy-bg:  #152040;
+  --c-tech:       #34D399; --c-tech-bg:    #0D2B20;
+  --c-partner:    #A78BFA; --c-partner-bg: #1E1535;
+  --c-expand:     #22D3EE; --c-expand-bg:  #0D2530;
+  --c-other:      #9CA3AF; --c-other-bg:   #1A1E2A;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow:    0 1px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+}
+
+#theme-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-2);
+  line-height: 1.6;
+  transition: background var(--transition), color var(--transition);
+  margin-left: 8px;
+}
+#theme-toggle:hover { background: var(--surface-3); color: var(--text-1); }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
