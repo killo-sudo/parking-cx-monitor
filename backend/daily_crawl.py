@@ -714,11 +714,15 @@ def crawl_naver_search(source: dict) -> list[dict]:
                 if ct == "기타":
                     continue
 
-                # 원문 기사 본문 가져오기 (desc가 짧으면 실제 페이지 크롤링)
-                original_link = item.get("originallink") or href
-                full_body = _fetch_article_text(original_link, max_chars=3000)
-                if len(full_body) < len(desc):
-                    full_body = _fetch_article_text(href, max_chars=3000)
+                # 원문 기사 본문 가져오기
+                # 네이버 뉴스 뷰어(n.news.naver.com)가 가장 잘 파싱되므로 우선 시도
+                naver_link    = href if "n.news.naver.com" in href else ""
+                original_link = item.get("originallink") or ""
+                full_body = ""
+                for try_url in filter(None, [naver_link, original_link, href]):
+                    full_body = _fetch_article_text(try_url, max_chars=3000)
+                    if len(full_body) > max(len(desc), 100):
+                        break
                 summary = full_body if len(full_body) > len(desc) else desc
 
                 results.append({
@@ -746,31 +750,52 @@ def crawl_naver_search(source: dict) -> list[dict]:
 def _fetch_article_text(url: str, max_chars: int = 1500) -> str:
     """기사 URL에서 본문 텍스트 추출. 실패 시 빈 문자열 반환."""
     try:
+        headers = dict(HEADERS)
+        headers["Accept-Language"] = "ko-KR,ko;q=0.9,en;q=0.8"
+        headers["Referer"] = "https://search.naver.com/"
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=8, verify=True, allow_redirects=True)
+            resp = requests.get(url, headers=headers, timeout=10, verify=True, allow_redirects=True)
         except requests.exceptions.SSLError:
-            resp = requests.get(url, headers=HEADERS, timeout=8, verify=False, allow_redirects=True)
+            resp = requests.get(url, headers=headers, timeout=10, verify=False, allow_redirects=True)
         if resp.status_code != 200:
             return ""
-        if "html" not in resp.headers.get("content-type", ""):
+        ct = resp.headers.get("content-type", "")
+        if "html" not in ct:
             return ""
+        # 인코딩 보정
+        resp.encoding = resp.apparent_encoding or "utf-8"
         soup = BeautifulSoup(resp.text, "html.parser")
         for tag in soup(["script", "style", "nav", "header", "footer",
-                         "aside", "iframe", "noscript", "form"]):
+                         "aside", "iframe", "noscript", "form", "figure"]):
             tag.decompose()
-        body_el = (
-            soup.select_one("article")
-            or soup.select_one(
-                ".article-content, .article_body, .news_body, "
-                ".content-body, .article__body, .articleBody"
-            )
-            or soup.select_one(
-                ".newsct_article, #articleBodyContents, "
-                "#article-view-content-div, .article_view"
-            )
-            or soup.select_one("main")
-            or soup.find("body")
-        )
+        # 네이버 뉴스 뷰어 / 언론사별 주요 selector 우선순위
+        SELECTORS = [
+            "#dic_area",                          # 네이버 뉴스 본문
+            "#newsEndContents",                   # 네이버 뉴스 (구형)
+            ".newsct_article",                    # 네이버 뉴스 (구형)
+            "#articleBodyContents",               # 네이버 뉴스 (구형)
+            "article",                            # 표준 시맨틱
+            ".article-content", ".article_body",  # 언론사 공통
+            ".news_body", ".content-body",
+            ".article__body", ".articleBody",
+            ".article_view", ".article-view",
+            "#article-view-content-div",          # 뉴시스·이데일리 등
+            ".view_con", ".view-content",         # 블로터·IT조선 등
+            ".read_body", ".read-body",
+            ".cont_article", ".news_article",
+            "[class*='article'][class*='body']",
+            "[class*='article'][class*='content']",
+            "main",
+            "body",
+        ]
+        body_el = None
+        for sel in SELECTORS:
+            el = soup.select_one(sel)
+            if el:
+                text = el.get_text(separator=" ", strip=True)
+                if len(text) > 100:   # 너무 짧으면 다음 selector 시도
+                    body_el = el
+                    break
         if body_el is None:
             return ""
         text = body_el.get_text(separator=" ", strip=True)
