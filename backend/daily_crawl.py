@@ -372,9 +372,7 @@ def crawl_appstore(source: dict) -> list[dict]:
 
     app_id      = source.get("app_id", "")
     sid         = source.get("service_id", "")
-    window_days = source.get("window_days", 7)
     flag_below  = source.get("flag_below_rating", 3)
-    cutoff      = datetime.now() - timedelta(days=window_days)
 
     review_count = source.get("review_count", 200)
     try:
@@ -396,8 +394,6 @@ def crawl_appstore(source: dict) -> list[dict]:
         pub_dt = r.get("at", datetime.now())
         if not isinstance(pub_dt, datetime):
             pub_dt = datetime.now()
-        if pub_dt < cutoff:
-            break
         if score > flag_below:
             continue
 
