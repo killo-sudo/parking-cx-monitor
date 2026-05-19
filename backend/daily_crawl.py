@@ -1188,7 +1188,6 @@ CRAWLER_MAP = {
 def _export_data_json(services: list[dict]) -> None:
     """SQLite + Google Sheets 전체 데이터를 docs/data.json으로 내보냅니다."""
     svc_map = {s["id"]: s for s in services}
-    _REVIEW_TYPES = {"appstore", "ios_appstore"}
 
     # ── 1. SQLite에서 전건 읽기
     with db.get_conn() as conn:
@@ -1226,15 +1225,13 @@ def _export_data_json(services: list[dict]) -> None:
             "full_text":    "",
         })
 
-    # ── 2. Google Sheets에서 리뷰 보충 (SQLite에 없는 과거 리뷰 포함)
+    # ── 2. Google Sheets에서 전체 보충 (SQLite에 없는 과거 데이터 포함)
     try:
         import sheets as sh_mod
         sheet_rows = sh_mod.read_all_cached()
         added_from_sheet = 0
         for row in sheet_rows:
             src = row.get("source_type", "")
-            if src not in _REVIEW_TYPES:
-                continue
             url = (row.get("url") or "").strip()
             if url and url in seen_url:
                 continue  # SQLite에서 이미 포함됨
@@ -1258,7 +1255,7 @@ def _export_data_json(services: list[dict]) -> None:
             })
             added_from_sheet += 1
         if added_from_sheet:
-            print(f"[INFO] Google Sheets 리뷰 {added_from_sheet}건 추가 병합")
+            print(f"[INFO] Google Sheets {added_from_sheet}건 추가 병합")
     except Exception as e:
         print(f"[WARN] Sheets 리뷰 병합 실패 (무시): {e}")
 
