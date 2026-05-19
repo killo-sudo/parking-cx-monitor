@@ -863,16 +863,25 @@ def _parse_date_str(raw: str) -> str | None:
     return None
 
 
-def _dedup_by_title(items: list[dict], threshold: float = 0.6) -> list[dict]:
+def _dedup_by_title(items: list[dict], threshold: float = 0.2) -> list[dict]:
     """유사 제목 중복 제거 (2단계).
-    1단계: 같은 서비스+날짜 내 자카드 유사도 >= 0.6
+    1단계: 같은 서비스+날짜 내 자카드 유사도 >= 0.2 (조사 제거 + 장문 토큰 앞 5자 정규화)
     2단계: 날짜 기준 크로스 서비스 자카드 유사도 >= 0.75 (다른 매체 동일 기사 제거)
     중복 그룹 내에서 네이버 뉴스 뷰어(n.news.naver.com) URL을 우선 보존.
     """
     from collections import defaultdict
 
+    _JOSA = re.compile(r'(에서|으로|이라|이며|이고|하고|부터|까지|에게|보다|처럼|만큼|과|와|의|에|도|만|로|서|고|며|나)$')
+
     def tokenize(t: str) -> set:
-        return set(re.findall(r'[가-힣a-z0-9]{2,}', (t or '').lower()))
+        tokens = set()
+        for tok in re.findall(r'[가-힣a-z0-9]{2,}', (t or '').lower()):
+            stripped = _JOSA.sub('', tok)
+            tok = stripped if len(stripped) >= 2 else tok
+            if len(tok) >= 7:
+                tok = tok[:5]
+            tokens.add(tok)
+        return tokens
 
     def jaccard(s1: set, s2: set) -> float:
         if not s1 or not s2:

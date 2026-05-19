@@ -345,17 +345,28 @@ function renderTimeline (changes, svc) {
 
   const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
-  // 같은 날 제목 단어 30% 이상 겹치면 대표 1건만 표시 (접속사·조사 제외)
+  // 같은 날 제목 단어 20% 이상 겹치면 대표 1건만 표시 (조사 제거 + 장문토큰 앞5자 정규화)
   // 중복 그룹 내 우선순위: 네이버 뷰어 URL > 본문 긴 것 > 나머지
   const _STOP = new Set(['이','가','을','를','의','에','에서','으로','로','과','와','도','은','는','그','이','저','것','수','등','및','또','더','각','한','된','할','될','하는','있는','없는','위한','통한','대한','관련','함께','모든','이번','해당','국내','서울','지난'])
+  const _JOSA = ['에서','으로','이라','이며','이고','하고','부터','까지','에게','보다','처럼','만큼','과','와','의','에','도','만','로','서','고','며','나']
+  function _stripJosa (w) {
+    for (const j of _JOSA) {
+      if (w.endsWith(j) && w.length - j.length >= 2) return w.slice(0, w.length - j.length)
+    }
+    return w
+  }
   function _words (title) {
-    return new Set((title || '').split(/[\s\-·,·…]+/).filter(w => w.length > 1 && !_STOP.has(w)))
+    return new Set(
+      (title || '').split(/[\s\-·,·…]+/)
+        .map(w => { const s = _stripJosa(w); return s.length >= 7 ? s.slice(0, 5) : s })
+        .filter(w => w.length > 1 && !_STOP.has(w))
+    )
   }
   function _similar (wa, wb) {
     if (wa.size === 0 || wb.size === 0) return false
     let inter = 0
     wa.forEach(w => { if (wb.has(w)) inter++ })
-    return inter / (wa.size + wb.size - inter) >= 0.3
+    return inter / (wa.size + wb.size - inter) >= 0.2
   }
   function _dedupPriority (c) {
     const url = c.url || ''
