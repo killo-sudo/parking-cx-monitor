@@ -138,10 +138,10 @@ html, body {
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  min-height: 48px;
-  max-height: 56px;
-  overflow: hidden;
-  padding: 0 16px;
+  min-height: 64px;
+  max-height: 100px;
+  overflow: visible;
+  padding: 4px 16px;
   gap: 0;
 }
 .intel-panel {
@@ -149,10 +149,11 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 .intel-panel-label {
   font-size: 10px;
@@ -186,18 +187,18 @@ html, body {
 #trending-list {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: 5px;
   align-items: center;
-  overflow: hidden;
   flex: 1;
 }
 .trend-chip {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 3px;
   font-size: 11px;
   color: var(--text-1);
-  white-space: nowrap;
   cursor: default;
   padding: 2px 7px;
   border-radius: 10px;
@@ -227,9 +228,9 @@ html, body {
 #rival-list {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: 5px;
   align-items: center;
-  overflow: hidden;
   flex: 1;
 }
 .rival-chip {
@@ -238,7 +239,6 @@ html, body {
   gap: 4px;
   font-size: 11px;
   color: var(--text-1);
-  white-space: nowrap;
   padding: 2px 7px;
   border-radius: 10px;
   background: var(--surface);
@@ -252,13 +252,13 @@ html, body {
 .rival-delta-down { font-size: 9px; color: var(--accent); }
 .rival-delta-same { font-size: 9px; color: var(--text-3); }
 
-/* 차주 예보 */
+/* 이벤트 */
 #events-list {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: 5px;
   align-items: center;
-  overflow: hidden;
   flex: 1;
 }
 .event-chip {
@@ -267,7 +267,6 @@ html, body {
   gap: 5px;
   font-size: 11px;
   color: var(--text-1);
-  white-space: nowrap;
   padding: 2px 8px;
   border-radius: 10px;
   background: var(--surface);

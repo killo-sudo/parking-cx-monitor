@@ -366,7 +366,7 @@ window.api = {
         var item  = entry.item;
         var text  = (item.title||'') + ' ' + (item.summary||'');
         var loc   = extractLoc(text);
-        var name  = (item.title||'').replace(/<[^>]+>/g, '').trim().slice(0, 22);
+        var name  = (item.title||'').replace(/<[^>]+>/g, '').trim();
         events.push({
           date:     (item.published_at||'').slice(0,10),
           name:     name,
