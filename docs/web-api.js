@@ -126,6 +126,42 @@ var _allData = null;
 var _cacheTs = 0;
 var CACHE_TTL = 5 * 60 * 1000;
 
+// ── 데이터 정제 ───────────────────────────────
+var _PRESS_SUFFIX = /[\s│├└\-–—·]+(?:지디넷코리아|한스경제|디지털투데이|파이낸셜뉴스|서울경제TV|오피니언뉴스|파이낸셜포스트|이데일리|블로터|ChosunBiz|Chosunbiz|뉴스1|뉴시스|연합뉴스|헤럴드경제|매일경제|한국경제|조선비즈|아이뉴스24|아이티조선|전자신문|더페어뉴스|thefairnews|워크투데이|딜팩|네이트|네이버|Naver)\s*$/i;
+var _BOX_CHARS   = /[├│└┌┐┘┼┤┬┴─━|▶▷◀◁◆◇●○■□※→←↑↓]/g;
+var _NAV_PATTERN = /(?:홈|메뉴|로그인|회원가입|구독|광고문의|사이트맵|개인정보처리방침|이용약관|저작권|COPYRIGHT|All rights reserved)[^\n]*/gi;
+var _MULTI_NL    = /\n{3,}/g;
+
+function _cleanText (s) {
+  if (!s) return s;
+  return s
+    .replace(/<[^>]+>/g, '')        // HTML 태그 제거
+    .replace(_BOX_CHARS, ' ')       // 박스 그리기 문자 제거
+    .replace(_NAV_PATTERN, '')      // 내비·푸터 문구 제거
+    .replace(/\s{3,}/g, '  ')       // 3칸 이상 공백 → 2칸
+    .replace(_MULTI_NL, '\n\n')     // 3줄 이상 빈줄 → 2줄
+    .trim();
+}
+
+function _cleanItem (item) {
+  var t = _cleanText(item.title || '');
+  // 제목 끝 언론사명 제거
+  t = t.replace(_PRESS_SUFFIX, '').trim();
+  var s = _cleanText(item.summary || '');
+  // 요약 첫 문장이 제목과 90% 이상 같으면 제거 (중복 첫줄)
+  if (s) {
+    var firstLine = s.split('\n')[0].trim();
+    var tWords = t.split(/\s+/);
+    var fWords = firstLine.split(/\s+/);
+    var common = tWords.filter(function(w){ return fWords.indexOf(w) !== -1; }).length;
+    var ratio  = common / Math.max(tWords.length, fWords.length, 1);
+    if (ratio >= 0.8) {
+      s = s.slice(firstLine.length).replace(/^\n+/, '').trim();
+    }
+  }
+  return Object.assign({}, item, { title: t, summary: s });
+}
+
 async function _loadAll () {
   var now = Date.now();
   if (_allData && now - _cacheTs < CACHE_TTL) return _allData;
@@ -140,7 +176,6 @@ async function _loadAll () {
   var json  = await res.json();
 
   if (json.auth === false) {
-    // 토큰 만료 — 재로그인
     localStorage.removeItem(JWT_KEY);
     _showAuthOverlay();
     _initGis();
@@ -148,9 +183,13 @@ async function _loadAll () {
   }
   if (!json.ok) throw new Error(json.error || 'GAS 오류');
 
-  json.items.sort(function (a, b) {
-    return (b.published_at || '').localeCompare(a.published_at || '');
-  });
+  // 정제 + 정렬
+  json.items = json.items
+    .map(_cleanItem)
+    .filter(function(c){ return (c.title || '').length > 2; })
+    .sort(function (a, b) {
+      return (b.published_at || '').localeCompare(a.published_at || '');
+    });
 
   _allData = json;
   _cacheTs = now;
