@@ -841,17 +841,18 @@ async function renderIntelBar () {
         const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
         const chips = rivals.map(r => {
           const name = (svcById[r.service_id] && svcById[r.service_id].name_ko) || r.service_id
-          const short = name.length > 6 ? name.slice(0, 6) + '…' : name
           const deltaEl = r.delta > 0 ? `<span class="rival-delta-up">+${r.delta}</span>`
                         : r.delta < 0 ? `<span class="rival-delta-down">${r.delta}</span>`
                         : `<span class="rival-delta-same">±0</span>`
+          const topicEl = r.topic ? `<span class="rival-topic">— ${esc(r.topic)}</span>` : ''
           return `<span class="rival-chip" data-svc="${esc(r.service_id)}">
-            <span class="rival-name">${esc(short)}</span>
+            <span class="rival-name">${esc(name)}</span>
+            ${topicEl}
             <span class="rival-cnt">${r.count}건</span>
             ${deltaEl}
           </span>`
         })
-        _intelRoll(rl, chips, 4, 5000)
+        _intelRoll(rl, chips, 1, 4000)
       }
     }
 

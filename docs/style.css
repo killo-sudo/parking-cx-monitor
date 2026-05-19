@@ -334,11 +334,12 @@ html, body {
 }
 .rival-chip { cursor: pointer; }
 .rival-chip:hover { background: var(--surface-3); }
-.rival-name { font-weight: 600; }
-.rival-cnt  { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); }
-.rival-delta-up   { font-size: 12px; color: #DC2626; }
-.rival-delta-down { font-size: 12px; color: var(--accent); }
-.rival-delta-same { font-size: 12px; color: var(--text-3); }
+.rival-name  { font-weight: 700; font-size: 15px; }
+.rival-topic { font-size: 13px; color: var(--text-2); }
+.rival-cnt   { font-size: 13px; color: var(--text-3); font-family: var(--f-mono); }
+.rival-delta-up   { font-size: 13px; color: #DC2626; }
+.rival-delta-down { font-size: 13px; color: var(--accent); }
+.rival-delta-same { font-size: 13px; color: var(--text-3); }
 
 /* 이벤트 */
 #events-list {

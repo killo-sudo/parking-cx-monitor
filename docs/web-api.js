@@ -347,17 +347,34 @@ window.api = {
     var data    = await _loadAll();
     var cutoff  = new Date(Date.now() -  7 * 86400000).toISOString().slice(0, 10);
     var cutoff2 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
-    var tw = {}, pw = {};
+    var RSTOP = new Set(['주차','이용','서비스','주차장','고객','주차권','안내','제공','관련','통해',
+                         '대한','진행','운영','기준','경우','이번','없음','완료','처리','가능','위해',
+                         '통한','하여','있는','있어','합니다','됩니다','모두','전체','일부','방법',
+                         '정보','내용','사항','부분','상황','결과','사업','기업','업체','회사','시장']);
+    function rtok(t) { return ((t||'').match(/[가-힣]{3,}|[A-Z]{2,}/g)||[]); }
+    var tw = {}, pw = {}, topicBag = {};
     data.items.forEach(function (item) {
       if (item.service_id === 'moduparking') return;
       var date = (item.collected_at||item.published_at||'').slice(0,10);
-      if (date >= cutoff)       { tw[item.service_id] = (tw[item.service_id]||0) + 1; }
-      else if (date >= cutoff2) { pw[item.service_id] = (pw[item.service_id]||0) + 1; }
+      if (date >= cutoff) {
+        tw[item.service_id] = (tw[item.service_id]||0) + 1;
+        if (!topicBag[item.service_id]) topicBag[item.service_id] = {};
+        rtok(item.title||'').forEach(function(w) {
+          if (RSTOP.has(w)) return;
+          topicBag[item.service_id][w] = (topicBag[item.service_id][w]||0) + 1;
+        });
+      } else if (date >= cutoff2) {
+        pw[item.service_id] = (pw[item.service_id]||0) + 1;
+      }
     });
     return Object.keys(tw)
       .map(function (sid) {
         var c = tw[sid], p = pw[sid]||0;
-        return { service_id: sid, count: c, prev: p, delta: c - p };
+        var bag = topicBag[sid]||{};
+        var topic = Object.keys(bag)
+          .sort(function(a,b){ return bag[b]-bag[a]; })
+          .slice(0, 2).join('·');
+        return { service_id: sid, count: c, prev: p, delta: c - p, topic: topic };
       })
       .sort(function (a, b) { return b.count - a.count; })
       .slice(0, 6);
