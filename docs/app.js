@@ -102,6 +102,7 @@ async function init () {
     renderServiceList()
     await renderSummary()
     await renderAppStats()
+    await renderIntelBar()
     updateLastUpdated()
 
     hideSplash()
@@ -574,7 +575,85 @@ async function doSearch () {
   }
 }
 
-// 수동 수집 제거 — 데이터 수집은 GitHub Actions 크론(매일 KST 04:00) 담당
+// ──────────────────────────────────────────────
+// 인텔리전스 바
+// ──────────────────────────────────────────────
+
+async function renderIntelBar () {
+  try {
+    const [keywords, rivals, events] = await Promise.all([
+      window.api.getTrendingKeywords(),
+      window.api.getCompetitorActivity(),
+      window.api.getUpcomingEvents(),
+    ])
+
+    // ── 급상승 키워드
+    const tl = $('trending-list')
+    if (tl) {
+      if (!keywords || keywords.length === 0) {
+        tl.innerHTML = '<span class="intel-loading">데이터 부족</span>'
+      } else {
+        tl.innerHTML = keywords.map((k, i) => {
+          const arrow = k.prev === 0 ? '<span class="trend-arrow-up">NEW</span>'
+                      : k.curr > k.prev ? '<span class="trend-arrow-up">▲</span>'
+                      : k.curr < k.prev ? '<span class="trend-arrow-down">▼</span>'
+                      : '<span class="trend-arrow-same">—</span>'
+          return `<span class="trend-chip">
+            <span class="trend-rank">${i+1}</span>
+            <span class="trend-word">${esc(k.word)}</span>
+            ${arrow}
+            <span class="trend-cnt">${k.curr}</span>
+          </span>`
+        }).join('')
+      }
+    }
+
+    // ── 경쟁사 동향
+    const rl = $('rival-list')
+    if (rl) {
+      if (!rivals || rivals.length === 0) {
+        rl.innerHTML = '<span class="intel-loading">데이터 부족</span>'
+      } else {
+        const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
+        rl.innerHTML = rivals.map(r => {
+          const name = (svcById[r.service_id] && svcById[r.service_id].name_ko) || r.service_id
+          const short = name.length > 6 ? name.slice(0, 6) + '…' : name
+          const deltaEl = r.delta > 0 ? `<span class="rival-delta-up">+${r.delta}</span>`
+                        : r.delta < 0 ? `<span class="rival-delta-down">${r.delta}</span>`
+                        : `<span class="rival-delta-same">±0</span>`
+          return `<span class="rival-chip">
+            <span class="rival-name">${esc(short)}</span>
+            <span class="rival-cnt">${r.count}건</span>
+            ${deltaEl}
+          </span>`
+        }).join('')
+      }
+    }
+
+    // ── 차주 예보
+    const el = $('events-list')
+    if (el) {
+      if (!events || events.length === 0) {
+        el.innerHTML = '<span class="events-empty">차주 예정 이벤트 없음</span>'
+      } else {
+        el.innerHTML = events.map(e => {
+          const cls = e.type === 'holiday' ? 'is-holiday' : 'is-alert'
+          const icon = e.type === 'holiday' ? '📅' : '🚗'
+          const dateStr = e.date ? e.date.slice(5) : ''
+          return `<span class="event-chip ${cls}">
+            ${icon}
+            <span class="event-date">${esc(dateStr)}</span>
+            <span class="event-name">${esc(e.name)}</span>
+          </span>`
+        }).join('')
+      }
+    }
+  } catch (_) {
+    // intel bar 실패해도 앱은 계속 동작
+  }
+}
+
+// 수동 수집 제거 — 데이터 수집은 GitHub Actions 크론(매일 KST 07:00) 담당
 
 // ──────────────────────────────────────────────
 // 헬퍼

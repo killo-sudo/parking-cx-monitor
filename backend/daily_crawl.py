@@ -921,12 +921,15 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
                     seen.add(href)
                     if not _brand_validate(service_id, title, desc):
                         continue
+                    _ct = classify_change_type(title, desc)
+                    if _ct == '기타':
+                        continue
                     disp = f"[카페:{cafe}] {title}" if cafe else title
                     results.append({
                         'service_id':   service_id,
                         'published_at': pub_str,
                         'source_type':  'cafe',
-                        'change_type':  classify_change_type(title, desc),
+                        'change_type':  _ct,
                         'title':        disp,
                         'summary':      _parking_summary(desc) or None,
                         'url':          href,
@@ -973,12 +976,15 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
 
                     if not _brand_validate(service_id, title, desc):
                         continue
+                    _ct = classify_change_type(title, desc)
+                    if _ct == '기타':
+                        continue
                     disp = f"[카페:{cafe}] {title}" if cafe else title
                     results.append({
                         'service_id':   service_id,
                         'published_at': pub_str,
                         'source_type':  'cafe',
-                        'change_type':  classify_change_type(title, desc),
+                        'change_type':  _ct,
                         'title':        disp,
                         'summary':      _parking_summary(desc) or None,
                         'url':          href,

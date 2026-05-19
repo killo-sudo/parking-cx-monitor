@@ -241,7 +241,97 @@ window.api = {
     return results;
   },
 
-  async getAppStats () { return await _loadAppInfo(); }
+  async getAppStats () { return await _loadAppInfo(); },
+
+  async getTrendingKeywords () {
+    var data = await _loadAll();
+    var now  = Date.now();
+    var d7   = new Date(now - 7  * 86400000).toISOString().slice(0, 10);
+    var d14  = new Date(now - 14 * 86400000).toISOString().slice(0, 10);
+    var STOP = new Set(['주차','이용','서비스','주차장','고객','주차권','안내','제공','관련','통해',
+                        '대한','진행','운영','기준','경우','이번','없음','완료','처리','가능','위해',
+                        '통한','하여','으로','에서','있는','있어','있습','합니다','됩니다','합니다']);
+    function tok (t) { return ((t||'').match(/[가-힣]{2,}/g)||[]); }
+    var thisW = {}, prevW = {};
+    data.items.forEach(function (item) {
+      var date = (item.collected_at||item.published_at||'').slice(0,10);
+      tok((item.title||'')+' '+(item.summary||'')).forEach(function (w) {
+        if (STOP.has(w)) return;
+        if (date >= d7)       { thisW[w] = (thisW[w]||0) + 1; }
+        else if (date >= d14) { prevW[w] = (prevW[w]||0) + 1; }
+      });
+    });
+    return Object.keys(thisW)
+      .filter(function (w) { return thisW[w] >= 2; })
+      .map(function (w) {
+        var c = thisW[w], p = prevW[w]||0;
+        return { word: w, curr: c, prev: p, score: c * (c / (p + 1)) };
+      })
+      .sort(function (a, b) { return b.score - a.score; })
+      .slice(0, 8);
+  },
+
+  async getCompetitorActivity () {
+    var data    = await _loadAll();
+    var cutoff  = new Date(Date.now() -  7 * 86400000).toISOString().slice(0, 10);
+    var cutoff2 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+    var tw = {}, pw = {};
+    data.items.forEach(function (item) {
+      if (item.service_id === 'moduparking') return;
+      var date = (item.collected_at||item.published_at||'').slice(0,10);
+      if (date >= cutoff)       { tw[item.service_id] = (tw[item.service_id]||0) + 1; }
+      else if (date >= cutoff2) { pw[item.service_id] = (pw[item.service_id]||0) + 1; }
+    });
+    return Object.keys(tw)
+      .map(function (sid) {
+        var c = tw[sid], p = pw[sid]||0;
+        return { service_id: sid, count: c, prev: p, delta: c - p };
+      })
+      .sort(function (a, b) { return b.count - a.count; })
+      .slice(0, 6);
+  },
+
+  async getUpcomingEvents () {
+    var KR_HOLIDAYS = [
+      {date:'2026-05-25', name:'부처님오신날', note:'주차 수요 증가 예상'},
+      {date:'2026-06-06', name:'현충일'},
+      {date:'2026-08-14', name:'광복절 연휴'},
+      {date:'2026-08-15', name:'광복절'},
+      {date:'2026-09-24', name:'추석 연휴'},
+      {date:'2026-09-25', name:'추석'},
+      {date:'2026-09-26', name:'추석 연휴'},
+      {date:'2026-09-27', name:'추석 연휴'},
+      {date:'2026-10-03', name:'개천절'},
+      {date:'2026-10-09', name:'한글날'},
+      {date:'2026-12-25', name:'크리스마스'},
+      {date:'2026-12-31', name:'연말'},
+      {date:'2027-01-01', name:'신정'},
+    ];
+    var today   = new Date().toISOString().slice(0,10);
+    var horizon = new Date(Date.now() + 14 * 86400000).toISOString().slice(0,10);
+    var events  = KR_HOLIDAYS.filter(function (h) {
+      return h.date >= today && h.date <= horizon;
+    }).map(function (h) { return Object.assign({type:'holiday'}, h); });
+
+    try {
+      var data = await _loadAll();
+      var EVENT_KW = ['공연','콘서트','축제','행사','이벤트','대회','마라톤','페스티벌','경기'];
+      var cutoff3  = new Date(Date.now() - 5 * 86400000).toISOString().slice(0,10);
+      var seen = {};
+      data.items.forEach(function (item) {
+        var date = (item.collected_at||item.published_at||'').slice(0,10);
+        if (date < cutoff3) return;
+        var text = ((item.title||'')+' '+(item.summary||'')).toLowerCase();
+        if (!EVENT_KW.some(function(k){ return text.includes(k); })) return;
+        var key = (item.title||'').slice(0,20);
+        if (seen[key]) return;
+        seen[key] = true;
+        events.push({date: date, name: (item.title||'').slice(0,22), type:'event', service: item.name_ko||''});
+      });
+    } catch (_) {}
+
+    return events.slice(0, 5);
+  }
 };
 
 console.info('[web-api] GitHub Pages + GIS 인증 모드');
