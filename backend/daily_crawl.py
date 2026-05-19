@@ -391,19 +391,20 @@ def crawl_appstore(source: dict) -> list[dict]:
     items: list[dict] = []
     for r in result:
         score  = r.get("score", 5)
-        pub_dt = r.get("at", datetime.now())
-        if not isinstance(pub_dt, datetime):
-            pub_dt = datetime.now()
-        if pub_dt.year < 2020:  # scraper timestamp misparse guard
-            pub_dt = datetime.now()
         if score > flag_below:
             continue
 
+        pub_raw = r.get("at")
+        if isinstance(pub_raw, datetime) and pub_raw.year >= 2020:
+            pub_date_str = pub_raw.strftime("%Y-%m-%d")
+        else:
+            pub_date_str = ""  # 날짜 불명 → 공란
+
         content = (r.get("content") or "")[:1000]
-        review_hash = hashlib.md5((content + pub_dt.strftime("%Y-%m-%d") + r.get('userName', '')).encode()).hexdigest()[:8]
+        review_hash = hashlib.md5((content + pub_date_str + r.get('userName', '')).encode()).hexdigest()[:8]
         items.append({
             "service_id":   sid,
-            "published_at": pub_dt.strftime("%Y-%m-%d"),
+            "published_at": pub_date_str,
             "source_type":  "appstore",
             "change_type":  "VOC",
             "title":        f"[Android ★{score}] {r.get('userName', '익명')}",
@@ -466,9 +467,10 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
 
             # iOS 리뷰는 날짜 정보가 'updated' 필드에 있음
             updated = entry.get("updated", {}).get("label", "")
-            pub_str = updated[:10] if updated else datetime.now().strftime("%Y-%m-%d")
-            if pub_str[:4] < "2020":  # year sanity guard
-                pub_str = datetime.now().strftime("%Y-%m-%d")
+            if updated and updated[:4] >= "2020":
+                pub_str = updated[:10]
+            else:
+                pub_str = ""  # 날짜 불명 → 공란
 
             review_hash = hashlib.md5((content + pub_str + author).encode()).hexdigest()[:8]
             items.append({
