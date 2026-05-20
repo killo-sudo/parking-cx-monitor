@@ -857,38 +857,42 @@ async function renderIntelBar () {
       }
     }
 
-    // ── 이벤트·마라톤 예보 (최대 10개, 4초마다 롤링)
+    // ── 이벤트 예보 (4초마다 1건씩 롤링)
     const el = $('events-list')
     if (el) {
       if (!events || events.length === 0) {
         el.innerHTML = '<span class="events-empty">예정 이벤트 없음</span>'
       } else {
-        const ETYPE_MAP = {
-          holiday: { cls: 'is-holiday',  icon: '📅' },
-          marathon:{ cls: 'is-marathon', icon: '🏃' },
-          popup:   { cls: 'is-alert',    icon: '🏪' },
-          concert: { cls: 'is-alert',    icon: '🎵' },
-          exhibit: { cls: 'is-alert',    icon: '🎨' },
-          festival:{ cls: 'is-alert',    icon: '🎉' },
-          event:   { cls: 'is-alert',    icon: '🎪' },
+        const CAT_INFO = {
+          festival: { cls: 'ev-cat-festival', label: '축제·행사' },
+          concert:  { cls: 'ev-cat-concert',  label: '공연·콘서트' },
+          exhibit:  { cls: 'ev-cat-exhibit',   label: '전시·MICE' },
+          holiday:  { cls: 'ev-cat-holiday',   label: '국가·공휴일' },
+          marathon: { cls: 'ev-cat-marathon',  label: '스포츠' },
+          popup:    { cls: 'ev-cat-popup',     label: '팝업스토어' },
+          event:    { cls: 'ev-cat-event',     label: '이벤트' },
         }
-        const chips = events.map(e => {
-          const et   = ETYPE_MAP[e.type] || ETYPE_MAP.event
-          const cls  = et.cls
-          const icon = et.icon
-          const dateStr = e.date ? e.date.slice(5) : ''
-          const locEl   = e.location ? `<span class="event-loc">📍${esc(e.location)}</span>` : ''
-          const noteEl  = e.note ? `<span class="event-note">${esc(e.note)}</span>` : ''
-          const urlAttr = e.url ? `data-url="${esc(e.url)}"` : ''
-          return `<span class="event-chip ${cls}" ${urlAttr} style="cursor:${e.url?'pointer':'default'}">
-            ${icon}
-            <span class="event-date">${esc(dateStr)}</span>
-            ${locEl}
-            <span class="event-name">${esc(e.name)}</span>
-            ${noteEl}
-          </span>`
+        const IMPACT_CLS = { '높음': 'ev-imp-high', '보통': 'ev-imp-mid', '낮음': 'ev-imp-low' }
+        const DDAY_CLS = d => d < 0 ? 'ev-dd-ongoing' : d === 0 ? 'ev-dd-today' : d <= 3 ? 'ev-dd-soon' : 'ev-dd-normal'
+
+        const cards = events.map(e => {
+          const cat     = CAT_INFO[e.type] || CAT_INFO.event
+          const impCls  = IMPACT_CLS[e.impact] || ''
+          const ddCls   = DDAY_CLS(e.dday)
+          const impEl   = e.impact ? `<span class="ev-impact ${impCls}">▲ ${esc(e.impact)}</span>` : ''
+          const venue   = [e.venue, e.region_1].filter(Boolean).join(' · ')
+          const venueEl = venue ? `<div class="ev-venue">📍${esc(venue)}</div>` : ''
+          return `<div class="ev-card">
+            <div class="ev-card-row">
+              <span class="ev-cat ${cat.cls}">${esc(cat.label)}</span>
+              ${impEl}
+              <span class="ev-dday ${ddCls}">${esc(e.ddayLabel)}</span>
+            </div>
+            <div class="ev-title">${esc(e.name)}</div>
+            ${venueEl}
+          </div>`
         })
-        _intelRoll(el, chips, 1, 4000)
+        _intelRoll(el, cards, 1, 4000)
       }
     }
     _setupIntelClicks()

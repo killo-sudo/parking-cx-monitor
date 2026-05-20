@@ -418,103 +418,82 @@ window.api = {
   },
 
   async getUpcomingEvents () {
-    var KR_HOLIDAYS = [
-      {date:'2026-05-25', name:'부처님오신날', note:'연등행렬·법회'},
-      {date:'2026-06-03', name:'지방선거', note:'투표·교통 혼잡'},
-      {date:'2026-06-06', name:'현충일', note:'추모 행사'},
-      {date:'2026-08-14', name:'광복절 연휴', note:'귀향 차량 증가'},
-      {date:'2026-08-15', name:'광복절', note:'행사·집회'},
-      {date:'2026-09-24', name:'추석 연휴', note:'귀성 차량 증가'},
-      {date:'2026-09-25', name:'추석', note:'명절'},
-      {date:'2026-09-26', name:'추석 연휴', note:'귀경 차량 증가'},
-      {date:'2026-09-27', name:'추석 연휴', note:'귀경 차량 증가'},
-      {date:'2026-10-03', name:'개천절'},
-      {date:'2026-10-09', name:'한글날'},
-      {date:'2026-12-25', name:'크리스마스', note:'쇼핑몰 주차 혼잡'},
-      {date:'2026-12-31', name:'연말', note:'카운트다운 행사'},
-      {date:'2027-01-01', name:'신정'},
-    ];
+    var CAT_TYPE = {
+      '축제·행사':  'festival',
+      '공연·콘서트':'concert',
+      '전시·MICE':  'exhibit',
+      '국가·공휴일':'holiday',
+      '스포츠':     'marathon',
+      '팝업스토어': 'popup',
+    };
 
-    /* 지역명 추출용 */
-    var REGIONS = [
-      '서울','부산','대구','인천','광주','대전','울산','수원','성남','제주',
-      '강남','강북','종로','마포','홍대','여의도','광화문','잠실','코엑스',
-      '한강','강릉','전주','춘천','경기','인천공항','김포','속초','경주',
-      '상암','송도','성수','을지로','명동','동대문','신촌','이태원'
-    ];
-    function extractLoc (text) {
-      for (var i = 0; i < REGIONS.length; i++) {
-        if (text.includes(REGIONS[i])) return REGIONS[i];
-      }
-      return null;
+    var todayStr = new Date().toISOString().slice(0, 10);
+
+    function calcDday (sd, ed) {
+      var s = new Date(sd + 'T00:00:00');
+      var e = new Date((ed || sd) + 'T00:00:00');
+      var t = new Date(todayStr + 'T00:00:00');
+      // 진행 중
+      if (s <= t && e >= t) return { n: -1, label: '진행중' };
+      var diff = Math.round((s - t) / 86400000);
+      if (diff === 0) return { n: 0, label: 'D-day!' };
+      if (diff > 0)   return { n: diff, label: 'D-' + diff };
+      return null; // 이미 종료
     }
 
-    /* 제목 키워드로 이벤트 유형 자동 분류 */
-    function classifyEvent (title) {
-      var t = title || '';
-      if (/마라톤|달리기 대회|런 대회|하프마라톤/.test(t)) return 'marathon';
-      if (/팝업|팝-업|pop.?up/i.test(t))                   return 'popup';
-      if (/콘서트|공연|뮤지컬|페스티벌|페스타|쇼케이스/.test(t)) return 'concert';
-      if (/전시|박람회|아트페어|갤러리|아트 페어/.test(t))  return 'exhibit';
-      if (/축제|불꽃|불꽃놀이|플리마켓|마켓|카니발/.test(t)) return 'festival';
-      return 'event';
-    }
-
-    /* 5일 전 ~ 21일 후 창 (진행 중 이벤트 포함) */
-    var _now = new Date();
-    var fromStr  = new Date(_now.getTime() - 5 * 86400000).toISOString().slice(0, 10);
-    var toStr    = new Date(_now.getTime() + 21 * 86400000).toISOString().slice(0, 10);
-    var cutoff14 = new Date(_now.getTime() - 14 * 86400000).toISOString().slice(0, 10);
-
-    /* 공휴일 (5일 전 ~ 21일 후) */
-    var events = KR_HOLIDAYS.filter(function (h) {
-      return h.date >= fromStr && h.date <= toStr;
-    }).map(function (h) {
-      return Object.assign({ type:'holiday', url: 'https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(h.name + ' 행사') }, h);
-    });
-
+    /* events.json 우선 로드 */
     try {
-      var data = await _loadAll();
-
-      /* Phase 1: 토픽별 기사 수 집계 — service_id=events 뉴스만 */
-      var topicMap = {};
-      data.items.forEach(function (item) {
-        if (item.service_id !== 'events') return;
-        var date = (item.collected_at||item.published_at||'').slice(0,10);
-        if (date < cutoff14) return;
-
-        var key = (item.title||'').slice(0, 15);
-        if (!topicMap[key]) topicMap[key] = { count: 0, item: item };
-        topicMap[key].count++;
-      });
-
-      /* Phase 2: 기사 수 내림차순 → 이벤트 유형 자동 분류 후 추가 */
-      Object.keys(topicMap).forEach(function (k) {
-        var entry  = topicMap[k];
-        var item   = entry.item;
-        var text   = (item.title||'') + ' ' + (item.summary||'');
-        var loc    = extractLoc(text);
-        var name   = (item.title||'').replace(/<[^>]+>/g, '').trim();
-        var etype  = classifyEvent(name);
-        events.push({
-          date:     (item.published_at||item.collected_at||'').slice(0,10),
-          name:     name,
-          location: loc,
-          type:     etype,
-          url:      item.url || ('https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(name)),
-          count:    entry.count,
-        });
-      });
+      var resp = await fetch('events.json?t=' + Date.now());
+      if (resp.ok) {
+        var evData = await resp.json();
+        if (evData.ok && evData.events && evData.events.length > 0) {
+          var result = [];
+          evData.events.forEach(function (ev) {
+            var dd = calcDday(ev.start_date, ev.end_date);
+            if (!dd) return;
+            result.push({
+              name:       ev.title,
+              category:   ev.category,
+              type:       CAT_TYPE[ev.category] || 'event',
+              start_date: ev.start_date,
+              end_date:   ev.end_date,
+              venue:      ev.venue,
+              region_1:   ev.region_1,
+              region_2:   ev.region_2,
+              impact:     ev.impact,
+              dday:       dd.n,
+              ddayLabel:  dd.label,
+              traffic_control: ev.traffic_control,
+            });
+          });
+          if (result.length > 0) return result;
+        }
+      }
     } catch (_) {}
 
-    /* 공휴일 날짜순 → 나머지 기사수 내림차순 */
-    events.sort(function (a, b) {
-      if (a.type === 'holiday' && b.type !== 'holiday') return -1;
-      if (b.type === 'holiday' && a.type !== 'holiday') return  1;
-      if (a.type === 'holiday') return (a.date||'').localeCompare(b.date||'');
-      return (b.count||0) - (a.count||0);
-    });
-    return events.slice(0, 10);
+    /* fallback: 공휴일 하드코딩 */
+    var KR_HOLIDAYS = [
+      {date:'2026-06-03', name:'지방선거',    note:'투표·교통 혼잡'},
+      {date:'2026-06-06', name:'현충일',      note:'추모 행사'},
+      {date:'2026-08-15', name:'광복절',      note:'행사·집회'},
+      {date:'2026-09-25', name:'추석',        note:'명절'},
+      {date:'2026-10-03', name:'개천절'},
+      {date:'2026-10-09', name:'한글날'},
+      {date:'2026-12-25', name:'크리스마스',  note:'쇼핑몰 주차 혼잡'},
+      {date:'2026-12-31', name:'연말',        note:'카운트다운 행사'},
+    ];
+    var fromStr = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
+    var toStr   = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10);
+    return KR_HOLIDAYS
+      .filter(function (h) { return h.date >= fromStr && h.date <= toStr; })
+      .map(function (h) {
+        var dd = calcDday(h.date, h.date);
+        return {
+          name: h.name, type: 'holiday', category: '국가·공휴일',
+          start_date: h.date, end_date: h.date,
+          impact: '높음', dday: dd ? dd.n : 0, ddayLabel: dd ? dd.label : '',
+        };
+      });
   }
 };
 

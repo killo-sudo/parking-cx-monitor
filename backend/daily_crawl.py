@@ -1409,6 +1409,13 @@ def run() -> dict:
     except Exception as e:
         print(f"[WARN] docs/data.json 생성 실패: {e}")
 
+    # ── docs/events.json 생성 (이벤트 마스터 Sheets → 정적 파일) ──
+    try:
+        import events_export as _ev
+        _ev.export_events_json()
+    except Exception as e:
+        print(f"[WARN] docs/events.json 생성 실패: {e}")
+
     # ── app_info.json 스냅샷 갱신 (Railway 클라우드 폴백용) ──
     try:
         import json as _json

@@ -99,21 +99,16 @@
   border-color: var(--border);
   color: var(--text-2);
 }
-[data-theme="dark"] .event-chip.is-holiday {
-  background: #1E3A5F;
-  border-color: #2A4A7F;
-  color: #93C5FD;
-}
-[data-theme="dark"] .event-chip.is-alert {
-  background: #2D2000;
-  border-color: #4A3800;
-  color: #FCD34D;
-}
-[data-theme="dark"] .event-chip.is-marathon {
-  background: #052E16;
-  border-color: #166534;
-  color: #86EFAC;
-}
+[data-theme="dark"] .ev-cat-festival { background: #2D1B0A; color: #FB923C; border-color: #5C2A0A; }
+[data-theme="dark"] .ev-cat-concert  { background: #1E1535; color: #A78BFA; border-color: #4C2E9A; }
+[data-theme="dark"] .ev-cat-exhibit  { background: #152040; color: #93C5FD; border-color: #1E3A6E; }
+[data-theme="dark"] .ev-cat-holiday  { background: #2D1515; color: #FCA5A5; border-color: #5C1E1E; }
+[data-theme="dark"] .ev-cat-marathon { background: #052E16; color: #86EFAC; border-color: #166534; }
+[data-theme="dark"] .ev-cat-popup    { background: #2D2000; color: #FCD34D; border-color: #4A3800; }
+[data-theme="dark"] .ev-cat-event    { background: #1A1E2A; color: #9CA3AF; border-color: #2A3A52; }
+[data-theme="dark"] .ev-dd-ongoing   { background: #152040; color: #93C5FD; }
+[data-theme="dark"] .ev-dd-today     { background: #2D1515; color: #FCA5A5; }
+[data-theme="dark"] .ev-dd-soon      { background: #2D2000; color: #FCD34D; }
 [data-theme="dark"] .card-summary {
   color: #D1D9E6;
 }
@@ -350,41 +345,80 @@ html, body {
 #events-list {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: 5px;
   align-items: center;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
-.event-chip {
-  display: inline-flex;
+.ev-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 2px 6px;
+  min-width: 0;
+  max-width: 340px;
+}
+.ev-card-row {
+  display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 14px;
+  flex-wrap: nowrap;
+}
+.ev-cat {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ev-cat-festival { background: #FFF7ED; color: #C2410C; border-color: #FED7AA; }
+.ev-cat-concert  { background: #F5F3FF; color: #7C3AED; border-color: #DDD6FE; }
+.ev-cat-exhibit  { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; }
+.ev-cat-holiday  { background: #FEF2F2; color: #B91C1C; border-color: #FECACA; }
+.ev-cat-marathon { background: #F0FDF4; color: #15803D; border-color: #BBF7D0; }
+.ev-cat-popup    { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }
+.ev-cat-event    { background: #F8FAFC; color: #475569; border-color: #E2E8F0; }
+.ev-impact {
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ev-imp-high { color: #DC2626; }
+.ev-imp-mid  { color: #D97706; }
+.ev-imp-low  { color: #059669; }
+.ev-dday {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--f-mono);
+  padding: 1px 6px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.ev-dd-ongoing { background: #EFF6FF; color: #1D4ED8; }
+.ev-dd-today   { background: #FEF2F2; color: #B91C1C; }
+.ev-dd-soon    { background: #FFFBEB; color: #B45309; }
+.ev-dd-normal  { background: var(--surface-3); color: var(--text-3); }
+.ev-title {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-1);
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
 }
-.event-chip.is-holiday {
-  background: var(--accent-bg);
-  border-color: #BFDBFE;
-  color: #1E40AF;
+.ev-venue {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.event-chip.is-alert {
-  background: #FFFBEB;
-  border-color: #FDE68A;
-  color: #92400E;
-}
-.event-chip.is-marathon {
-  background: #F0FDF4;
-  border-color: #86EFAC;
-  color: #166534;
-}
-.event-date { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); }
-.event-name { font-weight: 600; }
-.event-loc  { font-size: 12px; color: var(--accent); font-weight: 700; }
-.event-note { font-size: 12px; color: var(--text-3); }
 .events-empty { font-size: 13px; color: var(--text-3); }
 
 /* ─────────────────────────────────────────────
