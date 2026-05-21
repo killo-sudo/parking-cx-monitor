@@ -122,11 +122,13 @@ def crawl_rss(source: dict, services: list[dict]) -> list[dict]:
                         if len(fetched) > len(summary) and fetched_has_brand:
                             summary = fetched
 
-                    # 주차·브랜드 관련성 이중 검증
+                    # 주차·브랜드 관련성 삼중 검증 (브랜드 + 관련성 + 주차 키워드 필수)
                     if not _is_relevant(title, summary, svc):
                         continue
                     if not _brand_validate(sid, title, summary):
                         continue
+                    if not _has_parking_kw(title + " " + summary):
+                        continue  # 브랜드 언급은 있으나 주차 무관 글 차단
 
                     # 뉴스 전문 추출 (요약과 별도)
                     full_text = _fetch_article_text(link, max_chars=3000) if link else ""
@@ -180,6 +182,17 @@ _PARKING_KW = [
 
 # 뉴스/블로그 수집 시 제외할 키워드 (카셰어링·대리운전·택시 관련 혼입 방지)
 _NEWS_EXCLUDE_KW = {"그린카", "쏘카", "피플카", "대리", "택시"}
+
+# 모빌리티 통합 앱(카카오T/Tmap) 리뷰 — 주차 키워드 없으면 제외
+_PARKING_FILTERED_REVIEW_SVCS = {"kakaot_parking", "tmap_parking"}
+
+
+def _has_parking_kw(text: str) -> bool:
+    """본문에 주차 관련 키워드 1개 이상 포함 여부."""
+    if not text:
+        return False
+    t = text.lower()
+    return any(kw in t for kw in _PARKING_KW)
 
 
 def _brand_validate(service_id: str, title: str, desc: str) -> bool:
@@ -268,6 +281,11 @@ def crawl_appstore(source: dict) -> list[dict]:
         pub_date_str = pub_raw.strftime("%Y-%m-%d")
 
         content = (r.get("content") or "")[:1000]
+
+        # 모빌리티 통합 앱(카카오T/Tmap) — 본문에 주차 키워드 없으면 제외
+        if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(content):
+            continue
+
         review_hash = hashlib.md5((content + pub_date_str + r.get('userName', '')).encode()).hexdigest()[:8]
         items.append({
             "service_id":   sid,
@@ -337,6 +355,10 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
             if not updated or updated[:4] < "2020":
                 continue  # 날짜 불명 → 제외
             pub_str = updated[:10]
+
+            # 모빌리티 통합 앱(카카오T/Tmap) — 본문·제목에 주차 키워드 없으면 제외
+            if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(title + " " + content):
+                continue
 
             review_hash = hashlib.md5((content + pub_str + author).encode()).hexdigest()[:8]
             items.append({
@@ -520,6 +542,10 @@ def crawl_naver_search(source: dict) -> list[dict]:
                         pass
 
                 if not _brand_validate(service_id, title, desc):
+                    continue
+
+                # 주차 키워드 필수 — 브랜드만 일치하고 주차 무관한 글 차단
+                if not _has_parking_kw(title + " " + desc):
                     continue
 
                 ct = classify_change_type(title, desc)
