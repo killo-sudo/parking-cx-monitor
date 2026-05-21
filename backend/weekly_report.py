@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 weekly_report.py — THE PARKING GAZETTE 주간 리포트 생성기
-매주 화요일 11:00 KST (UTC 02:00) GitHub Actions 자동 실행
+매주 월요일 09:15 KST (UTC 00:15) GitHub Actions 자동 실행
 """
 
 import html as html_lib
@@ -87,26 +87,34 @@ def save_meta(meta: dict):
     )
 
 
-def advance_meta(meta: dict) -> tuple:
-    today = date.today()
-    cur_year = today.year % 100
-    if meta["year"] != cur_year:
-        year, week_num = cur_year, 1
+def advance_meta(meta: dict, to_dt: date) -> tuple:
+    """ISO 캘린더 주차 기준. issue_total은 누적 발행 호수."""
+    iso_year, iso_week, _ = to_dt.isocalendar()
+    year     = iso_year % 100
+    week_num = iso_week
+    # 같은 주차 재실행 시 issue_total은 증가시키지 않음
+    last_y = meta.get("year")
+    last_w = meta.get("week_num")
+    if last_y == year and last_w == week_num:
+        issue_total = meta.get("issue_total", 1)
     else:
-        year     = meta["year"]
-        week_num = meta["week_num"] + 1
-    issue_total = meta["issue_total"] + 1
+        issue_total = meta.get("issue_total", 0) + 1
     return year, week_num, issue_total
 
 
-def get_period(meta: dict) -> tuple:
-    to_dt = date.today()
-    if meta["last_report_date"]:
-        from_dt = parse_date(meta["last_report_date"])
-        if from_dt is None:
-            from_dt = to_dt - timedelta(days=7)
+def get_period() -> tuple:
+    """월요일 실행 기준 '지난 7일'.
+    - 월요일 자동 실행 시: 어제(일) 기준 지난 7일 → 지난 주 Mon~Sun에 해당
+    - 다른 요일 수동 실행 시: 오늘 포함 지난 7일 (Rolling 7-day window)
+    이렇게 하면 'WEEK xx · 전주' 라벨이 데이터와 일치한다.
+    """
+    today = date.today()
+    if today.weekday() == 0:  # 월요일
+        to_dt   = today - timedelta(days=1)   # 어제(일요일)
+        from_dt = to_dt - timedelta(days=6)   # 지난 월요일
     else:
-        from_dt = to_dt - timedelta(days=7)
+        to_dt   = today
+        from_dt = to_dt - timedelta(days=6)
     return from_dt, to_dt
 
 
@@ -115,9 +123,16 @@ def get_period(meta: dict) -> tuple:
 # ─────────────────────────────────────────────
 
 def filter_period(items: list, from_dt: date, to_dt: date) -> list:
+    """기간 필터 — 리뷰는 수집일(collected_at) 기준, 그 외는 발행일(published_at) 기준.
+    리뷰는 작성일이 수개월 전이어도 최근 수집되었으면 이번 주에 포함시킨다.
+    """
     result = []
     for item in items:
-        dt = parse_date(item.get("published_at") or item.get("collected_at", ""))
+        src = item.get("source_type", "")
+        if src in REVIEW_TYPES:
+            dt = parse_date(item.get("collected_at", "")) or parse_date(item.get("published_at", ""))
+        else:
+            dt = parse_date(item.get("published_at", "")) or parse_date(item.get("collected_at", ""))
         if dt and from_dt <= dt <= to_dt:
             result.append(item)
     return result
@@ -133,7 +148,7 @@ def pick_top_story(items: list) -> dict | None:
         if i.get("service_id") == "moduparking":
             s += 10
         ct = i.get("change_type", "")
-        if ct in ("사업확장", "정책", "제휴"):
+        if ct in ("사업확장", "정책"):
             s += 5
         if i.get("sentiment") == "negative":
             s += 3
@@ -225,7 +240,7 @@ def pick_news_briefs(items: list, n=5) -> list:
                   and i.get("service_id") != "moduparking"
                   and i.get("title") and len(i.get("title") or "") > 5]
     candidates.sort(key=lambda i: (
-        i.get("change_type", "") in ("사업확장", "정책", "제휴"),
+        i.get("change_type", "") in ("사업확장", "정책"),
         len(i.get("summary") or ""),
     ), reverse=True)
     return candidates[:n]
@@ -337,9 +352,10 @@ def badge_html(label: str, cls: str) -> str:
 
 
 def change_badge(ct: str) -> str:
+    # 카테고리: VOC / 기술 / 정책 / 사업확장 / 기타 (5개)
     MAP = {
         "VOC": "voc", "기술": "tech", "정책": "policy",
-        "사업확장": "biz", "제휴": "partner", "기타": "",
+        "사업확장": "biz", "기타": "",
     }
     cls = MAP.get(ct, "")
     if not cls:
@@ -453,11 +469,11 @@ def render_masthead(year: int, week_num: int, issue_total: int,
   </div>
   <div class="masthead-title">
     <h1><span class="the">The</span>PARKING&nbsp;GAZETTE</h1>
-    <div class="masthead-tag">A Weekly Dispatch on Parking, Mobility &amp; Customer Voice — Published Every Tuesday by the Modu Newsroom</div>
+    <div class="masthead-tag">A Weekly Dispatch on Parking, Mobility &amp; Customer Voice — Published Every Monday by the Modu Newsroom</div>
   </div>
   <div class="masthead-meta">
     <div class="left">
-      <span class="coverage">Coverage Period : {esc(period)} (Mon–Sun)</span>
+      <span class="coverage">Coverage Period : {esc(period)} · 지난 7일</span>
     </div>
     <div class="center">
       <span class="week-badge"><span>WEEK</span><span class="num">{esc(vol_tag)}</span></span>
@@ -810,7 +826,7 @@ def render_wire(items: list) -> str:
   <span class="nm">모카 기자</span>
   <span>· NEWS DESK</span>
 </div>
-<div class="col-deck">이번 주 업계 보도 — 사업 확장 · 제휴 · 정책 · 기술</div>
+<div class="col-deck">이번 주 업계 보도 — 사업확장 · 정책 · 기술</div>
 <div class="wire-list">{items_html}</div>"""
 
 
@@ -820,12 +836,12 @@ def render_sources(from_dt: date, to_dt: date, total: int, year: int, week_num: 
 <div class="sources">
   <div>
     <h5>Coverage &amp; Methodology</h5>
-    <p>기간: {esc(str(from_dt))} ~ {esc(str(to_dt))}<br>
-    총 {total:,}건 수집. 수집 채널: Google Play 리뷰 스크레이퍼, iTunes RSS API, 네이버 검색 API (뉴스·블로그), Google News RSS, HTML 변경 감지.</p>
+    <p>기간: {esc(str(from_dt))} ~ {esc(str(to_dt))} (전주 Mon~Sun)<br>
+    총 {total:,}건 수집. 수집 채널: Google Play 리뷰 스크레이퍼, iTunes RSS API, 네이버 검색 API (뉴스·블로그), Google News RSS.</p>
   </div>
   <div>
     <h5>Data Freshness</h5>
-    <p>본 리포트는 GitHub Actions에서 매주 화요일 KST 11:00 자동 생성됩니다. 수집 주기: 매일 07:15 KST.</p>
+    <p>본 리포트는 GitHub Actions에서 매주 월요일 KST 09:15 자동 생성됩니다. 수집 주기: 매일 07:15 KST.</p>
   </div>
   <div>
     <h5>Disclaimer</h5>
@@ -1304,8 +1320,8 @@ def render_full_html(items, year, week_num, issue_total,
 
 def main():
     meta = load_meta()
-    year, week_num, issue_total = advance_meta(meta)
-    from_dt, to_dt = get_period(meta)
+    from_dt, to_dt = get_period()
+    year, week_num, issue_total = advance_meta(meta, to_dt)
 
     print(f"[gazette] {year:02d}Y {week_num}W · Issue #{issue_total:03d}")
     print(f"[gazette] period: {from_dt} ~ {to_dt}")
