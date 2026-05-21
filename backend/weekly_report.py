@@ -246,18 +246,65 @@ def pick_news_briefs(items: list, n=5) -> list:
     return candidates[:n]
 
 
+# ─────────────────────────────────────────────
+# 한국어 명사 추출 (kiwipiepy 형태소 분석기)
+# ─────────────────────────────────────────────
+
+# 명사로 분석되지만 키워드로 의미 없는 단어 (브랜드명·일반어 등)
+_NOUN_EXTRA_STOPWORDS = {
+    "앱", "어플", "이용", "사용", "정말", "진짜", "너무", "그냥", "제발",
+    "부탁", "감사", "고맙", "현장", "실제", "이후", "이전", "지금",
+    "오늘", "어제", "내일", "올해", "작년",
+    "때문", "경우", "이번", "다음", "지난",
+    "전혀", "조금", "많이", "자꾸", "계속", "다시", "또한",
+    "사실", "확실", "정확", "분명", "그것", "이것",
+}
+
+
+def _get_kiwi():
+    """kiwipiepy 인스턴스 lazy 초기화. 설치 안 됐으면 None."""
+    if not hasattr(_get_kiwi, "_inst"):
+        try:
+            from kiwipiepy import Kiwi
+            _get_kiwi._inst = Kiwi()
+        except Exception:
+            _get_kiwi._inst = None
+    return _get_kiwi._inst
+
+
+def _extract_nouns(text: str) -> list:
+    """본문에서 명사(NNG/NNP)만 추출. kiwipiepy 없으면 regex fallback.
+    공통 stopword·조사 제거 + 2글자 이상.
+    """
+    if not text:
+        return []
+    kiwi = _get_kiwi()
+    if kiwi is not None:
+        try:
+            tokens = kiwi.tokenize(text)
+            return [t.form for t in tokens
+                    if t.tag in ("NNG", "NNP")          # 일반명사·고유명사만
+                    and len(t.form) >= 2
+                    and t.form not in KO_STOPWORDS
+                    and t.form not in _NOUN_EXTRA_STOPWORDS]
+        except Exception:
+            pass
+    # Fallback: regex (덜 정확하나 작동)
+    pat = re.compile(r"[가-힣]{2,7}")
+    return [w for w in pat.findall(text)
+            if w not in KO_STOPWORDS and w not in _NOUN_EXTRA_STOPWORDS]
+
+
 def extract_keywords(items: list, top_n=22) -> list:
-    """한국어 텍스트에서 2글자 이상 단어 빈도 추출 + 감성 레이블."""
+    """한국어 명사 빈출 키워드 + 감성 레이블 (kiwipiepy 형태소 분석)."""
     token_sentiment = defaultdict(list)
-    pattern = re.compile(r"[가-힣]{2,7}")
     for item in items:
         text = " ".join(filter(None, [
             item.get("title", ""), item.get("summary", "")
         ]))
         sent = item.get("sentiment", "neutral")
-        for tok in pattern.findall(text):
-            if tok not in KO_STOPWORDS:
-                token_sentiment[tok].append(sent)
+        for tok in _extract_nouns(text):
+            token_sentiment[tok].append(sent)
 
     # Top N by count
     counts = Counter({k: len(v) for k, v in token_sentiment.items()})
@@ -610,18 +657,16 @@ def count_competitor_events(items: list) -> dict:
 
 
 def extract_neg_keywords(items: list, top_n: int = 30) -> list:
-    """자사 부정 리뷰의 빈출 키워드 (신규 키워드 비교용)."""
+    """자사 부정 리뷰의 빈출 명사 키워드 (신규 키워드 비교용, kiwipiepy)."""
     neg = [i for i in items
            if i.get("service_id") == "moduparking"
            and i.get("source_type") in REVIEW_TYPES
            and i.get("sentiment") == "negative"]
-    pat = re.compile(r"[가-힣]{2,7}")
     counts: dict[str, int] = {}
     for r in neg:
         text = (r.get("title", "") + " " + (r.get("summary") or ""))
-        for tok in pat.findall(text):
-            if tok not in KO_STOPWORDS:
-                counts[tok] = counts.get(tok, 0) + 1
+        for tok in _extract_nouns(text):
+            counts[tok] = counts.get(tok, 0) + 1
     return [k for k, _ in sorted(counts.items(), key=lambda x: -x[1])[:top_n]]
 
 

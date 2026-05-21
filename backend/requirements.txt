@@ -7,3 +7,4 @@ python-dateutil==2.9.0
 flask>=3.0.0
 gspread>=6.0.0
 google-auth>=2.0.0
+kiwipiepy>=0.18.0
