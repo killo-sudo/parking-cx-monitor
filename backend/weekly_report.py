@@ -121,16 +121,13 @@ def get_period() -> tuple:
 # ─────────────────────────────────────────────
 
 def filter_period(items: list, from_dt: date, to_dt: date) -> list:
-    """기간 필터 — 리뷰는 수집일(collected_at) 기준, 그 외는 발행일(published_at) 기준.
-    리뷰는 작성일이 수개월 전이어도 최근 수집되었으면 이번 주에 포함시킨다.
+    """기간 필터 — 모든 항목 게시일/작성일(published_at) 기준.
+    리뷰는 리뷰 작성일, 뉴스·블로그는 기사 게시일이 from_dt~to_dt 범위 안에 있어야 포함.
+    수집일(collected_at)은 사용하지 않는다 (실제 사건 발생 주차 기준 집계).
     """
     result = []
     for item in items:
-        src = item.get("source_type", "")
-        if src in REVIEW_TYPES:
-            dt = parse_date(item.get("collected_at", "")) or parse_date(item.get("published_at", ""))
-        else:
-            dt = parse_date(item.get("published_at", "")) or parse_date(item.get("collected_at", ""))
+        dt = parse_date(item.get("published_at", ""))
         if dt and from_dt <= dt <= to_dt:
             result.append(item)
     return result
@@ -382,8 +379,12 @@ def stars_html(rating: float | None) -> str:
 # Archive nav
 # ─────────────────────────────────────────────
 
+MIN_WEEK_DISPLAYED = 20  # 19주차 이하는 표시 안 함 (사용자 요청)
+
+
 def render_archive_nav(meta: dict, year: int, week_num: int) -> str:
-    issues = meta.get("issues", [])
+    issues = [i for i in meta.get("issues", [])
+              if i.get("week_num", 0) >= MIN_WEEK_DISPLAYED]
     cur_year_str = f"{year:02d}"
 
     # Past issues by year
@@ -407,12 +408,12 @@ def render_archive_nav(meta: dict, year: int, week_num: int) -> str:
         f'<span class="now">WEEK {cur_year_str}Y · {week_num}W</span>'
     )
 
-    # Week pills — past issues are linked, current is live, future are scheduled
+    # Week pills — 20주차부터만 표시
     past_set = {(iss.get("year"), iss.get("week_num")): iss.get("file", "#")
                 for iss in issues}
     pills_html = ""
     max_week = max(week_num, max((iss.get("week_num", 0) for iss in issues), default=0))
-    for w in range(1, max_week + 3):
+    for w in range(MIN_WEEK_DISPLAYED, max_week + 3):
         key = (year, w)
         if w == week_num:
             pills_html += (
@@ -1248,30 +1249,33 @@ def render_sources(from_dt: date, to_dt: date, total: int, year: int, week_num: 
 
 CSS = """
 :root {
+  /* 브라운 페이퍼 베이스 + 좋은=파랑, 안좋은=빨강 시맨틱 */
   --ink: #0b0b0c;
   --ink-2: #1f2024;
-  --muted: #5b6068;
+  --muted: #6b6055;        /* 브라운 톤 muted */
   --rule: #0b0b0c;
-  --paper: #f4efe6;
-  --paper-2: #ece6da;
-  --card: #ffffff;
-  --slate-50: #f5f7fa;
-  --slate-100: #eef1f5;
-  --slate-200: #dbe0e7;
-  --slate-300: #c1c8d2;
-  --slate-500: #6c7480;
-  --slate-700: #2f3640;
-  --slate-900: #14171c;
-  --blue-700: #1d4ed8;
+  --paper: #ebe1cf;        /* 브라운 페이퍼 (warmer) */
+  --paper-2: #ddd0b9;      /* 더 진한 브라운 (footer) */
+  --card: #faf6ed;         /* 카드 배경 — 살짝 따뜻 */
+  --slate-50: #f3eee4;     /* 슬레이트 변형 — 브라운 톤 */
+  --slate-100: #ebe5d8;
+  --slate-200: #d8cfbe;
+  --slate-300: #b9ad97;
+  --slate-500: #6c6555;
+  --slate-700: #38322a;
+  --slate-900: #14110d;
+  --blue-700: #1d4ed8;     /* 좋은 신호 (POS / 자사 강점) */
   --blue-800: #1e3a8a;
+  --blue-50:  #dbeafe;
   --cyan-500: #06b6d4;
   --cyan-600: #0891b2;
   --cyan-50:  #ecfeff;
-  --red-600:  #dc2626;
+  --red-600:  #dc2626;     /* 안좋은 신호 (NEG / VOC 부정) */
   --red-50:   #fef2f2;
-  --emerald-600: #059669;
-  --emerald-50:  #ecfdf5;
-  --amber-500: #d97706;
+  /* 좋은 신호도 파란색으로 통일 (사용자 요청) */
+  --emerald-600: #1d4ed8;
+  --emerald-50:  #dbeafe;
+  --amber-500: #c08840;    /* 브라운 톤 앰버 */
 }
 
 * { box-sizing: border-box; }
@@ -1336,7 +1340,7 @@ a:hover { text-decoration: underline; }
 .week-tabs::-webkit-scrollbar-thumb { background: #2a2c33; }
 .week-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #15171c; border: 1px solid #2a2c33; color: #888c95; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 500; letter-spacing: .08em; cursor: pointer; transition: all .12s ease; }
 .week-pill:hover { color: #fff; border-color: #4a4d55; background: #1f2127; }
-.week-pill.live { background: #fff; color: var(--ink); border-color: #fff; font-weight: 700; }
+.week-pill.live { background: var(--card); color: var(--ink); border-color: #fff; font-weight: 700; }
 .week-pill.live::before { content: ""; width: 6px; height: 6px; background: var(--red-600); border-radius: 50%; animation: pulse 1.4s ease-in-out infinite; }
 .week-pill.scheduled { border-style: dashed; border-color: #2a2c33; color: #5a5d65; }
 .week-pill .lbl { font-family: "IBM Plex Mono", monospace; }
@@ -1353,7 +1357,7 @@ a:hover { text-decoration: underline; }
 .byline-inline .by { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: .04em; }
 
 /* MASTHEAD */
-.masthead { border-bottom: 2px solid var(--ink); padding: 18px 32px 22px; background: #fff; }
+.masthead { border-bottom: 2px solid var(--ink); padding: 18px 32px 22px; background: var(--card); }
 .masthead-top { display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); padding-bottom: 10px; border-bottom: 1px solid var(--ink); }
 .masthead-top .left, .masthead-top .right { display: flex; gap: 18px; align-items: center; }
 .dot { width: 6px; height: 6px; background: var(--red-600); border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
@@ -1368,25 +1372,25 @@ a:hover { text-decoration: underline; }
 .week-badge .num { font-size: 14px; white-space: nowrap; }
 .coverage { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 500; font-size: 13px; letter-spacing: .04em; text-transform: none; }
 
-/* STATS — PDF 디자인 2열×3행 그리드 */
-.stats { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 2px solid var(--ink); }
-.stat { padding: 22px 26px 20px; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: #fff; position: relative; min-height: 110px; }
+/* STATS — 2×3 그리드 + 한 줄 강제 + 폰트 축소 */
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 2px solid var(--ink); background: var(--card); }
+.stat { padding: 18px 22px 16px; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--card); position: relative; min-height: 92px; overflow: hidden; }
 .stat:nth-child(2n) { border-right: none; }
 .stat:nth-last-child(-n+2) { border-bottom: none; }
-.stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
-.stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 52px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
-.stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 14px; margin-left: 4px; color: var(--muted); }
-.stat .sub { margin-top: 8px; font-family: "IBM Plex Sans KR", sans-serif; font-size: 11.5px; color: var(--ink-2); line-height: 1.4; letter-spacing: 0; }
-.stat .delta { margin-top: 10px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; letter-spacing: .04em; }
+.stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; white-space: nowrap; }
+.stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 34px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 13px; margin-left: 4px; color: var(--muted); }
+.stat .sub { margin-top: 6px; font-family: "IBM Plex Sans KR", sans-serif; font-size: 11.5px; color: var(--ink-2); line-height: 1.35; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .delta { margin-top: 6px; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 5px; letter-spacing: .04em; white-space: nowrap; }
 .delta.up { color: var(--emerald-600); }
 .delta.down { color: var(--red-600); }
 .delta .arrow { font-weight: 700; font-size: 12px; }
 .spark { position: absolute; right: 22px; top: 22px; opacity: .8; width: 110px; height: 36px; }
 
 /* TOP STORY */
-.top-story { padding: 28px 32px 32px; border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: 1.5fr 1fr; gap: 36px; background: #fff; }
+.top-story { padding: 28px 32px 32px; border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: 1.5fr 1fr; gap: 36px; background: var(--card); }
 .ts-badges { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-.badge { display: inline-flex; align-items: center; padding: 3px 9px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; border-radius: 999px; border: 1px solid var(--ink); background: #fff; color: var(--ink); }
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; border-radius: 999px; border: 1px solid var(--ink); background: var(--card); color: var(--ink); }
 .badge.lead { background: var(--ink); color: #fff; }
 .badge.top  { background: var(--red-600); color: #fff; border-color: var(--red-600); }
 .badge.voc  { background: var(--cyan-50); color: var(--cyan-600); border-color: var(--cyan-500); }
@@ -1426,7 +1430,7 @@ a:hover { text-decoration: underline; }
 
 /* SECTION ROW */
 .section-row { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid var(--ink); }
-.section-row > .col { border-right: 1px solid var(--ink); background: #fff; }
+.section-row > .col { border-right: 1px solid var(--ink); background: var(--card); }
 .section-row > .col:last-child { border-right: none; }
 .col-head { background: var(--ink); color: #fff; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
 .col-head .name { font-weight: 600; }
@@ -1437,7 +1441,7 @@ a:hover { text-decoration: underline; }
 .league h3, .dispatch h3, .voc h3, .wire h3 { font-family: "Playfair Display", "Noto Serif KR", serif; font-weight: 900; font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
 .col-deck { font-family: "Noto Serif KR", serif; font-style: italic; color: var(--muted); font-size: 13px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--slate-200); }
 .league-list { display: flex; flex-direction: column; gap: 10px; }
-.league-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--slate-200); background: #fff; position: relative; }
+.league-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--slate-200); background: var(--card); position: relative; }
 .league-row.self { border: 2px solid var(--cyan-500); background: var(--cyan-50); }
 .league-row .rank { font-family: "Playfair Display", serif; font-weight: 900; font-size: 22px; color: var(--ink); text-align: center; }
 .league-row.self .rank { color: var(--cyan-600); }
@@ -1479,7 +1483,7 @@ a:hover { text-decoration: underline; }
 .kwmap-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
 .kwmap-head h3 { margin: 0; }
 .kwmap-head .sample { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.cloud { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 14px 22px; padding: 28px 8px 32px; min-height: 240px; background: #fff; border-top: 1px dashed var(--slate-200); border-bottom: 1px dashed var(--slate-200); margin-bottom: 14px; position: relative; }
+.cloud { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 14px 22px; padding: 28px 8px 32px; min-height: 240px; background: var(--card); border-top: 1px dashed var(--slate-200); border-bottom: 1px dashed var(--slate-200); margin-bottom: 14px; position: relative; }
 .cloud::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(circle at 15% 25%, rgba(29,78,216,.04), transparent 40%), radial-gradient(circle at 85% 75%, rgba(220,38,38,.035), transparent 40%); pointer-events: none; }
 .kw { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 700; line-height: 1; letter-spacing: -.01em; display: inline-flex; align-items: center; transition: transform .15s ease; cursor: default; }
 .kw:hover { transform: translateY(-1px) scale(1.04); }
@@ -1488,8 +1492,8 @@ a:hover { text-decoration: underline; }
 .kw.sev-1 .cnt { color: #b91c1c; }
 .kw.sev-2 { color: var(--red-600); }
 .kw.sev-3 { color: var(--slate-500); font-weight: 600; }
-.kw.sev-4 { background: #d1fae5; color: #065f46; padding: 6px 14px; border-radius: 6px; font-weight: 800; }
-.kw.sev-4 .cnt { color: #047857; }
+.kw.sev-4 { background: #dbeafe; color: #1e40af; padding: 6px 14px; border-radius: 6px; font-weight: 800; }
+.kw.sev-4 .cnt { color: #1d4ed8; }
 .kw.s-xl { font-size: 46px; }
 .kw.s-lg { font-size: 34px; }
 .kw.s-md { font-size: 24px; }
@@ -1501,13 +1505,13 @@ a:hover { text-decoration: underline; }
 .sw-1 { background: #fde2e2; border: 1px solid #fca5a5; }
 .sw-2 { background: var(--red-600); }
 .sw-3 { background: var(--slate-500); }
-.sw-4 { background: #d1fae5; border: 1px solid #6ee7b7; }
+.sw-4 { background: #dbeafe; border: 1px solid #93c5fd; }
 .kw-summary { display: flex; gap: 14px; margin-top: 12px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); justify-content: center; }
 .kw-summary strong { color: var(--ink); font-weight: 600; }
 
 /* VOC */
 .voc-list { display: flex; flex-direction: column; gap: 12px; }
-.voc-card { padding: 14px 16px; background: #fff; border: 1px solid var(--slate-200); border-left-width: 4px; }
+.voc-card { padding: 14px 16px; background: var(--card); border: 1px solid var(--slate-200); border-left-width: 4px; }
 .voc-card.neg { border-left-color: var(--red-600); }
 .voc-card.pos { border-left-color: var(--emerald-600); }
 .voc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
