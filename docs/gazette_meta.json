@@ -1,7 +1,64 @@
 {
   "year": 26,
-  "week_num": 19,
-  "issue_total": 0,
-  "last_report_date": null,
-  "issues": []
+  "week_num": 20,
+  "issue_total": 1,
+  "last_report_date": "2026-05-17",
+  "issues": [
+    {
+      "year": 26,
+      "week_num": 20,
+      "date": "2026-05-17",
+      "file": "gazette_2026_05_17.html",
+      "stats": {
+        "self_neg_pct": 100.0,
+        "self_neg_n": 3,
+        "self_review_n": 3,
+        "self_top_cat": "결제오류",
+        "self_top_cat_pct": 66.7,
+        "self_top_cat_n": 2,
+        "self_neg_avg_star": 1.0,
+        "gap": 0.0,
+        "self_avg": 1.0,
+        "peer_avg": 1.0,
+        "comp_events": 0,
+        "comp_top3": [],
+        "neg_keywords": [
+          "환불",
+          "관리",
+          "건물",
+          "결제",
+          "출차",
+          "리뷰",
+          "처리",
+          "기분",
+          "구매",
+          "상담",
+          "예약",
+          "등록",
+          "지도",
+          "위치",
+          "여부",
+          "사례",
+          "개선",
+          "반려",
+          "생각",
+          "알람",
+          "대문짝",
+          "상단",
+          "표기",
+          "고객",
+          "이중",
+          "개발자",
+          "목표",
+          "정보",
+          "설명",
+          "의구심"
+        ],
+        "total": 33,
+        "reviews": 8,
+        "news": 25,
+        "per_day": 5.5
+      }
+    }
+  ]
 }
