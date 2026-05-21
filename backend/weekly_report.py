@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 weekly_report.py — THE PARKING GAZETTE 주간 리포트 생성기
-매주 월요일 09:15 KST (UTC 00:15) GitHub Actions 자동 실행
+매주 월요일 11:15 KST (UTC 02:15) GitHub Actions 자동 실행
 """
 
 import html as html_lib
@@ -21,7 +21,8 @@ SERVICE_ORDER = [
 ]
 
 REVIEW_TYPES = {"appstore", "ios_appstore"}
-NEWS_TYPES   = {"news", "blog", "rss"}
+NEWS_TYPES   = {"news", "blog", "rss"}      # 통계·수집현황용 (블로그 포함)
+NEWS_ONLY    = {"news", "rss"}              # TOP STORY/WIRE 인용용 (블로그 절대 제외)
 
 PLATFORM_LABEL = {"google_play": "Google Play", "ios": "App Store"}
 
@@ -139,14 +140,14 @@ def filter_period(items: list, from_dt: date, to_dt: date) -> list:
 
 
 def pick_top_story(items: list) -> dict | None:
-    candidates = [i for i in items if i.get("source_type") in NEWS_TYPES
-                  and i.get("title") and len(i.get("title", "")) > 10]
-    if not candidates:
+    """TOP STORY 픽: 블로그 절대 제외 → 타사 뉴스 우선 → 없으면 자사 뉴스."""
+    news = [i for i in items if i.get("source_type") in NEWS_ONLY
+            and i.get("title") and len(i.get("title", "")) > 10]
+    if not news:
         return None
+
     def score(i):
         s = 0
-        if i.get("service_id") == "moduparking":
-            s += 10
         ct = i.get("change_type", "")
         if ct in ("사업확장", "정책"):
             s += 5
@@ -155,7 +156,11 @@ def pick_top_story(items: list) -> dict | None:
         if len(i.get("summary") or "") > 50:
             s += 2
         return s
-    return max(candidates, key=score)
+
+    competitors = [i for i in news if i.get("service_id") != "moduparking"]
+    if competitors:
+        return max(competitors, key=score)
+    return max(news, key=score)
 
 
 def period_app_league(items: list) -> list:
@@ -235,8 +240,9 @@ def pick_notable_reviews(items: list, n=5) -> list:
 
 
 def pick_news_briefs(items: list, n=5) -> list:
+    """Competitor Wire 픽: 블로그 제외, 자사 제외 (타사 뉴스만)."""
     candidates = [i for i in items
-                  if i.get("source_type") in NEWS_TYPES
+                  if i.get("source_type") in NEWS_ONLY
                   and i.get("service_id") != "moduparking"
                   and i.get("title") and len(i.get("title") or "") > 5]
     candidates.sort(key=lambda i: (
@@ -533,7 +539,7 @@ def _render_top_story(item: dict | None, items: list) -> str:
     date_s  = esc(item.get("published_at", ""))
     url     = esc(item.get("url", "#"))
     src_type = item.get("source_type", "")
-    src_label = "Google Play" if src_type == "appstore" else ("App Store" if src_type == "ios_appstore" else "뉴스/블로그")
+    src_label = "Google Play" if src_type == "appstore" else ("App Store" if src_type == "ios_appstore" else "뉴스")
 
     # Count for this service in this period
     svc_items = [i for i in items if i.get("service_id") == item.get("service_id")]
@@ -841,7 +847,7 @@ def render_sources(from_dt: date, to_dt: date, total: int, year: int, week_num: 
   </div>
   <div>
     <h5>Data Freshness</h5>
-    <p>본 리포트는 GitHub Actions에서 매주 월요일 KST 09:15 자동 생성됩니다. 수집 주기: 매일 07:15 KST.</p>
+    <p>본 리포트는 GitHub Actions에서 매주 월요일 KST 11:15 자동 생성됩니다. 수집 주기: 매일 07:15 KST.</p>
   </div>
   <div>
     <h5>Disclaimer</h5>

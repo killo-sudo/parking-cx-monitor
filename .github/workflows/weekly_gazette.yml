@@ -2,7 +2,7 @@ name: Weekly Gazette
 
 on:
   schedule:
-    - cron: "15 0 * * 1"  # 월요일 09:15 KST (UTC 00:15) — 정시(00분) GH Actions 피크 회피
+    - cron: "15 2 * * 1"  # 월요일 11:15 KST (UTC 02:15) — 정시(00분) GH Actions 피크 회피
   workflow_dispatch:       # 수동 실행 가능
 
 jobs:
