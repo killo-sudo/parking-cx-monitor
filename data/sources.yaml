@@ -1,5 +1,5 @@
 # 매일 크롤링할 소스 정의
-# type: rss / html_list / html_diff / appstore / ios_appstore / app_info / youtube_rss
+# type: rss / naver_blog / naver_news / appstore / ios_appstore
 
 sources:
 
@@ -93,25 +93,11 @@ sources:
     keywords: ["파킹클라우드 주차장"]
     days_back: 14
 
-  - id: naver_blog_urbanport
-    type: naver_blog
-    search_type: blog
-    service_id: urbanport
-    keywords: ["어반포트 주차", "어반포트 파킹"]
-    days_back: 14
-
   - id: naver_blog_skshielders
     type: naver_blog
     search_type: blog
     service_id: sk_shielders
     keywords: ["SK쉴더스 주차", "에스케이쉴더스 주차"]
-    days_back: 14
-
-  - id: naver_blog_koreanef
-    type: naver_blog
-    search_type: blog
-    service_id: koreanef
-    keywords: ["한국전자금융 주차", "KEF 주차"]
     days_back: 14
 
   # ══════════════════════════════════════════
@@ -202,212 +188,8 @@ sources:
     keywords: ["SK쉴더스 주차"]
     days_back: 14
 
-  - id: naver_news_urbanport
-    type: naver_news
-    search_type: news
-    service_id: urbanport
-    keywords: ["어반포트 주차", "UrbanPort 주차"]
-    days_back: 14
-
-  - id: naver_news_koreanef
-    type: naver_news
-    search_type: news
-    service_id: koreanef
-    keywords: ["한국전자금융 주차"]
-    days_back: 14
-
   # ══════════════════════════════════════════
-  # [4] 보도자료 HTML 리스트
-  # ══════════════════════════════════════════
-
-  - id: tmap_home
-    type: html_diff
-    url: "https://www.tmapmobility.com/"
-    service_id: tmap_parking
-    selector: "main, .content, #main"
-
-  - id: kmpark_home
-    type: html_diff
-    url: "https://www.kmpark.co.kr/"
-    service_id: kmpark
-    selector: "main, .content, #content"
-
-  - id: parkingcloud_home
-    type: html_diff
-    url: "https://www.parkingcloud.co.kr/"
-    service_id: parkingcloud
-    selector: "main, .content, #main"
-
-  - id: koreanef_home
-    type: html_diff
-    url: "https://www.kef.co.kr/"
-    service_id: koreanef
-    selector: "main, .content, #main"
-
-  - id: kakaomobility_news
-    type: html_list
-    url: "https://www.kakaomobility.com/newsroom"
-    service_id: kakaot_parking
-    item_selector: "article, .news-item, li.item, .newsroom-item"
-    title_selector: "h2 a, h3 a, .title a, a"
-    date_selector: ".date, time, .news-date"
-    link_selector: "h2 a, h3 a, .title a, a"
-    base_url: "https://www.kakaomobility.com"
-    keyword_filter: ["주차", "파킹", "parking"]
-
-  - id: humax_news
-    type: html_list
-    url: "https://holdings.humaxdigital.com/category/news"
-    service_id: highparking
-    item_selector: "article"
-    title_selector: "h2 a, h3 a, .entry-title a"
-    date_selector: ".entry-date, time"
-    link_selector: "h2 a, h3 a, .entry-title a"
-    base_url: "https://holdings.humaxdigital.com"
-
-  # ══════════════════════════════════════════
-  # [3] 홈페이지 변경 감지 (실제 변경 내용 추출)
-  # ══════════════════════════════════════════
-
-  - id: kakaot_home
-    type: html_diff
-    url: "https://www.kakaomobility.com/service-kakaot/parking"
-    service_id: kakaot_parking
-    selector: "main, .content, #main"
-
-  - id: amano_home
-    type: html_diff
-    url: "https://www.amano.co.kr/"
-    service_id: amano_korea
-    selector: ".news, .notice, #news, main"
-
-  - id: highparking_home
-    type: html_diff
-    url: "https://turuparking.com/"
-    service_id: highparking
-    selector: "main, .content"
-
-  - id: parkingfriends_home
-    type: html_diff
-    url: "https://www.hmobility.co.kr/parking"
-    service_id: parkingfriends
-    selector: "main, #content"
-
-  - id: zoomansa_home
-    type: html_diff
-    url: "https://www.zoomansa.com"
-    service_id: zoomansa
-    selector: "main, #content, .content"
-
-  - id: moduparking_home
-    type: html_diff
-    url: "https://www.moduparking.com"
-    service_id: moduparking
-    selector: "main, .content, #main"
-
-  # ══════════════════════════════════════════
-  # [4] 앱 평점 · 버전 변화 추적
-  # (리뷰 수집은 AppFollow에서 별도 운영 예정)
-  # ══════════════════════════════════════════
-
-  - id: appinfo_kakaot_gplay
-    type: app_info
-    platform: google_play
-    app_id: "com.kakao.taxi"
-    service_id: kakaot_parking
-
-  - id: appinfo_kakaot_ios
-    type: app_info
-    platform: ios
-    app_id: "981110422"
-    service_id: kakaot_parking
-
-  - id: appinfo_iparking_gplay
-    type: app_info
-    platform: google_play
-    app_id: "kr.co.iparking.android"
-    service_id: iparking
-
-  - id: appinfo_iparking_ios
-    type: app_info
-    platform: ios
-    app_id: "978597106"
-    service_id: iparking
-
-  - id: appinfo_nicepark_gplay
-    type: app_info
-    platform: google_play
-    app_id: "kr.co.nicetcm.nice_m"
-    service_id: nicepark
-
-  - id: appinfo_nicepark_ios
-    type: app_info
-    platform: ios
-    app_id: "1556588504"
-    service_id: nicepark
-
-  - id: appinfo_highparking_gplay
-    type: app_info
-    platform: google_play
-    app_id: "kr.co.turu.parking"
-    service_id: highparking
-
-  - id: appinfo_highparking_ios
-    type: app_info
-    platform: ios
-    app_id: "6711335059"
-    service_id: highparking
-
-  - id: appinfo_parkingfriends_gplay
-    type: app_info
-    platform: google_play
-    app_id: "com.misconct.parkingfriends"
-    service_id: parkingfriends
-
-  - id: appinfo_zoomansa_gplay
-    type: app_info
-    platform: google_play
-    app_id: "com.zoomansa.parking"
-    service_id: zoomansa
-
-  - id: appinfo_moduparking_gplay
-    type: app_info
-    platform: google_play
-    app_id: "com.parkingshare.mobile"
-    service_id: moduparking
-
-  - id: appinfo_moduparking_ios
-    type: app_info
-    platform: ios
-    app_id: "780174422"
-    service_id: moduparking
-
-  - id: appinfo_tmap_gplay
-    type: app_info
-    platform: google_play
-    app_id: "com.skt.tmap.ku"
-    service_id: tmap_parking
-
-  - id: appinfo_tmap_ios
-    type: app_info
-    platform: ios
-    app_id: "431589174"
-    service_id: tmap_parking
-
-  - id: appinfo_parkingfriends_ios
-    type: app_info
-    platform: ios
-    app_id: "1437488741"
-    service_id: parkingfriends
-
-  - id: appinfo_zoomansa_ios
-    type: app_info
-    platform: ios
-    app_id: "1472478299"
-    service_id: zoomansa
-
-  # ══════════════════════════════════════════
-  # [5] 앱스토어 리뷰 수집 (Google Play + iOS App Store)
+  # [4] 앱스토어 리뷰 수집 (Google Play + iOS App Store)
   # flag_below_rating: 5 = 1~5점 전체 수집 (경쟁사 모니터링용)
   # review_count: Google Play 최근 N개 / max_pages: iOS RSS 페이지 수(1페이지=최대50건)
   # ══════════════════════════════════════════
@@ -444,7 +226,7 @@ sources:
     flag_below_rating: 5
     max_pages: 2
 
-  # 카카오T 주차
+  # 카카오T 주차 (주차 관련 리뷰만 필터링)
   - id: reviews_kakaot_android
     type: appstore
     platform: google_play
@@ -460,7 +242,7 @@ sources:
     flag_below_rating: 5
     max_pages: 2
 
-  # Tmap 주차
+  # Tmap 주차 (주차 관련 리뷰만 필터링)
   - id: reviews_tmap_android
     type: appstore
     platform: google_play
@@ -489,6 +271,22 @@ sources:
     type: ios_appstore
     app_id: "978597106"
     service_id: iparking
+    flag_below_rating: 5
+    max_pages: 2
+
+  # 나이스파크
+  - id: reviews_nicepark_android
+    type: appstore
+    platform: google_play
+    app_id: "kr.co.nicetcm.nice_m"
+    service_id: nicepark
+    flag_below_rating: 5
+    review_count: 50
+
+  - id: reviews_nicepark_ios
+    type: ios_appstore
+    app_id: "1556588504"
+    service_id: nicepark
     flag_below_rating: 5
     max_pages: 2
 
@@ -525,110 +323,6 @@ sources:
     max_pages: 2
 
   # ══════════════════════════════════════════
-  # [7] YouTube 채널 RSS (공개 채널 — 인증 불필요)
-  # ══════════════════════════════════════════
-
-  - id: youtube_kakaomobility
-    type: youtube_rss
-    channel_id: "UCKopLuBYfMnNLqhJJ1RHSWA"   # 카카오모빌리티 공식
-    service_id: kakaot_parking
-    days_back: 30
-    keyword_filter: ["주차", "파킹", "parking"]
-
-  - id: youtube_humax
-    type: youtube_rss
-    channel_id: "UCy5HJnFhZa3mvRqYiMxq1Ow"   # 휴맥스모빌리티
-    service_id: highparking
-    days_back: 30
-
-  # ══════════════════════════════════════════
-  # [9] 이벤트/행사 — 주차 수요 예보용 (인텔바 차주 예보 패널)
-  # ══════════════════════════════════════════
-
-  - id: naver_news_events
-    type: naver_news
-    search_type: news
-    service_id: events
-    keywords:
-      - "축제 주차 통제"
-      - "마라톤 주차 통제"
-      - "콘서트 주차장"
-      - "연등행렬 주차"
-      - "어린이날 행사 주차"
-      - "모터쇼 주차"
-      - "페스티벌 주차 혼잡"
-      - "야구 주차 혼잡"
-      - "K리그 주차"
-      - "전시회 주차"
-      - "박람회 주차"
-    days_back: 7
-
-  - id: naver_news_crowd_events
-    type: naver_news
-    search_type: news
-    service_id: events
-    keywords:
-      - "인구이동 행사"
-      - "대규모 집회 교통"
-      - "주말 행사 교통 통제"
-      - "팝업스토어 주차"
-      - "플리마켓 주차"
-      - "불꽃축제 주차"
-      - "한강 행사 주차"
-    days_back: 7
-
-  - id: naver_news_major_events
-    type: naver_news
-    search_type: news
-    service_id: events
-    keywords:
-      - "국제정원박람회"
-      - "한강불꽃축제"
-      - "서울불꽃축제"
-      - "부산불꽃대축제"
-      - "서울 대형 콘서트"
-      - "야외 페스티벌 개최"
-      - "뮤직 페스티벌 서울"
-      - "서울 봄 축제"
-      - "여의도 벚꽃 행사"
-      - "월드컵경기장 행사"
-      - "잠실종합운동장 행사"
-      - "COEX 전시"
-      - "킨텍스 박람회"
-      - "벡스코 행사"
-      - "대규모 마라톤 대회"
-      - "서울숲 국제정원박람회"
-      - "지방선거 교통 통제"
-      - "부처님오신날 연등행렬"
-      - "현충일 행사"
-    days_back: 14
-
-  - id: naver_news_popup_perf
-    type: naver_news
-    search_type: news
-    service_id: events
-    keywords:
-      - "서울 팝업스토어 오픈"
-      - "팝업 스토어 서울"
-      - "한강 팝업"
-      - "성수 팝업"
-      - "홍대 팝업"
-      - "강남 팝업 행사"
-      - "서울 공연 개막"
-      - "뮤지컬 개막"
-      - "대형 콘서트 서울"
-      - "야외 공연 서울"
-      - "서울 전시 개막"
-      - "체험 전시 서울"
-      - "아트 페어 서울"
-      - "서울 마라톤 개최"
-      - "하프마라톤 서울"
-      - "한강 마라톤"
-      - "서울 달리기 대회"
-      - "서울 자전거 대회"
-    days_back: 14
-
-  # ══════════════════════════════════════════
   # iOS 앱 ID 찾는 방법 (주석)
   # ══════════════════════════════════════════
   # 브라우저에서 아래 URL 접속 후 trackId 값을 app_id로 사용:
@@ -636,10 +330,8 @@ sources:
   # 예) term=투루파킹, term=파킹프렌즈, term=주만사
 
   # ══════════════════════════════════════════
-  # SNS 수집 가능 여부 정리
+  # 수집 불가 채널 정리
   # ══════════════════════════════════════════
-  # YouTube  : 위 [7]번에서 공식 RSS로 수집 중 ✅
-  # NaverCafe: 위 [8]번에서 수집 중 ✅
-  # Twitter/X: 유료 API만 가능 ($100/월), 무료 스크래핑 불안정 ❌
-  # Instagram: 강력한 봇 차단, 공식 API도 비즈니스 계정 필요 ❌
+  # Twitter/X: 유료 API만 가능 ($100/월) ❌
+  # Instagram: 강력한 봇 차단 ❌
   # Facebook : 공개 콘텐츠 API 종료됨 ❌

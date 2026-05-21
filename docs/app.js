@@ -20,8 +20,6 @@ const SVC_COLORS = {
   kmpark:          '#1A3A3A',
   parkingcloud:    '#2A3A1A',
   sk_shielders:    '#3A2A10',
-  urbanport:       '#3A1A2A',
-  koreanef:        '#2A1A1A',
 }
 
 // 서비스 카테고리 그룹 (sidebar 분류용)
@@ -32,7 +30,7 @@ const SVC_GROUPS = [
   },
   {
     label: '경쟁사',
-    ids: ['kakaot_parking', 'tmap_parking', 'iparking', 'nicepark', 'highparking', 'parkingfriends', 'zoomansa', 'amano_korea', 'kmpark', 'parkingcloud', 'sk_shielders', 'urbanport', 'koreanef'],
+    ids: ['kakaot_parking', 'tmap_parking', 'iparking', 'nicepark', 'highparking', 'parkingfriends', 'zoomansa', 'amano_korea', 'kmpark', 'parkingcloud', 'sk_shielders'],
   },
 ]
 

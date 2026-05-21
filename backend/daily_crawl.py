@@ -6,7 +6,6 @@ import os
 import json
 import logging
 import hashlib
-import difflib
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -163,8 +162,6 @@ _BRAND_REQUIRED: dict[str, list[str]] = {
     'moduparking':    ['모두의주차장', '모두의 주차장'],
     'iparking':       ['아이파킹'],
     'nicepark':       ['나이스파크', 'nicepark'],
-    'urbanport':      ['어반포트', 'urbanport'],
-    'koreanef':       ['한국전자금융'],
     'sk_shielders':   ['sk쉴더스', 'sk 쉴더스', 'sk쉴더'],
     'kmpark':         ['케이엠파크', '케이엠파킹'],
     'parkingcloud':   ['파킹클라우드'],
@@ -231,138 +228,6 @@ def _is_relevant(title: str, summary: str, svc: dict) -> bool:
                 return True
 
     return False
-
-
-# ──────────────────────────────────────────────
-# HTML 리스트 크롤러 (보도자료 페이지)
-# ──────────────────────────────────────────────
-
-def crawl_html_list(source: dict) -> list[dict]:
-    url            = source.get("url", "")
-    sid            = source.get("service_id", "")
-    item_sel       = source.get("item_selector", "article, li")
-    title_sel      = source.get("title_selector", "h2 a, h3 a, a")
-    date_sel       = source.get("date_selector")
-    link_sel       = source.get("link_selector", "h2 a, h3 a, a")
-    base_url       = source.get("base_url", "").rstrip("/")
-    keyword_filter = [k.lower() for k in source.get("keyword_filter", [])]
-
-    resp = _get(url)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    items: list[dict] = []
-    for el in soup.select(item_sel)[:30]:
-        title_el = el.select_one(title_sel)
-        if not title_el:
-            continue
-        title = title_el.get_text(strip=True)
-        if not title:
-            continue
-
-        # keyword_filter가 있으면 제목에 관련 키워드가 있을 때만 수집
-        if keyword_filter and not any(kw in title.lower() for kw in keyword_filter):
-            continue
-
-        link_el = el.select_one(link_sel) if link_sel else title_el
-        href    = (link_el.get("href") or "") if link_el else ""
-        if href and not href.startswith("http"):
-            href = base_url + "/" + href.lstrip("/")
-
-        pub_str = datetime.now().strftime("%Y-%m-%d")
-        if date_sel:
-            date_el = el.select_one(date_sel)
-            if date_el:
-                pub_str = _parse_date_str(date_el.get_text(strip=True)) or pub_str
-
-        items.append({
-            "service_id":   sid,
-            "published_at": pub_str,
-            "source_type":  "blog",
-            "change_type":  classify_change_type(title),
-            "title":        title,
-            "summary":      None,
-            "url":          href or url,
-            "sentiment":    classify_sentiment(title),
-        })
-
-    return items
-
-
-# ──────────────────────────────────────────────
-# HTML diff 크롤러 — 실제 변경 내용 추출
-# ──────────────────────────────────────────────
-
-def crawl_html_diff(source: dict) -> list[dict]:
-    """이전 스냅샷과 비교 후 실제 어떤 텍스트가 바뀌었는지 요약 포함."""
-    url      = source.get("url", "")
-    sid      = source.get("service_id", "")
-    selector = source.get("selector")
-
-    resp = _get(url)
-    resp.raise_for_status()
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-
-    if selector:
-        section = soup.select_one(selector)
-        if section:
-            new_text = section.get_text(separator="\n", strip=True)
-        else:
-            body = soup.find("body")
-            new_text = body.get_text(separator="\n", strip=True) if body else ""
-    else:
-        body = soup.find("body")
-        new_text = body.get_text(separator="\n", strip=True) if body else resp.text
-
-    # 의미없는 공백줄 제거 후 10000자 제한
-    new_text = "\n".join(l for l in new_text.splitlines() if l.strip())[:10000]
-
-    new_hash   = hashlib.sha256(new_text.encode("utf-8")).hexdigest()
-    old_hash, old_text = db.get_snapshot(sid, url)
-    db.save_snapshot(sid, url, new_hash, new_text)
-
-    if old_hash is None:
-        return []  # 최초 실행: 기준 스냅샷 저장만
-    if old_hash == new_hash:
-        return []  # 변경 없음
-
-    diff_summary = _build_diff_summary(old_text or "", new_text)
-    change_type  = classify_change_type(diff_summary)
-    sentiment    = classify_sentiment(diff_summary)
-
-    return [{
-        "service_id":   sid,
-        "published_at": datetime.now().strftime("%Y-%m-%d"),
-        "source_type":  "homepage",
-        "change_type":  change_type,
-        "title":        f"홈페이지 업데이트 감지 — {url}",
-        "summary":      diff_summary,
-        "url":          url,
-        "sentiment":    sentiment,
-    }]
-
-
-def _build_diff_summary(old_text: str, new_text: str) -> str:
-    """두 텍스트 diff에서 의미있는 변경 줄만 추출해 요약."""
-    old_lines = [l.strip() for l in old_text.splitlines() if len(l.strip()) > 8]
-    new_lines = [l.strip() for l in new_text.splitlines() if len(l.strip()) > 8]
-
-    diff = list(difflib.ndiff(old_lines, new_lines))
-
-    removed = [l[2:] for l in diff if l.startswith("- ")][:15]
-    added   = [l[2:] for l in diff if l.startswith("+ ")][:15]
-
-    if not removed and not added:
-        return "홈페이지 구조/레이아웃이 변경되었습니다."
-
-    parts = []
-    if removed:
-        parts.append("▼ 사라진 내용:\n" + "\n".join(f"  · {r}" for r in removed))
-    if added:
-        parts.append("▲ 새로 추가된 내용:\n" + "\n".join(f"  · {a}" for a in added))
-
-    return "\n".join(parts)[:2000]
 
 
 # ──────────────────────────────────────────────
@@ -588,66 +453,6 @@ def _fetch_ios_info(app_id: str) -> tuple:
     except Exception as e:
         log.warning(f"iOS 앱 정보 실패 [{app_id}]: {e}")
         return None, None, None, None
-
-
-# ──────────────────────────────────────────────
-# YouTube RSS 크롤러
-# ──────────────────────────────────────────────
-
-def crawl_youtube_rss(source: dict) -> list[dict]:
-    """YouTube 채널 최신 영상 수집 (공개 RSS — 인증 불필요)."""
-    channel_id     = source.get("channel_id", "")
-    sid            = source.get("service_id", "")
-    days_back      = source.get("days_back", 7)
-    keyword_filter = [k.lower() for k in source.get("keyword_filter", [])]
-
-    if not channel_id:
-        return []
-
-    url    = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    cutoff = datetime.now() - timedelta(days=days_back)
-
-    try:
-        feed = feedparser.parse(url)
-    except Exception as e:
-        log.warning(f"YouTube RSS 실패 [{channel_id}]: {e}")
-        return []
-
-    items: list[dict] = []
-    for entry in feed.entries[:20]:
-        try:
-            if getattr(entry, "published_parsed", None):
-                pub_dt = datetime(*entry.published_parsed[:6])
-            else:
-                pub_dt = datetime.now()
-
-            if pub_dt < cutoff:
-                continue
-
-            title   = entry.get("title", "")
-            summary = (entry.get("summary") or "")[:300]
-            link    = entry.get("link", "")
-
-            # keyword_filter가 있으면 제목/요약에 관련 키워드가 있을 때만 수집
-            if keyword_filter:
-                combined = (title + " " + summary).lower()
-                if not any(kw in combined for kw in keyword_filter):
-                    continue
-
-            items.append({
-                "service_id":   sid,
-                "published_at": pub_dt.strftime("%Y-%m-%d"),
-                "source_type":  "youtube",
-                "change_type":  classify_change_type(title, summary),
-                "title":        f"[YouTube] {title}",
-                "summary":      summary,
-                "url":          link,
-                "sentiment":    classify_sentiment(title, summary),
-            })
-        except Exception:
-            continue
-
-    return items
 
 
 # ──────────────────────────────────────────────
@@ -952,99 +757,6 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.2) -> list[dict]:
 
 
 # ──────────────────────────────────────────────
-# 네이버 DataLab 검색어 트렌드
-# ──────────────────────────────────────────────
-
-def crawl_naver_datalab() -> list[dict]:
-    """네이버 DataLab API로 주차 관련 키워드 검색량 트렌드 수집.
-    최근 7일 vs 이전 7일 비교 → 상승률 기준 정렬.
-    반환: [{"keyword": str, "recent": float, "prev": float, "change": float}, ...]
-    """
-    client_id     = os.environ.get("NAVER_CLIENT_ID", "")
-    client_secret = os.environ.get("NAVER_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        log.warning("[DataLab] NAVER_CLIENT_ID/SECRET 없음 — 건너뜀")
-        return []
-
-    today   = datetime.utcnow() + timedelta(hours=9)  # KST
-    end_dt  = today - timedelta(days=1)
-    start_dt = end_dt - timedelta(days=13)  # 14일치
-    start_str = start_dt.strftime("%Y-%m-%d")
-    end_str   = end_dt.strftime("%Y-%m-%d")
-
-    # 추적 키워드 그룹 (최대 5개/요청, 복수 키워드는 OR 조건)
-    KEYWORD_GROUPS = [
-        {"groupName": "카카오T주차",   "keywords": ["카카오T주차", "카카오 주차장"]},
-        {"groupName": "모두의주차장",  "keywords": ["모두의주차장"]},
-        {"groupName": "아이파킹",      "keywords": ["아이파킹", "iparking"]},
-        {"groupName": "나이스파크",    "keywords": ["나이스파크", "nicepark"]},
-        {"groupName": "하이파킹",      "keywords": ["하이파킹", "투루파킹"]},
-        {"groupName": "티맵주차",      "keywords": ["티맵 주차", "tmap 주차"]},
-        {"groupName": "주만사",        "keywords": ["주만사"]},
-        {"groupName": "파킹프렌즈",    "keywords": ["파킹프렌즈"]},
-        {"groupName": "월정기권",      "keywords": ["월정기권", "월주차"]},
-        {"groupName": "주차요금",      "keywords": ["주차요금", "주차비"]},
-        {"groupName": "공영주차장",    "keywords": ["공영주차장"]},
-        {"groupName": "발렛주차",      "keywords": ["발렛주차", "valet주차"]},
-        {"groupName": "MPASS",         "keywords": ["엠패스 주차", "MPASS 주차"]},
-        {"groupName": "주차앱",        "keywords": ["주차앱", "주차 어플"]},
-        {"groupName": "자동주차",      "keywords": ["자동주차", "LPR 주차"]},
-    ]
-
-    headers = {
-        "X-Naver-Client-Id":     client_id,
-        "X-Naver-Client-Secret": client_secret,
-        "Content-Type":          "application/json",
-    }
-    url = "https://openapi.naver.com/v1/datalab/search"
-
-    all_results: dict[str, list[float]] = {}
-
-    # 5개씩 나눠서 요청 (API 제한)
-    for i in range(0, len(KEYWORD_GROUPS), 5):
-        batch = KEYWORD_GROUPS[i:i+5]
-        body = {
-            "startDate":    start_str,
-            "endDate":      end_str,
-            "timeUnit":     "date",
-            "keywordGroups": batch,
-        }
-        try:
-            resp = requests.post(url, headers=headers, json=body, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-            for r in data.get("results", []):
-                name   = r["title"]
-                ratios = [d["ratio"] for d in r.get("data", [])]
-                all_results[name] = ratios
-        except Exception as e:
-            log.warning(f"[DataLab] 배치 {i//5+1} 오류: {e}")
-
-    if not all_results:
-        return []
-
-    # 최근 7일 / 이전 7일 평균으로 트렌드 계산
-    trends = []
-    for kw, ratios in all_results.items():
-        if len(ratios) < 2:
-            continue
-        mid   = len(ratios) // 2
-        prev  = sum(ratios[:mid]) / mid if mid else 0
-        recent = sum(ratios[mid:]) / (len(ratios) - mid)
-        change = recent - prev  # 양수 = 상승
-        trends.append({
-            "keyword": kw,
-            "recent":  round(recent, 2),
-            "prev":    round(prev, 2),
-            "change":  round(change, 2),
-        })
-
-    # 최근 검색량 높은 순 정렬 (상승률이 같으면 절대량 우선)
-    trends.sort(key=lambda x: (x["change"], x["recent"]), reverse=True)
-    return trends
-
-
-# ──────────────────────────────────────────────
 # 메인
 # ──────────────────────────────────────────────
 
@@ -1176,12 +888,9 @@ def crawl_naver_cafe(source: dict) -> list[dict]:
 
 
 CRAWLER_MAP = {
-    "html_list":    crawl_html_list,
-    "html_diff":    crawl_html_diff,
     "appstore":     crawl_appstore,
     "ios_appstore": crawl_ios_appstore,
     "app_info":     crawl_app_info,
-    "youtube_rss":  crawl_youtube_rss,
     "naver_blog":   crawl_naver_search,
     "naver_news":   crawl_naver_search,
     "naver_cafe":   crawl_naver_cafe,
@@ -1313,12 +1022,6 @@ def run() -> dict:
     sources  = load_sources()
     services = load_services()
 
-    # 이벤트 소스는 월요일(KST)에만 수집
-    _is_monday_kst = (datetime.utcnow() + timedelta(hours=9)).weekday() == 0
-    if not _is_monday_kst:
-        sources = [s for s in sources if s.get('service_id') != 'events']
-        print("[INFO] 월요일이 아님 — events 소스 건너뜀")
-
     if is_first_run:
         print("[INFO] 최초 실행 — 최근 1년 데이터 수집 모드")
         extended = []
@@ -1417,13 +1120,6 @@ def run() -> dict:
     except Exception as e:
         print(f"[WARN] docs/data.json 생성 실패: {e}")
 
-    # ── docs/events.json 생성 (이벤트 마스터 Sheets → 정적 파일) ──
-    try:
-        import events_export as _ev
-        _ev.export_events_json()
-    except Exception as e:
-        print(f"[WARN] docs/events.json 생성 실패: {e}")
-
     # ── app_info.json 스냅샷 갱신 (Railway 클라우드 폴백용) ──
     try:
         import json as _json
@@ -1436,17 +1132,6 @@ def run() -> dict:
             print(f"[INFO] app_info.json 갱신 완료 ({len(app_stats)}건)")
     except Exception as e:
         print(f"[WARN] app_info.json 갱신 실패: {e}")
-
-    # ── 네이버 DataLab 검색어 트렌드 수집 ──────────────────
-    try:
-        trends = crawl_naver_datalab()
-        if trends:
-            trend_path = ROOT_DIR / "data" / "datalab_trends.json"
-            with open(trend_path, "w", encoding="utf-8") as _f:
-                json.dump(trends, _f, ensure_ascii=False, indent=2)
-            print(f"[INFO] datalab_trends.json 갱신 완료 ({len(trends)}개 키워드)")
-    except Exception as e:
-        print(f"[WARN] DataLab 트렌드 수집 실패: {e}")
 
     print(f"[DONE] 총 {added}건 신규 수집 완료 (오류 {errors}건)")
     return {"added": added, "removed": removed, "errors": errors, "status": status}

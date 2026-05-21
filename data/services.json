@@ -173,30 +173,6 @@
       "monitor_keywords": ["SK쉴더스 주차", "에스케이쉴더스 주차", "SKS 주차"]
     },
     {
-      "id": "urbanport",
-      "name_ko": "어반포트",
-      "operator": "주식회사 어반포트",
-      "category": "b2b_operator",
-      "homepage": null,
-      "appstore_id_google": null,
-      "appstore_id_ios": null,
-      "youtube_channel": null,
-      "current_status": {},
-      "monitor_keywords": ["어반포트", "UrbanPort", "어반 포트"]
-    },
-    {
-      "id": "koreanef",
-      "name_ko": "한국전자금융",
-      "operator": "한국전자금융(주)",
-      "category": "b2b_operator",
-      "homepage": "https://www.kef.co.kr/",
-      "appstore_id_google": null,
-      "appstore_id_ios": null,
-      "youtube_channel": null,
-      "current_status": {},
-      "monitor_keywords": ["한국전자금융 주차", "KEF 주차", "한전금 주차"]
-    },
-    {
       "id": "moduparking",
       "name_ko": "모두의주차장",
       "operator": "모두컴퍼니 (쏘카)",

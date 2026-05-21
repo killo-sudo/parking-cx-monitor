@@ -18,11 +18,10 @@ SERVICE_ORDER = [
     "moduparking", "kakaot_parking", "tmap_parking", "iparking",
     "nicepark", "highparking", "parkingfriends", "zoomansa",
     "amano_korea", "kmpark", "parkingcloud", "sk_shielders",
-    "urbanport", "koreanef",
 ]
 
 REVIEW_TYPES = {"appstore", "ios_appstore"}
-NEWS_TYPES   = {"news", "blog", "rss", "html_list", "html_diff", "homepage", "youtube_rss"}
+NEWS_TYPES   = {"news", "blog", "rss"}
 
 PLATFORM_LABEL = {"google_play": "Google Play", "ios": "App Store"}
 
