@@ -1371,7 +1371,7 @@ def run() -> dict:
                     added += 1
                     new_items.append({
                         **item,
-                        "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "collected_at": (datetime.utcnow() + timedelta(hours=9)).strftime("%Y-%m-%d %H:%M:%S"),
                     })
 
             print(f"[INFO] {src_id}: {len(items)}건 수집")

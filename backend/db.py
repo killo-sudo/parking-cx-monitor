@@ -59,7 +59,7 @@ def init_db():
                 url          TEXT,
                 url_hash     TEXT UNIQUE,
                 sentiment    TEXT DEFAULT 'neutral',
-                collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                collected_at DATETIME DEFAULT (datetime('now', '+9 hours')),
                 FOREIGN KEY (service_id) REFERENCES services(id)
             );
 
