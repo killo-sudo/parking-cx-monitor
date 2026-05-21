@@ -104,18 +104,15 @@ def advance_meta(meta: dict, to_dt: date) -> tuple:
 
 
 def get_period() -> tuple:
-    """월요일 실행 기준 '지난 7일'.
-    - 월요일 자동 실행 시: 어제(일) 기준 지난 7일 → 지난 주 Mon~Sun에 해당
-    - 다른 요일 수동 실행 시: 오늘 포함 지난 7일 (Rolling 7-day window)
-    이렇게 하면 'WEEK xx · 전주' 라벨이 데이터와 일치한다.
+    """항상 가장 최근 완료된 전주 (Mon~Sun).
+    실행 요일과 무관하게 동일한 윈도우 — 월요일 자동 / 다른 요일 수동 테스트 결과 일치.
+    예) 오늘 목 05-21 → 전주 05-11(월)~05-17(일)
+        오늘 월 05-25 → 전주 05-18(월)~05-24(일)
     """
     today = date.today()
-    if today.weekday() == 0:  # 월요일
-        to_dt   = today - timedelta(days=1)   # 어제(일요일)
-        from_dt = to_dt - timedelta(days=6)   # 지난 월요일
-    else:
-        to_dt   = today
-        from_dt = to_dt - timedelta(days=6)
+    days_back = today.weekday() + 1   # Mon=1, Tue=2, ..., Sun=7
+    to_dt   = today - timedelta(days=days_back)
+    from_dt = to_dt - timedelta(days=6)
     return from_dt, to_dt
 
 
@@ -479,7 +476,7 @@ def render_masthead(year: int, week_num: int, issue_total: int,
   </div>
   <div class="masthead-meta">
     <div class="left">
-      <span class="coverage">Coverage Period : {esc(period)} · 지난 7일</span>
+      <span class="coverage">Coverage Period : {esc(period)} (전주 Mon~Sun)</span>
     </div>
     <div class="center">
       <span class="week-badge"><span>WEEK</span><span class="num">{esc(vol_tag)}</span></span>

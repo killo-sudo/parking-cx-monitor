@@ -11,12 +11,34 @@
 """
 
 import os
+import re
 import json
 import time
 import logging
+from collections import defaultdict
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
+# ── 콘텐츠 dedup용 토큰화 (daily_crawl._dedup_by_title과 동일 규칙) ──
+_JOSA_RE = re.compile(r'(에서|으로|이라|이며|이고|하고|부터|까지|에게|보다|처럼|만큼|과|와|의|에|도|만|로|서|고|며|나)$')
+
+
+def _tokenize(text: str) -> set:
+    tokens = set()
+    for tok in re.findall(r'[가-힣a-z0-9]{2,}', (text or '').lower()):
+        stripped = _JOSA_RE.sub('', tok)
+        tok = stripped if len(stripped) >= 2 else tok
+        if len(tok) >= 7:
+            tok = tok[:5]
+        tokens.add(tok)
+    return tokens
+
+
+def _jaccard(s1: set, s2: set) -> float:
+    if not s1 or not s2:
+        return 0.0
+    return len(s1 & s2) / len(s1 | s2)
 
 SHEET_REVIEWS = "리뷰"
 SHEET_NEWS    = "뉴스·블로그"
@@ -101,7 +123,13 @@ def _get_worksheet(sheet_name: str):
 
 
 def _append_to_sheet(items: list[dict], sheet_name: str, service_map: dict | None = None) -> int:
-    """지정 시트에 신규 항목 추가 (URL 기반 dedup). 추가된 행 수 반환."""
+    """지정 시트에 신규 항목 추가.
+
+    Dedup 2중:
+      ① URL 정확 일치 (기존 동작)
+      ② 제목+요약 토큰 자카드 ≥ 0.5 + 같은 날짜 (사용자 명세 "50% 단어 일치")
+         - 리뷰 탭은 ②를 적용하지 않음 (작성자별 유사 리뷰가 정상이라 오탈락 방지)
+    """
     if not items:
         return 0
     ws = _get_worksheet(sheet_name)
@@ -109,6 +137,9 @@ def _append_to_sheet(items: list[dict], sheet_name: str, service_map: dict | Non
         return 0
 
     existing_urls: set = set()
+    existing_by_date: dict[str, list[set]] = defaultdict(list)
+    is_news_sheet = (sheet_name == SHEET_NEWS)
+
     try:
         url_col_idx = HEADERS.index("URL")
         existing = ws.col_values(url_col_idx + 1)
@@ -116,13 +147,47 @@ def _append_to_sheet(items: list[dict], sheet_name: str, service_map: dict | Non
     except Exception as e:
         log.warning(f"[Sheets] 기존 URL 조회 실패 ({sheet_name}, dedup 스킵): {e}")
 
+    # ② 뉴스·블로그 시트: 기존 행의 (날짜, 제목+요약 토큰) 인덱싱
+    if is_news_sheet:
+        try:
+            all_rows = ws.get_all_values()
+            # 헤더 인덱스
+            date_i  = HEADERS.index("날짜")
+            title_i = HEADERS.index("제목")
+            summ_i  = HEADERS.index("요약")
+            for row in all_rows[1:]:
+                if len(row) <= max(date_i, title_i, summ_i):
+                    continue
+                d = (row[date_i] or "").strip()[:10]
+                t = (row[title_i] or "")
+                s = (row[summ_i] or "")
+                if d and t:
+                    existing_by_date[d].append(_tokenize(t + " " + s))
+        except Exception as e:
+            log.warning(f"[Sheets] 콘텐츠 dedup 인덱싱 실패 ({sheet_name}): {e}")
+
     rows = []
-    skipped = 0
+    skipped_url = 0
+    skipped_content = 0
     for item in items:
         url = (item.get("url") or "").strip()
         if url and url in existing_urls:
-            skipped += 1
+            skipped_url += 1
             continue
+
+        # ② 콘텐츠 dedup (뉴스·블로그 시트만)
+        if is_news_sheet:
+            item_date = (item.get("published_at", "") or "")[:10]
+            item_text = (item.get("title", "") or "") + " " + (item.get("summary", "") or "")
+            item_tokens = _tokenize(item_text)
+            if item_date and item_tokens:
+                if any(_jaccard(item_tokens, et) >= 0.5
+                       for et in existing_by_date.get(item_date, [])):
+                    skipped_content += 1
+                    continue
+                # 같은 배치 내 후속 중복도 잡기 위해 추가
+                existing_by_date[item_date].append(item_tokens)
+
         if url:
             existing_urls.add(url)
 
@@ -144,8 +209,11 @@ def _append_to_sheet(items: list[dict], sheet_name: str, service_map: dict | Non
             full_text,
         ])
 
-    if skipped:
-        log.info(f"[Sheets:{sheet_name}] 중복 {skipped}건 제외")
+    if skipped_url or skipped_content:
+        parts = []
+        if skipped_url:     parts.append(f"URL중복 {skipped_url}")
+        if skipped_content: parts.append(f"콘텐츠중복 {skipped_content}")
+        log.info(f"[Sheets:{sheet_name}] 제외 " + " · ".join(parts))
     if not rows:
         return 0
 

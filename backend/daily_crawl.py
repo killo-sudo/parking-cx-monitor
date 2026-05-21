@@ -122,13 +122,13 @@ def crawl_rss(source: dict, services: list[dict]) -> list[dict]:
                         if len(fetched) > len(summary) and fetched_has_brand:
                             summary = fetched
 
-                    # 주차·브랜드 관련성 삼중 검증 (브랜드 + 관련성 + 주차 키워드 필수)
+                    # 주차·브랜드 관련성 삼중 검증 (브랜드 + 관련성 + 주차 강화 게이트)
                     if not _is_relevant(title, summary, svc):
                         continue
                     if not _brand_validate(sid, title, summary):
                         continue
-                    if not _has_parking_kw(title + " " + summary):
-                        continue  # 브랜드 언급은 있으나 주차 무관 글 차단
+                    if not _is_strong_parking_match(title, summary):
+                        continue  # 제목에 주차키워드 없고 본문에 1회만 있는 비유적 언급 차단
 
                     # 뉴스 전문 추출 (요약과 별도)
                     full_text = _fetch_article_text(link, max_chars=3000) if link else ""
@@ -180,19 +180,46 @@ _PARKING_KW = [
     '주차요금', '주차비', '무료주차', '유료주차', '주차면', '발렛', '주차권', '주차장',
 ]
 
-# 뉴스/블로그 수집 시 제외할 키워드 (카셰어링·대리운전·택시 관련 혼입 방지)
-_NEWS_EXCLUDE_KW = {"그린카", "쏘카", "피플카", "대리", "택시"}
+# 뉴스/블로그 수집 시 제외할 키워드 (카셰어링·대리운전·택시·EV충전·물류 관련 혼입 방지)
+_NEWS_EXCLUDE_KW = {
+    # 카셰어링/대리/택시
+    "그린카", "쏘카", "피플카", "대리", "택시",
+    # 전기차 충전 사업 (별개 산업, 주차와 본질 다름)
+    "볼트업", "전기차 충전", "충전사업", "충전 사업",
+    "충전인프라", "충전 인프라", "충전기 설치",
+    # 자율주행·로지스틱스·피지컬 AI (모빌리티 인접이나 주차 무관)
+    "피지컬 AI", "피지컬AI", "물류 AX", "물류AX",
+    "무인 물류", "자율주행 물류",
+}
 
 # 모빌리티 통합 앱(카카오T/Tmap) 리뷰 — 주차 키워드 없으면 제외
 _PARKING_FILTERED_REVIEW_SVCS = {"kakaot_parking", "tmap_parking"}
 
 
 def _has_parking_kw(text: str) -> bool:
-    """본문에 주차 관련 키워드 1개 이상 포함 여부."""
+    """본문에 주차 관련 키워드 1개 이상 포함 여부 (리뷰용)."""
     if not text:
         return False
     t = text.lower()
     return any(kw in t for kw in _PARKING_KW)
+
+
+def _is_strong_parking_match(title: str, body: str) -> bool:
+    """뉴스/블로그용 강화 게이트.
+    조건: 제목에 주차 키워드 있거나, 본문에 2회 이상 등장해야 통과.
+    1회짜리 비유적 언급(예: "장시간 주차 환경") 차단.
+    """
+    title_l = (title or "").lower()
+    body_l  = (body or "").lower()
+    if any(kw in title_l for kw in _PARKING_KW):
+        return True
+    # 본문 등장 횟수 합산 (같은 키워드 여러 번도 1로 카운트해서 보수적)
+    distinct_hits = sum(1 for kw in _PARKING_KW if kw in body_l)
+    if distinct_hits >= 2:
+        return True
+    # 단일 키워드가 본문에 여러 번 나오는 경우도 통과
+    total_hits = sum(body_l.count(kw) for kw in _PARKING_KW)
+    return total_hits >= 2
 
 
 def _brand_validate(service_id: str, title: str, desc: str) -> bool:
@@ -544,8 +571,8 @@ def crawl_naver_search(source: dict) -> list[dict]:
                 if not _brand_validate(service_id, title, desc):
                     continue
 
-                # 주차 키워드 필수 — 브랜드만 일치하고 주차 무관한 글 차단
-                if not _has_parking_kw(title + " " + desc):
+                # 주차 강화 게이트 — 제목 또는 본문 2회+ 필수
+                if not _is_strong_parking_match(title, desc):
                     continue
 
                 ct = classify_change_type(title, desc)
@@ -703,8 +730,8 @@ def _parse_date_str(raw: str) -> str | None:
 
 def _dedup_by_title(items: list[dict], threshold: float = 0.2) -> list[dict]:
     """유사 제목 중복 제거 (2단계).
-    1단계: 같은 서비스+날짜 내 자카드 유사도 >= 0.2 (조사 제거 + 장문 토큰 앞 5자 정규화)
-    2단계: 날짜 기준 크로스 서비스 자카드 유사도 >= 0.75 (다른 매체 동일 기사 제거)
+    1단계: 같은 서비스+날짜 내 자카드 유사도 >= 0.2
+    2단계: 크로스 서비스 자카드 유사도 >= 0.5 (사용자 명세 "50% 단어 일치")
     중복 그룹 내에서 네이버 뉴스 뷰어(n.news.naver.com) URL을 우선 보존.
     """
     from collections import defaultdict
@@ -760,7 +787,7 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.2) -> list[dict]:
                 kept.append((tokens, item))
         stage1.extend(it for _, it in kept)
 
-    # 2단계: 크로스 서비스 dedup (날짜 기준, threshold 0.75)
+    # 2단계: 크로스 서비스 dedup (날짜 기준, threshold 0.5 - 사용자 명세 "50% 단어 일치")
     date_groups: dict[str, list] = defaultdict(list)
     for item in stage1:
         date_groups[item.get('published_at', '')].append(item)
@@ -769,9 +796,11 @@ def _dedup_by_title(items: list[dict], threshold: float = 0.2) -> list[dict]:
     for group_items in date_groups.values():
         kept: list[tuple[set, dict]] = []
         for item in group_items:
-            tokens = tokenize(item.get('title', ''))
+            # 제목 + 요약 토큰으로 더 넓게 비교 (제목만으로는 변형 못 잡음)
+            text = (item.get('title', '') or '') + ' ' + (item.get('summary', '') or '')
+            tokens = tokenize(text)
             dup_idx = next((i for i, (kt, _) in enumerate(kept)
-                            if jaccard(tokens, kt) >= 0.75), None)
+                            if jaccard(tokens, kt) >= 0.5), None)
             if dup_idx is not None:
                 if _priority(item) < _priority(kept[dup_idx][1]):
                     kept[dup_idx] = (tokens, item)
