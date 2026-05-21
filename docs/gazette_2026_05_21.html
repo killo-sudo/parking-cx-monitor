@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Noto+Serif+KR:wght@400;500;700;900&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
 :root {
   --ink: #0b0b0c;
@@ -137,7 +138,8 @@ a:hover { text-decoration: underline; }
 .stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 52px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
 .stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 14px; margin-left: 4px; color: var(--muted); }
-.stat .delta { margin-top: 12px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; letter-spacing: .04em; }
+.stat .sub { margin-top: 8px; font-family: "IBM Plex Sans KR", sans-serif; font-size: 11.5px; color: var(--ink-2); line-height: 1.4; letter-spacing: 0; }
+.stat .delta { margin-top: 10px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; letter-spacing: .04em; }
 .delta.up { color: var(--emerald-600); }
 .delta.down { color: var(--red-600); }
 .delta .arrow { font-weight: 700; font-size: 12px; }
@@ -168,7 +170,18 @@ a:hover { text-decoration: underline; }
 .ts-side { border-left: 1px solid var(--ink); padding-left: 28px; }
 .ts-side h4 { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--ink); }
 .keyfact { font-family: "Playfair Display", serif; font-weight: 900; font-size: 64px; line-height: 1; margin: 0 0 4px; color: var(--red-600); }
-.keyfact-cap { font-family: "Noto Serif KR", serif; font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.keyfact .kf-pct-mark { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 28px; margin-left: 4px; color: var(--red-600); }
+.keyfact-cap { font-family: "Noto Serif KR", serif; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.keyfact-cap strong { color: var(--ink); font-weight: 700; }
+.kf-sub { margin: 12px 0; padding: 8px 0; border-top: 1px dashed var(--slate-200); }
+.kf-sub:first-of-type { border-top: 1px solid var(--ink); padding-top: 12px; margin-top: 14px; }
+.kf-num { font-family: "Playfair Display", serif; font-weight: 900; font-size: 26px; line-height: 1; color: var(--ink); }
+.kf-num .kf-unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 13px; margin-left: 3px; color: var(--muted); }
+.kf-num .kf-pct { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 13px; color: var(--muted); margin-left: 4px; }
+.kf-sub-cap { font-family: "Noto Serif KR", serif; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.kf-sub-cap strong { color: var(--ink); font-weight: 700; }
+.kf-empty { font-family: "Noto Serif KR", serif; font-size: 14px; color: var(--muted); padding: 24px 0; text-align: center; line-height: 1.6; }
+.kf-empty-sub { font-size: 11px; color: var(--slate-300); }
 .pullquote { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 500; font-size: 17px; line-height: 1.45; color: var(--ink); padding: 14px 0 12px; border-top: 4px double var(--ink); border-bottom: 1px solid var(--ink); margin: 18px 0 10px; position: relative; }
 .pullquote::before { content: "“"; font-family: "Playfair Display", serif; font-size: 56px; line-height: .6; color: var(--blue-700); margin-right: 4px; vertical-align: -10px; }
 .pullquote-cite { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -322,9 +335,67 @@ a:hover { text-decoration: underline; }
   .kw.s-md { font-size: 18px; }
   .kw.s-sm { font-size: 14px; }
 }
+
+
+#auth-overlay { display: flex; position: fixed; inset: 0; z-index: 9999; background: #0F172A; align-items: center; justify-content: center; }
+#auth-card { background: #1E293B; border: 1px solid #334155; border-radius: 12px; padding: 40px 36px; width: 360px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+#auth-logo { font-family: 'Playfair Display','Georgia',serif; font-size: 22px; font-weight: 900; letter-spacing: 0.04em; color: #F1F5F9; }
+#auth-logo .the { font-style: italic; font-weight: 400; font-size: 0.6em; margin-right: 4px; }
+#auth-tagline { font-size: 11px; color: #64748B; letter-spacing: 0.04em; }
+#auth-gsi-btn { margin: 8px 0; }
+#auth-msg { font-size: 12px; min-height: 18px; }
+#auth-hint { font-size: 10px; color: #475569; }
 </style>
 </head>
 <body>
+
+<div id="auth-overlay">
+  <div id="auth-card">
+    <div id="auth-logo"><span class="the">The</span> PARKING GAZETTE</div>
+    <div id="auth-tagline">모두의주차장 CX운영파트 · 주간 리포트</div>
+    <div id="auth-gsi-btn"></div>
+    <div id="auth-msg"></div>
+    <div id="auth-hint">@socar.kr 계정으로만 접근 가능합니다</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var CLIENT_ID = "495055817211-o0m1u8d2aglluhng1kr6fvua95u8emqp.apps.googleusercontent.com";
+  var ALLOWED   = "socar.kr";
+  var JWT_KEY   = "pg_jwt";
+  var JWT_TTL   = 6 * 60 * 60 * 1000;
+
+  function decodeJwt(t) { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch(_) { return null; } }
+  function getStored() {
+    try { var i = JSON.parse(localStorage.getItem(JWT_KEY)||'null');
+      if (!i) return null;
+      if (Date.now() > i.exp) { localStorage.removeItem(JWT_KEY); return null; }
+      return i.token; } catch(_) { return null; }
+  }
+  function store(t) { localStorage.setItem(JWT_KEY, JSON.stringify({token:t, exp:Date.now()+JWT_TTL})); }
+  function hide()   { var el = document.getElementById('auth-overlay'); if (el) el.style.display='none'; }
+  function err(m)   { var el = document.getElementById('auth-msg'); if (el) { el.textContent=m; el.style.color='#ef4444'; } }
+
+  var stored = getStored();
+  if (stored) { hide(); return; }
+
+  function init() {
+    if (typeof google === 'undefined' || !google.accounts) { setTimeout(init, 200); return; }
+    google.accounts.id.initialize({ client_id: CLIENT_ID, callback: cb, auto_select: false });
+    var btn = document.getElementById('auth-gsi-btn');
+    if (btn) google.accounts.id.renderButton(btn, { type:'standard', theme:'outline', size:'large', text:'signin_with', logo_alignment:'left', locale:'ko' });
+  }
+  function cb(resp) {
+    var t = resp.credential, p = decodeJwt(t);
+    if (!p || !p.email) { err('인증 정보를 읽을 수 없습니다.'); return; }
+    var dom = p.email.split('@')[1];
+    if (dom !== ALLOWED) { err('@socar.kr 계정만 접근 가능합니다. (' + p.email + ')'); google.accounts.id.revoke(p.email, function(){}); return; }
+    store(t); hide();
+  }
+  init();
+})();
+</script>
 <main class="paper">
 
 
@@ -375,40 +446,40 @@ a:hover { text-decoration: underline; }
 
 <section class="stats" aria-label="Weekly KPIs">
   <div class="stat">
-    <div class="label">총 수집건</div>
-    <div class="value">276<span class="unit">건</span></div>
+    <div class="label">자사 부정 리뷰율</div>
+    <div class="value">89.5<span class="unit">%</span></div>
+    <div class="sub">n=17 / 19건</div>
     <div class="delta">— 기준 주차</div>
-    <svg class="spark" width="110" height="36" viewBox="0 0 110 36"><polyline points="0.0,32.5 18.3,32.5 36.7,31.0 55.0,33.0 73.3,20.2 91.7,24.2 110.0,2.0" fill="none" stroke="#1d4ed8" stroke-width="1.6"/></svg>
   </div>
   <div class="stat">
-    <div class="label">앱 리뷰</div>
-    <div class="value">158<span class="unit">건</span></div>
+    <div class="label">자사 ★ vs 경쟁사 Gap</div>
+    <div class="value">−0.42<span class="unit">pt</span></div>
+    <div class="sub">자사 ★1.37 vs 경쟁평균 ★1.79</div>
     <div class="delta">— 기준 주차</div>
-    <svg class="spark" width="110" height="36" viewBox="0 0 110 36"><polyline points="0.0,21.2 18.3,21.2 36.7,2.0 55.0,34.0 73.3,34.0 91.7,34.0 110.0,34.0" fill="none" stroke="#1d4ed8" stroke-width="1.6"/></svg>
   </div>
   <div class="stat">
-    <div class="label">뉴스 기사</div>
-    <div class="value">118<span class="unit">건</span></div>
-    <div class="delta">— 기준 주차</div>
-    <svg class="spark" width="110" height="36" viewBox="0 0 110 36"><polyline points="0.0,33.5 18.3,33.5 36.7,33.5 55.0,33.0 73.3,20.2 91.7,24.2 110.0,2.0" fill="none" stroke="#1d4ed8" stroke-width="1.6"/></svg>
-  </div>
-  <div class="stat">
-    <div class="label">모니터링 서비스</div>
-    <div class="value">11<span class="unit">개</span></div>
-    <div class="delta">— 기준 주차</div>
+    <div class="label">부정 톱 카테고리</div>
+    <div class="value">결제오류<span class="unit"></span></div>
+    <div class="sub">13건 (76.5%)</div>
     
   </div>
   <div class="stat">
-    <div class="label">부정 비율</div>
-    <div class="value">48.2<span class="unit">%</span></div>
+    <div class="label">경쟁사 정책·사업 이벤트</div>
+    <div class="value">20<span class="unit">건</span></div>
+    <div class="sub">카카오T 주차 15 · 하이파킹 (투루파킹) 4 · 아마노코리아 1</div>
     <div class="delta">— 기준 주차</div>
+  </div>
+  <div class="stat">
+    <div class="label">신규 VOC 키워드</div>
+    <div class="value">—<span class="unit"></span></div>
+    <div class="sub">기준 주차 (4주 히스토리 누적 중)</div>
     
   </div>
   <div class="stat">
-    <div class="label">일평균 수집</div>
-    <div class="value">46.0<span class="unit">건/일</span></div>
+    <div class="label">자사 부정군 평균 ★</div>
+    <div class="value">1.0<span class="unit">★</span></div>
+    <div class="sub">자사 부정 리뷰 평균 별점</div>
     <div class="delta">— 기준 주차</div>
-    
   </div>
 </section>
 
@@ -429,7 +500,7 @@ a:hover { text-decoration: underline; }
       <span>2026-05-21</span>
     </div>
     <h2 class="ts-headline"><a href="https://www.topdaily.kr/articles/110190" target="_blank" rel="noopener">LG유플러스볼트업, 매출 성장에도 수익성 확보 '난항'</a></h2>
-    <p class="ts-sub">이번 주 가장 주목받은 소식입니다.</p>
+    <p class="ts-sub">이번 주 가장 주목받은 경쟁사 뉴스. 우측 사이드는 자사 리뷰 분석입니다.</p>
     <div class="ts-body">
       <p>충전 인프라 확대 속 비용 확대 상존 급속 충전 경쟁 심화에 요금 인상 부담 LG유플러스와 카카오모빌리티가 설립한 합작법인(JV) 엘지유플러스볼트업(이하 볼트업)이 외형 성장을 이어가고 있다. 공격적인 충전 인프라 확대와 회원 확보 경쟁에 따른 비용 부담이 커지면서 수익성 확보는 과제로 남아 있다는 평가가 나온다. 21일 금융감독원 전자공시시스템에 따르면 볼트업은 2024년 6월 LG유플러스와 카카오모빌리티가 각각 250억원을 출자해 설립한 전기차 충전 합작법인이다. LG유플러스가 보통주 50%+1주를 보유해 경영권을 확보했고, 카카오모빌리티가 50% 지분을 보유하고 있다. 양 사는 볼트업 출범 당시 통신 인프라와 모빌리티 플랫폼을 결합해 전기차 충전 사업을 확대하겠다는 전략을 제시했다. LG유플러스는 B2B(기업 간 거래) 영업망과 플랫폼 운영 역량을, 카카오모빌리티는 이동 데이터와 플랫폼 이용자 기반을 강점으로 내세웠다. 실제 외형 성장 속도는 가파르다. 볼트업의 지난해 매출은 462억원으로 전년(96억원) 대비 4배 이상 증가했다. 2024년 실적에는 법인 설립 이후 약 7개월치 실적만 반영됐다는 점을 고려해도 성장세는 더욱 두드러진다는 평가다. 올 1분기 매출 역시 151억원으로 전년 동기(75억원) 대비 두 배 이상 늘었다. 반면 수익성 부담은 확대되고 있다. 지난해 영업손실은 268억원으로 전년(138억원) 대비 두 배 가까이 증가했다. 충전기 구축과 운영 확대에 따른 비용 부담이 커진 영향이다. 실제 지난해 매출원가는 626억원으로 전년(188억원) 대비 급증했다. 전기차 충전 사업 특성 상 초기 투자 부담도 영향을 미치고 있다. 급속 충전기의 경우 설치 비용이 수천만원 수준에 달하는 데다 전력 기본요금과 부지 임차료 부담도 적지 않다. 이용률이 일정 수준에 도달하기 전까지는 고정비 회수가 쉽지 않은 구조다. 공격적인 투자 기조는 재무에도 반영되고 있다. 볼트업의 유형자산은 2024년 말 78억원에서 지난해 말 116억원으로 증가했다. 반면 현금 및 현금성자산은 같은 기간 484억원에서 203억원으로 감소했다. 충전 인프라 확대 과정에서 현금 소진 속도가 빨라진 것으로 풀이된다. 완속 충전 중심의 사업 구조 역시 수익성 확보의 제약 요인으로 꼽힌다. 완속 충전은 아파트·업무시설 등 장시간 주차 환경을 기반으로 하는 만큼 차량 회전율이 낮다. 급속 충전은 짧은 시간 안에 다수 차량을 충전할 수 있어 상대적으로 수익성이 높다는 평가다. 볼트업은 올 1분기 회원 대상 완속 충전 단가를 인상하며 수익성 개선을 꾀했다. 다만 본격적인 수익성 개선을 달성하기 위해서는 회전율이 높고 단가가 높은 급속 충전 요금 조정이 불가피하다는 분석이 나온다. 그러나 올 1분기 기준 볼트업의 회원 대상 급속 충전 요금은 충전기 성능과 관계없이 1kW당 350원으로 동일하다. 반면 일부 경쟁 사업자들은 100kW 이상</p>
       <p>급속 충전기에 추가 요금을 적용하고 있어 수익성을 끌어올리기 위한 가격 조정은 쉽지 않을 것으로 보인다. 공격적인 요금 인상은 쉽지 않을 전망이다. 채비, SK일렉링크, EVSIS(이브이시스) 등 급속 충전소를 대규모로 운영하고 있는 사업자들이 공격적으로 충전망 확대에 나서고 있는 데다 일부 사업자(에버온)는 회원 기준 100kW 이상 성능 충전기를 1kW당 296원 수준의 요금제를 적용해 가격 경쟁에 나서고 있어서다. LG유플러스볼트업 관계자는 "수익성 달성과 관련해서는 내부적으로 계속 추적을 하고 있는 상황이며, 멀지 않은 시점으로 보고 있다"며 "올해 완속 충전 요금을 인상했지만 급속 충전 요금의 경우 올해 인상 계획은 없다"고 말했다. ⓒ 톱데일리. 무단 전재 및 재배포 금지 LG유플러스 032640 kospi SK텔레콤, DJ BIC 월드지수 편입 外 LG유플러스, AICC에 방점…"생산성 가시적 성과" KTOA, KIF 4기 출자 확대…정책펀드 맞물린 집행 시점 '관건' LG유플러스, ‘직접→간접’ 투자 전환…AI 투자 전략 재편 LG유플러스 자회사 미디어로그, 결손 부담 여전…체질 개선 고삐 SK텔레콤, DJ BIC 월드지수 편입 外 SK텔레콤, DJ BIC 월드지수 편입 外 LG유플러스, AICC에 방점…"생산성 가시적 성과" LG유플러스, AICC에 방점…"생산성 가시적 성과" KTOA, KIF 4기 출자 확대…정책펀드 맞물린 집행 시점 '관건' KTOA, KIF 4기 출자 확대…정책펀드 맞물린 집행 시점 '관건' LG유플러스, ‘직접→간접’ 투자 전환…AI 투자 전략 재편 LG유플러스, ‘직접→간접’ 투자 전환…AI 투자 전략 재편 LG유플러스 자회사 미디어로그, 결손 부담 여전…체질 개선 고삐 LG유플러스 자회사 미디어로그, 결손 부담 여전…체질 개선 고삐 LG유플러스, 카카오 합작사 '볼트업' 키우기 속도전 LG유플러스, 카카오 합작사 '볼트업' 키우기 속도전 LGU+, 카카오와 전기차 충전 합작사 '볼트업' 공식 출범 LGU+, 카카오와 전기차 충전 합작사 '볼트업' 공식 출범 국민성장펀드 출시 D-1···매년 6% 수익 가능할까 국민성장펀드 출시 D-1···매년 6% 수익 가능할까 ⑫ 대전 1위 계룡건설산업과 벌어진 격차 ⑫ 대전 1위 계룡건설산업과 벌어진 격차 연구법인 이노빌, 재정적 인공호흡 언제까지 연구법인 이노빌, 재정적 인공호흡 언제까지 청산에 만기 연장까지…TS인베스트, '2018 빈티지' 엑시트 담금질 청산에 만기 연장까지…TS인베스트, '2018 빈티지' 엑시트 담금질 정일선 행장 '전남권 학맥' 임원진 편중 타파하나 정일선 행장 '전남권 학맥' 임원진 편중 타파하나 성과보수 공백 메운 '달바 효과'…HB인베스트 실적 개선 성과보수 공백 메운 '달바 효과'…HB인베스트 실적 개선 화신, 이익 체력 '뚝'…해외 법인 부침에 '발목' 화신, 이익 체력 '뚝'…해외 법인 부침에 '발목' ② 성장통 여전…증권 편중·적자 사업 등 과제 남아 ② 성장통 여전…증권 편중·적자 사업 등 과제 남아</p>
@@ -437,14 +508,21 @@ a:hover { text-decoration: underline; }
   </article>
   <aside class="ts-side">
     <h4>By the Numbers</h4>
-    <div class="keyfact">88</div>
-    <div class="keyfact-cap"><strong>카카오T 주차</strong> 이번 주 수집 항목 수</div>
-    <blockquote class="pullquote">충전 인프라 확대 속 비용 확대 상존 급속 충전 경쟁 심화에 요금 인상 부담
-
-LG유플러스와 카카오모빌리티가 설립한 합작법인(JV) 엘지유플러스볼트업(이하 볼트업)이 외형 성장을 이어가고 있다. 공격적인 충전 인프라 확대와 회원 확보 경쟁에 따른 비용 부담이 커지면서 수익성 확보는 과제로 남아 있다는 평가가 나온다.
-
-2</blockquote>
-    <div class="pullquote-cite">— 뉴스 · 2026-05-21</div>
+    <div class="keyfact">89.5<span class="kf-pct-mark">%</span></div>
+    <div class="keyfact-cap">자사 부정 리뷰율 <strong>(n=17 / 19)</strong></div>
+    
+    <div class="kf-sub">
+      <div class="kf-num">13<span class="kf-unit">건</span> <span class="kf-pct">(76.5%)</span></div>
+      <div class="kf-sub-cap">부정 톱 카테고리 — <strong>결제오류</strong></div>
+    </div>
+    
+    <div class="kf-sub">
+      <div class="kf-num">★ 1.0</div>
+      <div class="kf-sub-cap">부정군 평균 별점 (낮을수록 신랄)</div>
+    </div>
+    
+    <blockquote class="pullquote">정기권 연장을 했는데, 수기로 연장신청하는 게 누락되었다는 말 듣고 2026년에 가능한 일인지 귀를 의심함. 결국 현장 결제금액 내가 결제함. 환불 또 신청해야하는데 이것도 누락될지 불안하고 개구찮.</blockquote>
+    <div class="pullquote-cite">— Google Play <span class="voc-stars">★<span class="off">★★★★</span></span> · 2026-02-02</div>
   </aside>
 </section>
 
