@@ -14,7 +14,15 @@
       "year": 26,
       "week_num": 21,
       "date": "2026-05-21",
-      "file": "gazette_2026_05_21.html"
+      "file": "gazette_2026_05_21.html",
+      "stats": {
+        "total": 276,
+        "reviews": 158,
+        "news": 118,
+        "svcs": 11,
+        "neg_pct": 48.2,
+        "per_day": 46.0
+      }
     }
   ]
 }
