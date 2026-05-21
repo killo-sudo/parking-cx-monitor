@@ -284,7 +284,7 @@ def extract_keywords(items: list, top_n=22) -> list:
     return results
 
 
-def build_sparkline(items: list, from_dt: date, to_dt: date, width=58, height=22) -> str:
+def build_sparkline(items: list, from_dt: date, to_dt: date, width=110, height=36) -> str:
     """일별 항목 수로 SVG 폴리라인 생성."""
     days = (to_dt - from_dt).days or 1
     daily = Counter()
@@ -491,27 +491,82 @@ def render_masthead(year: int, week_num: int, issue_total: int,
 </header>"""
 
 
-def render_stats(items: list, from_dt: date, to_dt: date) -> str:
+def compute_stats(items: list, from_dt: date, to_dt: date) -> dict:
+    """기간 통계 계산 — meta 저장 및 WoW 델타 비교용."""
     total   = len(items)
-    reviews = [i for i in items if i.get("source_type") in REVIEW_TYPES]
-    news    = [i for i in items if i.get("source_type") in NEWS_TYPES]
+    reviews = sum(1 for i in items if i.get("source_type") in REVIEW_TYPES)
+    news    = sum(1 for i in items if i.get("source_type") in NEWS_TYPES)
     svcs    = len({i.get("service_id") for i in items})
     neg     = sum(1 for i in items if i.get("sentiment") == "negative")
     days    = (to_dt - from_dt).days or 1
-    per_day = round(total / days, 1)
-    neg_pct = round(neg / max(total, 1) * 100, 1)
+    return {
+        "total":    total,
+        "reviews":  reviews,
+        "news":     news,
+        "svcs":     svcs,
+        "neg_pct":  round(neg / max(total, 1) * 100, 1),
+        "per_day":  round(total / days, 1),
+    }
 
+
+def find_prev_stats(meta: dict, year: int, week_num: int) -> tuple:
+    """가장 최근 과거 issue의 stats와 라벨(예: '25Y 52W') 반환. 없으면 (None, None)."""
+    issues = sorted(
+        [i for i in meta.get("issues", []) if isinstance(i.get("stats"), dict)],
+        key=lambda i: (i.get("year", 0), i.get("week_num", 0)),
+        reverse=True,
+    )
+    for iss in issues:
+        if iss["year"] < year or (iss["year"] == year and iss["week_num"] < week_num):
+            label = f"{iss['year']:02d}Y {iss['week_num']}W"
+            return iss["stats"], label
+    return None, None
+
+
+def _delta_block(cur, prev, unit: str = "%", show_vs: str = "") -> str:
+    """WoW 델타 표시 HTML. unit='%' for percentage change, 'pt' for raw pt diff."""
+    if prev is None or prev == 0:
+        if cur is None:
+            return ""
+        return '<div class="delta">— 기준 주차</div>'
+    try:
+        if unit == "pt":
+            d = round(cur - prev, 1)
+        else:
+            d = round((cur - prev) / prev * 100, 1)
+    except Exception:
+        return ""
+    if d > 0:
+        cls, arr, sign = "up", "▲", "+"
+    elif d < 0:
+        cls, arr, sign = "down", "▼", "−"
+        d = abs(d)
+    else:
+        return f'<div class="delta">— 변동 없음{(" vs " + show_vs) if show_vs else ""}</div>'
+    vs = f' vs {show_vs}' if show_vs else ''
+    return f'<div class="delta {cls}"><span class="arrow">{arr}</span> {sign}{d}{unit}{vs}</div>'
+
+
+def render_stats(items: list, from_dt: date, to_dt: date,
+                 cur: dict, prev: dict | None, prev_label: str | None) -> str:
+    """PDF 디자인 일치 — 2×3 그리드, 각 셀에 스파크라인 + WoW 델타."""
     spark_total   = build_sparkline(items, from_dt, to_dt)
-    spark_reviews = build_sparkline(reviews, from_dt, to_dt)
-    spark_news    = build_sparkline(news, from_dt, to_dt)
+    spark_reviews = build_sparkline(
+        [i for i in items if i.get("source_type") in REVIEW_TYPES], from_dt, to_dt)
+    spark_news    = build_sparkline(
+        [i for i in items if i.get("source_type") in NEWS_TYPES], from_dt, to_dt)
+
+    def d(key, unit="%"):
+        return _delta_block(cur.get(key), prev.get(key) if prev else None,
+                            unit=unit, show_vs=prev_label or "")
 
     cells = [
-        ("총 수집건",    f"{total:,}",    "건",  spark_total,   ""),
-        ("앱 리뷰",     f"{len(reviews):,}", "건", spark_reviews, ""),
-        ("뉴스·블로그", f"{len(news):,}", "건",  spark_news,    ""),
-        ("모니터 서비스", f"{svcs}",       "개",  "",            ""),
-        ("부정 비율",   f"{neg_pct}",    "%",   "",            ""),
-        ("일평균 수집",  f"{per_day}",    "건",  "",            ""),
+        ("총 수집건",    f"{cur['total']:,}",   "건",  spark_total,   d("total")),
+        ("앱 리뷰",      f"{cur['reviews']:,}", "건",  spark_reviews, d("reviews")),
+        ("뉴스 기사",    f"{cur['news']:,}",    "건",  spark_news,    d("news")),
+        ("모니터링 서비스", f"{cur['svcs']}",   "개",  "",            d("svcs", unit="pt")),
+        ("부정 비율",    f"{cur['neg_pct']}",   "%",   "",            d("neg_pct", unit="pt")),
+        ("일평균 수집",  f"{cur['per_day']}",   "건/일", "",          d("per_day")),
     ]
 
     cells_html = ""
@@ -520,7 +575,7 @@ def render_stats(items: list, from_dt: date, to_dt: date) -> str:
   <div class="stat">
     <div class="label">{esc(label)}</div>
     <div class="value">{esc(val)}<span class="unit">{esc(unit)}</span></div>
-    {f'<div class="delta">{esc(delta)}</div>' if delta else ''}
+    {delta}
     {spark}
   </div>"""
 
@@ -794,8 +849,17 @@ def render_voc_brief(items: list) -> str:
 <div class="voc-list">{cards}</div>"""
 
 
+def _wire_importance(rank: int) -> tuple:
+    """Wire 순위 기반 중요도 — (label, css_cls) 반환. 상위 2건=★HOT, 3~5건=주목, 나머지=—."""
+    if rank <= 2:
+        return "★ HOT", "hot"
+    if rank <= 5:
+        return "주목", "watch"
+    return "—", "none"
+
+
 def render_wire(items: list) -> str:
-    briefs = pick_news_briefs(items)
+    briefs = pick_news_briefs(items, n=8)
     if not briefs:
         return "<p style='color:var(--muted);font-size:13px;'>이번 주 경쟁사 뉴스 없음</p>"
 
@@ -808,6 +872,7 @@ def render_wire(items: list) -> str:
         date_s = esc(item.get("published_at", ""))
         src_type = item.get("source_type", "")
         src_label = "뉴스" if src_type in ("news", "rss") else "블로그"
+        imp_label, imp_cls = _wire_importance(idx)
         items_html += f"""
 <div class="wire-item">
   <div class="wire-num">{idx:02d}</div>
@@ -821,6 +886,7 @@ def render_wire(items: list) -> str:
   </div>
   <div class="wire-side">
     <span class="date">{date_s}</span>
+    <span class="imp imp-{imp_cls}">{esc(imp_label)}</span>
   </div>
 </div>"""
 
@@ -837,25 +903,38 @@ def render_wire(items: list) -> str:
 
 
 def render_sources(from_dt: date, to_dt: date, total: int, year: int, week_num: int) -> str:
-    vol_tag = f"{year:02d}Y · {week_num}W"
+    """Sources / Coverage / Newsroom — PDF 디자인 일치."""
+    next_week = week_num + 1
+    next_yr   = year
+    if next_week > 52:
+        next_yr, next_week = year + 1, 1
     return f"""
 <div class="sources">
-  <div>
-    <h5>Coverage &amp; Methodology</h5>
-    <p>기간: {esc(str(from_dt))} ~ {esc(str(to_dt))} (전주 Mon~Sun)<br>
-    총 {total:,}건 수집. 수집 채널: Google Play 리뷰 스크레이퍼, iTunes RSS API, 네이버 검색 API (뉴스·블로그), Google News RSS.</p>
+  <div class="src-block">
+    <h5>Sources &amp; Methodology</h5>
+    <p>리뷰 데이터는 Google Play / App Store 공개 리뷰를 자체 크롤러가 수집하며, 뉴스는 네이버 뉴스·블로그 검색 API와 Google News RSS를 통해 집계됩니다. 변경 유형·감성 분류는 키워드 기반 자동 분류기를 사용하며, 부정·중립·긍정 3분류로 라벨링됩니다.</p>
   </div>
-  <div>
-    <h5>Data Freshness</h5>
-    <p>본 리포트는 GitHub Actions에서 매주 월요일 KST 11:15 자동 생성됩니다. 수집 주기: 매일 07:15 KST.</p>
+  <div class="src-block">
+    <h5>Coverage</h5>
+    <ul class="src-list">
+      <li><span class="kw-label">자사</span> 모두의주차장</li>
+      <li><span class="kw-label">경쟁사</span> 카카오T 주차 · Tmap 주차 · 아이파킹 · 나이스파크 · 하이파킹(투루파킹) · 파킹프렌즈 · 주만사</li>
+      <li><span class="kw-label">B2B</span> 아마노코리아 · 케이엠파크 · 파킹클라우드 · SK쉴더스</li>
+    </ul>
   </div>
-  <div>
-    <h5>Disclaimer</h5>
-    <p>감성 분류는 키워드 기반 자동 분류로, 맥락에 따라 오류가 있을 수 있습니다. 최종 판단은 담당자 확인을 권장합니다.</p>
+  <div class="src-block">
+    <h5>Newsroom</h5>
+    <ul class="src-list">
+      <li><span class="kw-label">Editor-in-Chief</span> <strong>KILLO 기자</strong> (CX Desk)</li>
+      <li><span class="kw-label">Data Desk</span> 카니 기자 · <span class="kw-label">News Desk</span> 모카 기자</li>
+      <li><span class="kw-label">Next Issue</span> {next_yr:02d}Y {next_week}W (자동 발행)</li>
+      <li><span class="kw-label">Contact</span> cx-newsroom@moducompany.com</li>
+    </ul>
   </div>
   <div class="colophon">
-    <span class="logo">The Parking Gazette</span>
-    <span>WEEK {esc(vol_tag)} · Auto-generated · {esc(str(to_dt))} · © Modu CX Newsroom</span>
+    <span class="logo"><span class="the">The</span> Parking <span>Gazette</span></span>
+    <span>© {to_dt.year} Modu Company · Weekly Edition · Auto-Published Every Monday 11:15 KST</span>
+    <span class="signoff">— 30 —</span>
   </div>
 </div>"""
 
@@ -986,18 +1065,19 @@ a:hover { text-decoration: underline; }
 .week-badge .num { font-size: 14px; white-space: nowrap; }
 .coverage { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 500; font-size: 13px; letter-spacing: .04em; text-transform: none; }
 
-/* STATS */
-.stats { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 2px solid var(--ink); }
-.stat { padding: 18px 18px 16px; border-right: 1px solid var(--ink); background: #fff; position: relative; }
-.stat:last-child { border-right: none; }
-.stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-.stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 38px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
-.stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 13px; margin-left: 4px; color: var(--muted); }
-.stat .delta { margin-top: 8px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+/* STATS — PDF 디자인 2열×3행 그리드 */
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 2px solid var(--ink); }
+.stat { padding: 22px 26px 20px; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: #fff; position: relative; min-height: 110px; }
+.stat:nth-child(2n) { border-right: none; }
+.stat:nth-last-child(-n+2) { border-bottom: none; }
+.stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 52px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
+.stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 14px; margin-left: 4px; color: var(--muted); }
+.stat .delta { margin-top: 12px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; letter-spacing: .04em; }
 .delta.up { color: var(--emerald-600); }
 .delta.down { color: var(--red-600); }
-.delta .arrow { font-weight: 700; }
-.spark { position: absolute; right: 14px; top: 14px; opacity: .7; }
+.delta .arrow { font-weight: 700; font-size: 12px; }
+.spark { position: absolute; right: 22px; top: 22px; opacity: .8; width: 110px; height: 36px; }
 
 /* TOP STORY */
 .top-story { padding: 28px 32px 32px; border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: 1.5fr 1fr; gap: 36px; background: #fff; }
@@ -1136,15 +1216,24 @@ a:hover { text-decoration: underline; }
 .wire-headline a:hover { border-bottom-color: var(--ink); }
 .wire-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .wire-meta .src { color: var(--blue-700); font-weight: 600; }
-.wire-side { text-align: right; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); }
-.wire-side .date { display: block; margin-bottom: 4px; }
+.wire-side { text-align: right; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.wire-side .date { display: block; }
+.wire-side .imp { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .1em; font-weight: 600; }
+.wire-side .imp-hot   { color: var(--red-600); }
+.wire-side .imp-watch { color: var(--blue-700); }
+.wire-side .imp-none  { color: var(--slate-300); }
 
-/* SOURCES / FOOTER */
-.sources { padding: 18px 32px 22px; background: var(--paper-2); color: var(--ink-2); display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 28px; border-top: 4px double var(--ink); }
-.sources h5 { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin: 0 0 8px; color: var(--ink); }
-.sources p { font-family: "Noto Serif KR", serif; font-size: 12px; line-height: 1.6; margin: 0; color: var(--ink-2); }
-.colophon { grid-column: 1 / -1; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--slate-300); display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.colophon .logo { font-family: "Playfair Display", serif; font-weight: 900; font-style: italic; text-transform: none; color: var(--ink); letter-spacing: -.01em; font-size: 13px; }
+/* SOURCES / FOOTER — PDF 디자인 일치 */
+.sources { padding: 22px 32px 24px; background: var(--paper-2); color: var(--ink-2); display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; border-top: 4px double var(--ink); }
+.src-block h5 { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--slate-300); color: var(--ink); }
+.src-block p { font-family: "Noto Serif KR", serif; font-size: 12px; line-height: 1.65; margin: 0; color: var(--ink-2); }
+.src-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.src-list li { font-family: "Noto Serif KR", serif; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+.src-list .kw-label { font-family: "IBM Plex Mono", monospace; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+.colophon { grid-column: 1 / -1; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--slate-300); display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); gap: 14px; flex-wrap: wrap; }
+.colophon .logo { font-family: "Playfair Display", serif; font-weight: 900; font-style: italic; text-transform: none; color: var(--ink); letter-spacing: -.01em; font-size: 15px; }
+.colophon .logo .the { font-style: italic; font-weight: 400; font-size: .75em; margin-right: 4px; }
+.colophon .signoff { font-family: "Playfair Display", serif; font-style: italic; font-weight: 700; font-size: 13px; color: var(--ink); letter-spacing: .04em; }
 
 /* RESPONSIVE */
 @media (max-width: 960px) {
@@ -1186,7 +1275,7 @@ GOOGLE_FONTS = (
 
 
 def render_full_html(items, year, week_num, issue_total,
-                     from_dt, to_dt, meta) -> str:
+                     from_dt, to_dt, meta, cur_stats, prev_stats, prev_label) -> str:
     top_story  = pick_top_story(items)
     league     = period_app_league(items)
     svc_rows   = service_stats(items)
@@ -1203,7 +1292,7 @@ def render_full_html(items, year, week_num, issue_total,
 
     archive_nav = render_archive_nav(meta, year, week_num)
     masthead    = render_masthead(year, week_num, issue_total, from_dt, to_dt)
-    stats       = render_stats(items, from_dt, to_dt)
+    stats       = render_stats(items, from_dt, to_dt, cur_stats, prev_stats, prev_label)
     top_s       = _render_top_story(top_story, items)
     league_html = render_league(league, year, week_num)
     dispatch_html = render_dispatch(svc_rows)
@@ -1338,8 +1427,11 @@ def main():
 
     print(f"[gazette] {len(period_items)} items in period (total: {len(all_items)})")
 
+    cur_stats             = compute_stats(period_items, from_dt, to_dt)
+    prev_stats, prev_label = find_prev_stats(meta, year, week_num)
+
     html = render_full_html(period_items, year, week_num, issue_total,
-                            from_dt, to_dt, meta)
+                            from_dt, to_dt, meta, cur_stats, prev_stats, prev_label)
 
     archive_filename = f"gazette_{to_dt.strftime('%Y_%m_%d')}.html"
 
@@ -1351,15 +1443,22 @@ def main():
     archive.write_text(html, encoding="utf-8")
     print(f"[gazette] archive → {archive}")
 
-    # Update meta with issue history
+    # Update meta with issue history (cur_stats 포함 → 다음 주차 WoW 델타 비교용)
     issues = meta.get("issues", [])
-    # Avoid duplicate entry for same date
-    if not any(iss.get("year") == year and iss.get("week_num") == week_num for iss in issues):
+    # 같은 주차 재실행 시 stats만 갱신 (issue_total 유지)
+    existing = next((iss for iss in issues
+                     if iss.get("year") == year and iss.get("week_num") == week_num), None)
+    if existing:
+        existing["stats"] = cur_stats
+        existing["date"]  = to_dt.isoformat()
+        existing["file"]  = archive_filename
+    else:
         issues.append({
             "year":     year,
             "week_num": week_num,
             "date":     to_dt.isoformat(),
             "file":     archive_filename,
+            "stats":    cur_stats,
         })
 
     new_meta = {
