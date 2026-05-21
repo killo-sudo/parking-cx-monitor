@@ -1,12 +1,18 @@
 {
   "year": 26,
-  "week_num": 1,
-  "issue_total": 1,
+  "week_num": 21,
+  "issue_total": 2,
   "last_report_date": "2026-05-21",
   "issues": [
     {
       "year": 26,
       "week_num": 1,
+      "date": "2026-05-21",
+      "file": "gazette_2026_05_21.html"
+    },
+    {
+      "year": 26,
+      "week_num": 21,
       "date": "2026-05-21",
       "file": "gazette_2026_05_21.html"
     }
