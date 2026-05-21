@@ -181,6 +181,9 @@ _PARKING_KW = [
     '주차요금', '주차비', '무료주차', '유료주차', '주차면', '발렛', '주차권', '주차장',
 ]
 
+# 뉴스/블로그 수집 시 제외할 키워드 (카셰어링·대리운전·택시 관련 혼입 방지)
+_NEWS_EXCLUDE_KW = {"그린카", "쏘카", "피플카", "대리", "택시"}
+
 
 def _brand_validate(service_id: str, title: str, desc: str) -> bool:
     """서비스 브랜드명이 본문에 실제로 포함되어 있는지 검증.
@@ -1365,7 +1368,12 @@ def run() -> dict:
                 'service_id','published_at','source_type','change_type',
                 'title','summary','url','sentiment','dedup_key'
             }
+            _REVIEW_TYPES = {"appstore", "ios_appstore"}
             for item in items:
+                if src_type not in _REVIEW_TYPES:
+                    _chk = (item.get('title', '') + ' ' + (item.get('summary') or '')).lower()
+                    if any(kw in _chk for kw in _NEWS_EXCLUDE_KW):
+                        continue
                 db_item = {k: v for k, v in item.items() if k in _DB_FIELDS}
                 if db.insert_change(**db_item):
                     added += 1
