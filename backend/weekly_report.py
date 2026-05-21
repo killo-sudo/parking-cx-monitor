@@ -491,20 +491,188 @@ def render_masthead(year: int, week_num: int, issue_total: int,
 </header>"""
 
 
+# 리뷰 서브카테고리 — 자사 부정 리뷰의 액션 분류
+_REV_SUBCATS = {
+    "결제오류":  ["결제", "카드", "카카오페이", "페이먼트", "정산", "영수증", "환불", "PG", "인증실패"],
+    "예약":      ["예약", "취소", "당일예약", "변경", "일정", "사전결제"],
+    "지도·검색": ["지도", "빈자리", "위치", "주소", "길찾기", "GPS", "검색", "표시"],
+    "쿠폰":      ["쿠폰", "할인", "적립", "포인트", "프로모션"],
+    "고객센터":  ["고객센터", "상담", "답변", "문의", "콜센터", "대기", "응답"],
+}
+
+_GAP_PEER_SVCS = ("kakaot_parking", "tmap_parking", "iparking")
+
+
+def _parse_star(title: str) -> int | None:
+    """리뷰 제목의 [Android ★4] / [iOS ★1] 형식에서 별점 추출."""
+    if not title:
+        return None
+    m = re.search(r"★\s*(\d+)", title)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
+def _classify_subcat(text: str) -> str | None:
+    """리뷰 본문 → 결제/예약/지도/쿠폰/CS 5분류. 매칭 없으면 None."""
+    if not text:
+        return None
+    t = text.lower()
+    best = None
+    best_score = 0
+    for cat, kws in _REV_SUBCATS.items():
+        score = sum(1 for k in kws if k.lower() in t)
+        if score > best_score:
+            best_score = score
+            best = cat
+    return best if best_score > 0 else None
+
+
+def compute_self_review_stats(items: list) -> dict:
+    """자사(모두의주차장) 리뷰만 분석 — 부정률·부정군 별점·톱 부정 카테고리."""
+    self_reviews = [i for i in items
+                    if i.get("service_id") == "moduparking"
+                    and i.get("source_type") in REVIEW_TYPES]
+    n = len(self_reviews)
+    if n == 0:
+        return {"n": 0, "neg_pct": 0, "neg_n": 0, "top_cat": None,
+                "top_cat_n": 0, "top_cat_pct": 0, "neg_avg_star": None}
+
+    neg_reviews = [i for i in self_reviews if i.get("sentiment") == "negative"]
+    neg_n = len(neg_reviews)
+    neg_pct = round(neg_n / n * 100, 1)
+
+    stars = [s for s in (_parse_star(i.get("title", "")) for i in neg_reviews) if s is not None]
+    neg_avg_star = round(sum(stars) / len(stars), 1) if stars else None
+
+    cat_counts: dict[str, int] = {}
+    for r in neg_reviews:
+        cat = _classify_subcat((r.get("title", "") + " " + (r.get("summary") or "")))
+        if cat:
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
+    if cat_counts:
+        top_cat = max(cat_counts, key=cat_counts.get)
+        top_cat_n = cat_counts[top_cat]
+        top_cat_pct = round(top_cat_n / neg_n * 100, 1) if neg_n else 0
+    else:
+        top_cat, top_cat_n, top_cat_pct = None, 0, 0
+
+    return {
+        "n": n, "neg_pct": neg_pct, "neg_n": neg_n,
+        "top_cat": top_cat, "top_cat_n": top_cat_n, "top_cat_pct": top_cat_pct,
+        "neg_avg_star": neg_avg_star,
+    }
+
+
+def compute_competitor_gap(items: list) -> dict:
+    """자사 평균 별점 vs 카카오T·Tmap·아이파킹 가중평균 Gap."""
+    def avg_for(sid):
+        scs = [s for s in (_parse_star(i.get("title", "")) for i in items
+                           if i.get("service_id") == sid
+                           and i.get("source_type") in REVIEW_TYPES) if s is not None]
+        return (sum(scs) / len(scs), len(scs)) if scs else (None, 0)
+
+    self_avg, _ = avg_for("moduparking")
+    weighted_sum, weighted_n = 0.0, 0
+    for sid in _GAP_PEER_SVCS:
+        avg, n = avg_for(sid)
+        if avg is not None:
+            weighted_sum += avg * n
+            weighted_n   += n
+    peer_avg = (weighted_sum / weighted_n) if weighted_n else None
+
+    if self_avg is None or peer_avg is None:
+        return {"self_avg": self_avg, "peer_avg": peer_avg, "gap": None}
+    return {
+        "self_avg": round(self_avg, 2),
+        "peer_avg": round(peer_avg, 2),
+        "gap":      round(self_avg - peer_avg, 2),
+    }
+
+
+def count_competitor_events(items: list) -> dict:
+    """경쟁사 뉴스 중 정책+사업확장 카운트. 상위 3사."""
+    events = [i for i in items
+              if i.get("source_type") in NEWS_ONLY
+              and i.get("service_id") != "moduparking"
+              and i.get("change_type") in ("사업확장", "정책")]
+    by_svc: dict[str, int] = {}
+    name_map: dict[str, str] = {}
+    for e in events:
+        sid = e.get("service_id", "")
+        by_svc[sid] = by_svc.get(sid, 0) + 1
+        if sid not in name_map:
+            name_map[sid] = e.get("name_ko", sid)
+    top3 = [(name_map.get(sid, sid), n)
+            for sid, n in sorted(by_svc.items(), key=lambda x: -x[1])[:3]]
+    return {"total": len(events), "top3": top3}
+
+
+def extract_neg_keywords(items: list, top_n: int = 30) -> list:
+    """자사 부정 리뷰의 빈출 키워드 (신규 키워드 비교용)."""
+    neg = [i for i in items
+           if i.get("service_id") == "moduparking"
+           and i.get("source_type") in REVIEW_TYPES
+           and i.get("sentiment") == "negative"]
+    pat = re.compile(r"[가-힣]{2,7}")
+    counts: dict[str, int] = {}
+    for r in neg:
+        text = (r.get("title", "") + " " + (r.get("summary") or ""))
+        for tok in pat.findall(text):
+            if tok not in KO_STOPWORDS:
+                counts[tok] = counts.get(tok, 0) + 1
+    return [k for k, _ in sorted(counts.items(), key=lambda x: -x[1])[:top_n]]
+
+
+def compute_new_voc_ratio(cur_kws: list, history_kws: set | None) -> dict:
+    """이번주 부정 키워드 중 과거에 없던 신규 키워드 비율."""
+    cur_set = set(cur_kws or [])
+    if not history_kws:
+        return {"new_n": None, "total": len(cur_set), "new_pct": None, "new_kws": []}
+    new = cur_set - history_kws
+    total = len(cur_set) or 1
+    return {
+        "new_n":   len(new),
+        "total":   len(cur_set),
+        "new_pct": round(len(new) / total * 100, 1),
+        "new_kws": list(new)[:3],
+    }
+
+
 def compute_stats(items: list, from_dt: date, to_dt: date) -> dict:
-    """기간 통계 계산 — meta 저장 및 WoW 델타 비교용."""
+    """기간 통계 — CX팀장 권고 KPI + 시스템 운영 보조 값."""
+    self_stats = compute_self_review_stats(items)
+    gap_stats  = compute_competitor_gap(items)
+    comp_evt   = count_competitor_events(items)
+
     total   = len(items)
     reviews = sum(1 for i in items if i.get("source_type") in REVIEW_TYPES)
     news    = sum(1 for i in items if i.get("source_type") in NEWS_TYPES)
-    svcs    = len({i.get("service_id") for i in items})
-    neg     = sum(1 for i in items if i.get("sentiment") == "negative")
     days    = (to_dt - from_dt).days or 1
+
     return {
+        # CX팀장 권고 KPI
+        "self_neg_pct":     self_stats["neg_pct"],
+        "self_neg_n":       self_stats["neg_n"],
+        "self_review_n":    self_stats["n"],
+        "self_top_cat":     self_stats["top_cat"],
+        "self_top_cat_pct": self_stats["top_cat_pct"],
+        "self_top_cat_n":   self_stats["top_cat_n"],
+        "self_neg_avg_star": self_stats["neg_avg_star"],
+        "gap":              gap_stats["gap"],
+        "self_avg":         gap_stats["self_avg"],
+        "peer_avg":         gap_stats["peer_avg"],
+        "comp_events":      comp_evt["total"],
+        "comp_top3":        comp_evt["top3"],
+        # 신규 VOC 키워드 비율은 history 필요 → main()에서 채움
+        "neg_keywords":     extract_neg_keywords(items),
+        # 시스템 운영 보조값 (호환)
         "total":    total,
         "reviews":  reviews,
         "news":     news,
-        "svcs":     svcs,
-        "neg_pct":  round(neg / max(total, 1) * 100, 1),
         "per_day":  round(total / days, 1),
     }
 
@@ -548,45 +716,138 @@ def _delta_block(cur, prev, unit: str = "%", show_vs: str = "") -> str:
 
 
 def render_stats(items: list, from_dt: date, to_dt: date,
-                 cur: dict, prev: dict | None, prev_label: str | None) -> str:
-    """PDF 디자인 일치 — 2×3 그리드, 각 셀에 스파크라인 + WoW 델타."""
-    spark_total   = build_sparkline(items, from_dt, to_dt)
-    spark_reviews = build_sparkline(
-        [i for i in items if i.get("source_type") in REVIEW_TYPES], from_dt, to_dt)
-    spark_news    = build_sparkline(
-        [i for i in items if i.get("source_type") in NEWS_TYPES], from_dt, to_dt)
+                 cur: dict, prev: dict | None, prev_label: str | None,
+                 new_voc: dict | None = None) -> str:
+    """CX팀장 권고 KPI 6칸 — 자사 부정률 / Gap / 톱 카테고리 / 경쟁사 이벤트 / 신규 VOC / 보조."""
 
     def d(key, unit="%"):
         return _delta_block(cur.get(key), prev.get(key) if prev else None,
                             unit=unit, show_vs=prev_label or "")
 
+    # ① 자사 부정 리뷰율
+    cell1_label = "자사 부정 리뷰율"
+    cell1_val   = f'{cur.get("self_neg_pct", 0)}'
+    cell1_unit  = "%"
+    cell1_sub   = (f'<div class="sub">n={cur.get("self_neg_n", 0)} / {cur.get("self_review_n", 0)}건</div>'
+                   if cur.get("self_review_n") else '<div class="sub">자사 리뷰 없음</div>')
+    cell1_delta = d("self_neg_pct", unit="pt")
+
+    # ② 자사 ★ vs 경쟁사 Gap
+    gap = cur.get("gap")
+    if gap is None:
+        cell2_val = "—"
+        cell2_unit = ""
+        cell2_sub = '<div class="sub">자사/경쟁사 별점 데이터 부족</div>'
+    else:
+        sign = "+" if gap > 0 else ("−" if gap < 0 else "±")
+        cell2_val  = f'{sign}{abs(gap):.2f}'
+        cell2_unit = "pt"
+        cell2_sub  = (f'<div class="sub">자사 ★{cur.get("self_avg")} vs 경쟁평균 ★{cur.get("peer_avg")}</div>')
+    cell2_delta = d("gap", unit="pt")
+
+    # ③ 부정 톱 카테고리
+    top_cat = cur.get("self_top_cat")
+    if top_cat:
+        cell3_val  = top_cat
+        cell3_unit = ""
+        cell3_sub  = f'<div class="sub">{cur.get("self_top_cat_n", 0)}건 ({cur.get("self_top_cat_pct", 0)}%)</div>'
+    else:
+        cell3_val, cell3_unit = "—", ""
+        cell3_sub = '<div class="sub">자사 부정 리뷰 없음</div>'
+    cell3_delta = ""  # 카테고리는 델타 비교 X
+
+    # ④ 경쟁사 정책·사업 이벤트
+    cell4_val  = f'{cur.get("comp_events", 0)}'
+    cell4_unit = "건"
+    top3 = cur.get("comp_top3") or []
+    if top3:
+        top_str = " · ".join(f"{name} {n}" for name, n in top3)
+        cell4_sub = f'<div class="sub">{esc(top_str)}</div>'
+    else:
+        cell4_sub = '<div class="sub">정책·사업확장 분류 뉴스 없음</div>'
+    cell4_delta = d("comp_events", unit="pt")
+
+    # ⑤ 신규 VOC 키워드 비율
+    if new_voc and new_voc.get("new_pct") is not None:
+        cell5_val  = f'{new_voc["new_pct"]}'
+        cell5_unit = "%"
+        kws = new_voc.get("new_kws", [])
+        kw_str = " · ".join(kws[:3]) if kws else "—"
+        cell5_sub = f'<div class="sub">신규 {new_voc["new_n"]}/{new_voc["total"]}개 — {esc(kw_str)}</div>'
+    else:
+        cell5_val, cell5_unit = "—", ""
+        cell5_sub = '<div class="sub">기준 주차 (4주 히스토리 누적 중)</div>'
+    cell5_delta = ""
+
+    # ⑥ 보조 — 자사 부정군 평균 별점 (PDF의 '부정군 ★2.1' 자리)
+    nas = cur.get("self_neg_avg_star")
+    if nas is not None:
+        cell6_val  = f'{nas:.1f}'
+        cell6_unit = "★"
+        cell6_sub  = '<div class="sub">자사 부정 리뷰 평균 별점</div>'
+    else:
+        cell6_val, cell6_unit = "—", ""
+        cell6_sub = '<div class="sub">부정 리뷰 없음</div>'
+    cell6_delta = d("self_neg_avg_star", unit="pt")
+
     cells = [
-        ("총 수집건",    f"{cur['total']:,}",   "건",  spark_total,   d("total")),
-        ("앱 리뷰",      f"{cur['reviews']:,}", "건",  spark_reviews, d("reviews")),
-        ("뉴스 기사",    f"{cur['news']:,}",    "건",  spark_news,    d("news")),
-        ("모니터링 서비스", f"{cur['svcs']}",   "개",  "",            d("svcs", unit="pt")),
-        ("부정 비율",    f"{cur['neg_pct']}",   "%",   "",            d("neg_pct", unit="pt")),
-        ("일평균 수집",  f"{cur['per_day']}",   "건/일", "",          d("per_day")),
+        ("자사 부정 리뷰율",     cell1_val, cell1_unit, cell1_sub, cell1_delta),
+        ("자사 ★ vs 경쟁사 Gap", cell2_val, cell2_unit, cell2_sub, cell2_delta),
+        ("부정 톱 카테고리",      cell3_val, cell3_unit, cell3_sub, cell3_delta),
+        ("경쟁사 정책·사업 이벤트", cell4_val, cell4_unit, cell4_sub, cell4_delta),
+        ("신규 VOC 키워드",      cell5_val, cell5_unit, cell5_sub, cell5_delta),
+        ("자사 부정군 평균 ★",    cell6_val, cell6_unit, cell6_sub, cell6_delta),
     ]
 
     cells_html = ""
-    for label, val, unit, spark, delta in cells:
+    for label, val, unit, sub, delta in cells:
         cells_html += f"""
   <div class="stat">
     <div class="label">{esc(label)}</div>
     <div class="value">{esc(val)}<span class="unit">{esc(unit)}</span></div>
+    {sub}
     {delta}
-    {spark}
   </div>"""
 
     return f'<section class="stats" aria-label="Weekly KPIs">{cells_html}\n</section>'
 
 
-def _render_top_story(item: dict | None, items: list) -> str:
+def _pick_representative_review(items: list, top_cat: str | None) -> dict | None:
+    """톱 부정 카테고리 + ★1~2 + 본문 30~80자 룰로 자사 대표 부정 리뷰 선정."""
+    candidates = []
+    for r in items:
+        if r.get("service_id") != "moduparking":
+            continue
+        if r.get("source_type") not in REVIEW_TYPES:
+            continue
+        if r.get("sentiment") != "negative":
+            continue
+        star = _parse_star(r.get("title", ""))
+        if star is None or star > 2:
+            continue
+        summary = (r.get("summary") or "").strip()
+        if not (30 <= len(summary) <= 200):
+            # 너무 짧거나 길면 후순위 (완전 배제는 아님)
+            pass
+        cat_match = top_cat is None or _classify_subcat(r.get("title", "") + " " + summary) == top_cat
+        score = 0
+        if cat_match:
+            score += 5
+        if 30 <= len(summary) <= 200:
+            score += 3
+        if star == 1:
+            score += 2
+        candidates.append((score, r))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: -x[0])
+    return candidates[0][1]
+
+
+def _render_top_story(item: dict | None, items: list, cur_stats: dict) -> str:
     if not item:
         return ""
     title   = esc(item.get("title", "(제목 없음)"))
-    summary = esc(item.get("summary", ""))
     svc     = esc(item.get("name_ko", item.get("service_id", "")))
     ct_badge = change_badge(item.get("change_type", ""))
     sent    = item.get("sentiment", "neutral")
@@ -596,15 +857,65 @@ def _render_top_story(item: dict | None, items: list) -> str:
     src_type = item.get("source_type", "")
     src_label = "Google Play" if src_type == "appstore" else ("App Store" if src_type == "ios_appstore" else "뉴스")
 
-    # Count for this service in this period
-    svc_items = [i for i in items if i.get("service_id") == item.get("service_id")]
-    keyfact_num = len(svc_items)
-
-    # Split summary into 2 paras
+    # 본문 2단 분할
     words = (item.get("summary") or "").split()
     mid   = max(1, len(words) // 2)
     para1 = esc(" ".join(words[:mid]))
     para2 = esc(" ".join(words[mid:])) if len(words) > mid else ""
+
+    # ── 사이드: 자사 부정 리뷰 분석 (CX팀장 권고) ──
+    self_neg_pct  = cur_stats.get("self_neg_pct", 0)
+    self_neg_n    = cur_stats.get("self_neg_n", 0)
+    self_review_n = cur_stats.get("self_review_n", 0)
+    top_cat       = cur_stats.get("self_top_cat")
+    top_cat_n     = cur_stats.get("self_top_cat_n", 0)
+    top_cat_pct   = cur_stats.get("self_top_cat_pct", 0)
+    neg_avg_star  = cur_stats.get("self_neg_avg_star")
+
+    rep = _pick_representative_review(items, top_cat)
+
+    if self_review_n == 0:
+        # 자사 리뷰 자체가 없는 주
+        side_html = """
+    <h4>By the Numbers</h4>
+    <div class="kf-empty">이번 주 자사 리뷰 데이터 없음<br><span class="kf-empty-sub">증분 수집 모드로 신규 리뷰만 반영</span></div>"""
+    else:
+        rep_html = ""
+        if rep:
+            rep_star = _parse_star(rep.get("title", "")) or 0
+            rep_summary = esc((rep.get("summary") or "")[:180])
+            rep_date    = esc(rep.get("published_at", ""))
+            rep_src     = "Google Play" if rep.get("source_type") == "appstore" else "App Store"
+            rep_stars_html = stars_html(float(rep_star)) if rep_star else ""
+            rep_html = f"""
+    <blockquote class="pullquote">{rep_summary}</blockquote>
+    <div class="pullquote-cite">— {esc(rep_src)} {rep_stars_html} · {rep_date}</div>"""
+        else:
+            rep_html = ""
+
+        cat_block = ""
+        if top_cat:
+            cat_block = f"""
+    <div class="kf-sub">
+      <div class="kf-num">{top_cat_n}<span class="kf-unit">건</span> <span class="kf-pct">({top_cat_pct}%)</span></div>
+      <div class="kf-sub-cap">부정 톱 카테고리 — <strong>{esc(top_cat)}</strong></div>
+    </div>"""
+
+        star_block = ""
+        if neg_avg_star is not None:
+            star_block = f"""
+    <div class="kf-sub">
+      <div class="kf-num">★ {neg_avg_star:.1f}</div>
+      <div class="kf-sub-cap">부정군 평균 별점 (낮을수록 신랄)</div>
+    </div>"""
+
+        side_html = f"""
+    <h4>By the Numbers</h4>
+    <div class="keyfact">{self_neg_pct}<span class="kf-pct-mark">%</span></div>
+    <div class="keyfact-cap">자사 부정 리뷰율 <strong>(n={self_neg_n} / {self_review_n})</strong></div>
+    {cat_block}
+    {star_block}
+    {rep_html}"""
 
     return f"""
 <section class="top-story">
@@ -623,18 +934,13 @@ def _render_top_story(item: dict | None, items: list) -> str:
       <span>{date_s}</span>
     </div>
     <h2 class="ts-headline"><a href="{url}" target="_blank" rel="noopener">{title}</a></h2>
-    <p class="ts-sub">이번 주 가장 주목받은 소식입니다.</p>
+    <p class="ts-sub">이번 주 가장 주목받은 경쟁사 뉴스. 우측 사이드는 자사 리뷰 분석입니다.</p>
     <div class="ts-body">
       <p>{para1}</p>
       {'<p>' + para2 + '</p>' if para2 else ''}
     </div>
   </article>
-  <aside class="ts-side">
-    <h4>By the Numbers</h4>
-    <div class="keyfact">{keyfact_num}</div>
-    <div class="keyfact-cap"><strong>{esc(svc)}</strong> 이번 주 수집 항목 수</div>
-    <blockquote class="pullquote">{summary[:180] if summary else '이번 주 주요 이슈를 확인하세요.'}</blockquote>
-    <div class="pullquote-cite">— {esc(src_label)} · {date_s}</div>
+  <aside class="ts-side">{side_html}
   </aside>
 </section>"""
 
@@ -1073,7 +1379,8 @@ a:hover { text-decoration: underline; }
 .stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 52px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
 .stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 14px; margin-left: 4px; color: var(--muted); }
-.stat .delta { margin-top: 12px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; letter-spacing: .04em; }
+.stat .sub { margin-top: 8px; font-family: "IBM Plex Sans KR", sans-serif; font-size: 11.5px; color: var(--ink-2); line-height: 1.4; letter-spacing: 0; }
+.stat .delta { margin-top: 10px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; letter-spacing: .04em; }
 .delta.up { color: var(--emerald-600); }
 .delta.down { color: var(--red-600); }
 .delta .arrow { font-weight: 700; font-size: 12px; }
@@ -1104,7 +1411,18 @@ a:hover { text-decoration: underline; }
 .ts-side { border-left: 1px solid var(--ink); padding-left: 28px; }
 .ts-side h4 { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--ink); }
 .keyfact { font-family: "Playfair Display", serif; font-weight: 900; font-size: 64px; line-height: 1; margin: 0 0 4px; color: var(--red-600); }
-.keyfact-cap { font-family: "Noto Serif KR", serif; font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.keyfact .kf-pct-mark { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 28px; margin-left: 4px; color: var(--red-600); }
+.keyfact-cap { font-family: "Noto Serif KR", serif; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+.keyfact-cap strong { color: var(--ink); font-weight: 700; }
+.kf-sub { margin: 12px 0; padding: 8px 0; border-top: 1px dashed var(--slate-200); }
+.kf-sub:first-of-type { border-top: 1px solid var(--ink); padding-top: 12px; margin-top: 14px; }
+.kf-num { font-family: "Playfair Display", serif; font-weight: 900; font-size: 26px; line-height: 1; color: var(--ink); }
+.kf-num .kf-unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 13px; margin-left: 3px; color: var(--muted); }
+.kf-num .kf-pct { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 13px; color: var(--muted); margin-left: 4px; }
+.kf-sub-cap { font-family: "Noto Serif KR", serif; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.kf-sub-cap strong { color: var(--ink); font-weight: 700; }
+.kf-empty { font-family: "Noto Serif KR", serif; font-size: 14px; color: var(--muted); padding: 24px 0; text-align: center; line-height: 1.6; }
+.kf-empty-sub { font-size: 11px; color: var(--slate-300); }
 .pullquote { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 500; font-size: 17px; line-height: 1.45; color: var(--ink); padding: 14px 0 12px; border-top: 4px double var(--ink); border-bottom: 1px solid var(--ink); margin: 18px 0 10px; position: relative; }
 .pullquote::before { content: "“"; font-family: "Playfair Display", serif; font-size: 56px; line-height: .6; color: var(--blue-700); margin-right: 4px; vertical-align: -10px; }
 .pullquote-cite { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -1274,8 +1592,81 @@ GOOGLE_FONTS = (
 )
 
 
+# ─────────────────────────────────────────────
+# 인증 게이트 (@socar.kr Google Identity Services)
+# main 사이트(docs/web-api.js)와 동일 CLIENT_ID·JWT 키 사용
+# ─────────────────────────────────────────────
+
+AUTH_CLIENT_ID    = "495055817211-o0m1u8d2aglluhng1kr6fvua95u8emqp.apps.googleusercontent.com"
+AUTH_ALLOWED_DOM  = "socar.kr"
+AUTH_JWT_KEY      = "pg_jwt"   # main 사이트와 공유 → 한 번 로그인 시 양쪽 모두 통과
+AUTH_JWT_TTL_HRS  = 6
+
+AUTH_CSS = """
+#auth-overlay { display: flex; position: fixed; inset: 0; z-index: 9999; background: #0F172A; align-items: center; justify-content: center; }
+#auth-card { background: #1E293B; border: 1px solid #334155; border-radius: 12px; padding: 40px 36px; width: 360px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+#auth-logo { font-family: 'Playfair Display','Georgia',serif; font-size: 22px; font-weight: 900; letter-spacing: 0.04em; color: #F1F5F9; }
+#auth-logo .the { font-style: italic; font-weight: 400; font-size: 0.6em; margin-right: 4px; }
+#auth-tagline { font-size: 11px; color: #64748B; letter-spacing: 0.04em; }
+#auth-gsi-btn { margin: 8px 0; }
+#auth-msg { font-size: 12px; min-height: 18px; }
+#auth-hint { font-size: 10px; color: #475569; }
+"""
+
+AUTH_OVERLAY_HTML = """
+<div id="auth-overlay">
+  <div id="auth-card">
+    <div id="auth-logo"><span class="the">The</span> PARKING GAZETTE</div>
+    <div id="auth-tagline">모두의주차장 CX운영파트 · 주간 리포트</div>
+    <div id="auth-gsi-btn"></div>
+    <div id="auth-msg"></div>
+    <div id="auth-hint">@socar.kr 계정으로만 접근 가능합니다</div>
+  </div>
+</div>
+"""
+
+AUTH_JS = f"""
+(function () {{
+  var CLIENT_ID = "{AUTH_CLIENT_ID}";
+  var ALLOWED   = "{AUTH_ALLOWED_DOM}";
+  var JWT_KEY   = "{AUTH_JWT_KEY}";
+  var JWT_TTL   = {AUTH_JWT_TTL_HRS} * 60 * 60 * 1000;
+
+  function decodeJwt(t) {{ try {{ return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }} catch(_) {{ return null; }} }}
+  function getStored() {{
+    try {{ var i = JSON.parse(localStorage.getItem(JWT_KEY)||'null');
+      if (!i) return null;
+      if (Date.now() > i.exp) {{ localStorage.removeItem(JWT_KEY); return null; }}
+      return i.token; }} catch(_) {{ return null; }}
+  }}
+  function store(t) {{ localStorage.setItem(JWT_KEY, JSON.stringify({{token:t, exp:Date.now()+JWT_TTL}})); }}
+  function hide()   {{ var el = document.getElementById('auth-overlay'); if (el) el.style.display='none'; }}
+  function err(m)   {{ var el = document.getElementById('auth-msg'); if (el) {{ el.textContent=m; el.style.color='#ef4444'; }} }}
+
+  var stored = getStored();
+  if (stored) {{ hide(); return; }}
+
+  function init() {{
+    if (typeof google === 'undefined' || !google.accounts) {{ setTimeout(init, 200); return; }}
+    google.accounts.id.initialize({{ client_id: CLIENT_ID, callback: cb, auto_select: false }});
+    var btn = document.getElementById('auth-gsi-btn');
+    if (btn) google.accounts.id.renderButton(btn, {{ type:'standard', theme:'outline', size:'large', text:'signin_with', logo_alignment:'left', locale:'ko' }});
+  }}
+  function cb(resp) {{
+    var t = resp.credential, p = decodeJwt(t);
+    if (!p || !p.email) {{ err('인증 정보를 읽을 수 없습니다.'); return; }}
+    var dom = p.email.split('@')[1];
+    if (dom !== ALLOWED) {{ err('@socar.kr 계정만 접근 가능합니다. (' + p.email + ')'); google.accounts.id.revoke(p.email, function(){{}}); return; }}
+    store(t); hide();
+  }}
+  init();
+}})();
+"""
+
+
 def render_full_html(items, year, week_num, issue_total,
-                     from_dt, to_dt, meta, cur_stats, prev_stats, prev_label) -> str:
+                     from_dt, to_dt, meta, cur_stats, prev_stats, prev_label,
+                     new_voc=None) -> str:
     top_story  = pick_top_story(items)
     league     = period_app_league(items)
     svc_rows   = service_stats(items)
@@ -1292,8 +1683,8 @@ def render_full_html(items, year, week_num, issue_total,
 
     archive_nav = render_archive_nav(meta, year, week_num)
     masthead    = render_masthead(year, week_num, issue_total, from_dt, to_dt)
-    stats       = render_stats(items, from_dt, to_dt, cur_stats, prev_stats, prev_label)
-    top_s       = _render_top_story(top_story, items)
+    stats       = render_stats(items, from_dt, to_dt, cur_stats, prev_stats, prev_label, new_voc)
+    top_s       = _render_top_story(top_story, items, cur_stats)
     league_html = render_league(league, year, week_num)
     dispatch_html = render_dispatch(svc_rows)
     modu_cloud  = render_keyword_cloud(modu_kws, "자사 키워드 맵", len(modu_items), vol_tag)
@@ -1322,9 +1713,13 @@ def render_full_html(items, year, week_num, issue_total,
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="{GOOGLE_FONTS}" rel="stylesheet">
-<style>{CSS}</style>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>{CSS}
+{AUTH_CSS}</style>
 </head>
 <body>
+{AUTH_OVERLAY_HTML}
+<script>{AUTH_JS}</script>
 <main class="paper">
 
 {archive_nav}
@@ -1430,8 +1825,18 @@ def main():
     cur_stats             = compute_stats(period_items, from_dt, to_dt)
     prev_stats, prev_label = find_prev_stats(meta, year, week_num)
 
+    # 신규 VOC 키워드 비율 — 과거 4주치 자사 부정 키워드 합집합과 비교
+    hist_kws: set = set()
+    for iss in sorted(meta.get("issues", []),
+                      key=lambda x: (x.get("year", 0), x.get("week_num", 0)),
+                      reverse=True)[:4]:
+        st = iss.get("stats", {})
+        for kw in (st.get("neg_keywords") or []):
+            hist_kws.add(kw)
+    new_voc = compute_new_voc_ratio(cur_stats.get("neg_keywords", []), hist_kws if hist_kws else None)
+
     html = render_full_html(period_items, year, week_num, issue_total,
-                            from_dt, to_dt, meta, cur_stats, prev_stats, prev_label)
+                            from_dt, to_dt, meta, cur_stats, prev_stats, prev_label, new_voc)
 
     archive_filename = f"gazette_{to_dt.strftime('%Y_%m_%d')}.html"
 
