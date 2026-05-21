@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE PARKING GAZETTE · 26Y 1W · Thu, May 21, 2026</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --slate-900:#0f172a; --slate-800:#1e293b; --slate-700:#334155;
+  --slate-500:#64748b; --slate-400:#94a3b8; --slate-300:#cbd5e1;
+  --slate-200:#e2e8f0; --slate-100:#f1f5f9; --slate-50:#f8fafc;
+  --blue-900:#1e3a8a; --blue-700:#1d4ed8; --blue-600:#2563eb;
+  --blue-500:#3b82f6; --blue-400:#60a5fa; --blue-200:#bfdbfe;
+  --blue-100:#dbeafe; --blue-50:#eff6ff;
+  --cyan-500:#06b6d4; --cyan-400:#22d3ee; --cyan-100:#cffafe;
+  --emerald-500:#10b981; --emerald-100:#d1fae5;
+  --red-500:#ef4444; --red-100:#fee2e2;
+  --amber-500:#f59e0b; --amber-100:#fef3c7;
+  --surface:#fff; --bg:var(--slate-50); --border:var(--slate-200);
+  --text:var(--slate-900); --text-2:var(--slate-700); --text-m:var(--slate-500);
+  --shadow-sm:0 1px 3px rgba(15,23,42,.06);
+  --shadow-md:0 4px 12px rgba(15,23,42,.08);
+  --font:-apple-system,BlinkMacSystemFont,'Pretendard','Apple SD Gothic Neo',sans-serif;
+  --mono:'SF Mono',Consolas,monospace;
+}
+html { font-size:15px; scroll-behavior:smooth; }
+body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:1.65; }
+a { color:var(--blue-600); text-decoration:none; }
+a:hover { text-decoration:underline; }
+
+.container { max-width:1120px; margin:0 auto; padding:24px 20px 64px; }
+
+/* MASTHEAD */
+.masthead {
+  background:var(--surface); border:2px solid var(--slate-900);
+  border-radius:12px; padding:22px 28px 14px; margin-bottom:14px;
+  box-shadow:var(--shadow-md);
+}
+.masthead-top {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:11px; color:var(--text-m); letter-spacing:1.2px; font-weight:700;
+  text-transform:uppercase; padding-bottom:10px; border-bottom:1px solid var(--border);
+  margin-bottom:10px;
+}
+.right-cluster { display:flex; gap:10px; align-items:center; }
+.vol-pill {
+  background:var(--blue-700); color:#fff; padding:3px 10px; border-radius:4px;
+  font-size:12px; font-weight:800; letter-spacing:0.5px;
+}
+.iss-pill {
+  background:var(--emerald-500); color:#fff; padding:3px 8px; border-radius:4px;
+  font-size:10px; font-weight:800; letter-spacing:1px;
+}
+.gazette-title {
+  font-family:var(--font); font-size:52px; font-weight:900; letter-spacing:-2.4px;
+  text-align:center; color:var(--text); line-height:1; margin-bottom:4px;
+}
+.tagline {
+  text-align:center; font-size:12px; color:var(--text-m); margin-bottom:12px; font-weight:500;
+}
+.masthead-bar {
+  border-top:3px double var(--slate-900); border-bottom:1px solid var(--border);
+  padding:8px 0; display:flex; justify-content:space-between; align-items:center;
+  font-size:11.5px; color:var(--text-2); font-weight:600;
+}
+
+/* STATS ROW */
+.stats-row {
+  display:grid; grid-template-columns:repeat(6,1fr); margin-bottom:14px;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  box-shadow:var(--shadow-sm); overflow:hidden;
+}
+.stat-cell {
+  padding:18px 10px; text-align:center; border-right:1px solid var(--border);
+}
+.stat-cell:last-child { border-right:none; }
+.stat-v { font-size:22px; font-weight:800; color:var(--text); letter-spacing:-0.5px; }
+.stat-l { font-size:10.5px; color:var(--text-m); font-weight:700; letter-spacing:1px; margin-top:5px; text-transform:uppercase; }
+
+/* SECTION TITLE */
+.sec-title {
+  font-size:12.5px; font-weight:800; color:var(--text); text-transform:uppercase;
+  letter-spacing:1.5px; padding:7px 0; border-top:2px solid var(--slate-900);
+  border-bottom:1px solid var(--slate-900); margin:18px 0 12px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.sec-title .sec-sub { font-size:11px; font-weight:500; color:var(--text-m); text-transform:none; letter-spacing:0; }
+
+/* TOP STORY */
+.top-story {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:28px 30px; margin-bottom:14px; position:relative; box-shadow:var(--shadow-sm);
+}
+.top-story-label {
+  position:absolute; top:-11px; left:24px;
+  background:var(--slate-900); color:#fff; padding:4px 14px; border-radius:4px;
+  font-size:10.5px; font-weight:800; letter-spacing:1.8px;
+}
+.ts-meta { font-size:11.5px; color:var(--text-m); margin-bottom:10px; }
+.ts-headline { font-size:26px; font-weight:900; line-height:1.35; letter-spacing:-0.6px; margin-bottom:12px; }
+.ts-headline a { color:var(--text); }
+.ts-headline a:hover { color:var(--blue-700); }
+.ts-lede {
+  font-size:14px; color:var(--text-2); line-height:1.8;
+  padding:0 0 0 14px; border-left:4px solid var(--cyan-500);
+}
+
+/* GRID */
+.grid-2 { display:grid; grid-template-columns:1.4fr 1fr; gap:14px; margin-bottom:14px; }
+.grid-2-equal { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+
+/* CARD */
+.card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  box-shadow:var(--shadow-sm); overflow:hidden; margin-bottom:14px;
+}
+.card-head {
+  background:var(--slate-900); color:#fff; padding:11px 18px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.ch-title { font-size:13.5px; font-weight:800; }
+.ch-sub { font-size:10.5px; opacity:0.78; }
+
+/* LEAGUE */
+.league-body { padding:4px 0 8px; }
+.league-row {
+  display:grid; grid-template-columns:28px 24px 1fr 110px;
+  gap:10px; align-items:center; padding:10px 18px;
+  border-bottom:1px solid var(--slate-100);
+}
+.league-row:last-child { border-bottom:none; }
+.league-row.us {
+  background:linear-gradient(90deg,var(--cyan-100),transparent);
+  border-left:3px solid var(--cyan-500);
+}
+.lr-rank { font-size:18px; font-weight:900; color:var(--text-m); font-family:var(--mono); }
+.league-row.us .lr-rank { color:var(--cyan-500); }
+.lr-medal { font-size:16px; }
+.lr-name { font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
+.league-row.us .lr-name { color:var(--blue-900); }
+.lr-platforms { font-size:11px; color:var(--text-m); margin:3px 0 4px; font-family:var(--mono); }
+.bar-wrap { height:6px; background:var(--slate-100); border-radius:3px; overflow:hidden; }
+.bar-fill { height:100%; background:linear-gradient(90deg,var(--slate-400),var(--slate-700)); border-radius:3px; }
+.bar-fill.us { background:linear-gradient(90deg,var(--cyan-400),var(--cyan-500)); }
+.lr-score { text-align:right; }
+.lr-avg { display:block; font-size:16px; font-weight:800; color:var(--text); }
+.league-row.us .lr-avg { color:var(--cyan-500); }
+.lr-cnt { font-size:10.5px; color:var(--text-m); margin-top:2px; display:block; }
+
+/* DISPATCH */
+.dispatch-body { padding:4px 0 8px; }
+.svc-header {
+  display:grid; grid-template-columns:1fr repeat(5,70px);
+  padding:8px 18px; font-size:10.5px; font-weight:800; color:var(--text-m);
+  text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border);
+}
+.svc-row {
+  display:grid; grid-template-columns:1fr repeat(5,70px);
+  padding:8px 18px; border-bottom:1px solid var(--slate-100); align-items:center;
+}
+.svc-row:last-child { border-bottom:none; }
+.svc-row.us { background:linear-gradient(90deg,var(--cyan-100),transparent); border-left:3px solid var(--cyan-500); }
+.svc-name { font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
+.svc-stat { font-size:13px; font-weight:600; color:var(--text-2); text-align:center; font-family:var(--mono); }
+.neg-count { color:var(--red-500) !important; }
+.neg-count.hot { font-weight:900; }
+.pos-count { color:var(--emerald-500) !important; }
+
+/* VOC */
+.voc-body-wrap { padding:14px 18px; display:flex; flex-direction:column; gap:10px; }
+.voc-card { border-radius:8px; padding:12px 14px; border-left:3px solid transparent; }
+.voc-card.neg { background:var(--red-100); border-left-color:var(--red-500); }
+.voc-card.pos { background:var(--emerald-100); border-left-color:var(--emerald-500); }
+.voc-meta { font-size:11px; color:var(--text-m); margin-bottom:5px; }
+.voc-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:5px; }
+.voc-title a { color:inherit; }
+.voc-body { font-size:12.5px; color:var(--text-2); line-height:1.7; }
+
+/* COMPETITOR WIRE */
+.wire-body { padding:4px 18px 14px; }
+.wire-row { padding:10px 0; border-bottom:1px solid var(--slate-100); }
+.wire-row:last-child { border-bottom:none; }
+.wire-meta { font-size:11px; color:var(--text-m); margin-bottom:4px; }
+.wire-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:3px; }
+.wire-title a { color:inherit; }
+.wire-sum { font-size:12px; color:var(--text-2); line-height:1.6; }
+
+/* BADGES */
+.us-tag {
+  background:var(--cyan-500); color:#fff; font-size:9px; font-weight:800;
+  padding:1px 6px; border-radius:3px;
+}
+.s-neg { background:var(--red-100); color:var(--red-500); font-size:10px; font-weight:800; padding:1px 6px; border-radius:3px; }
+.s-pos { background:var(--emerald-100); color:var(--emerald-500); font-size:10px; font-weight:800; padding:1px 6px; border-radius:3px; }
+.s-neu { background:var(--slate-100); color:var(--text-m); font-size:10px; font-weight:600; padding:1px 6px; border-radius:3px; }
+.type-badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; }
+.tb-rev { background:var(--blue-100); color:var(--blue-700); }
+.tb-news { background:var(--slate-100); color:var(--text-m); }
+.ct-badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; }
+.ct-voc { background:var(--amber-100); color:var(--amber-500); }
+.ct-tech { background:var(--blue-100); color:var(--blue-700); }
+.ct-policy { background:#f3e8ff; color:#7c3aed; }
+.ct-biz { background:var(--emerald-100); color:var(--emerald-500); }
+.ct-alliance { background:var(--cyan-100); color:var(--cyan-500); }
+.ct-etc { background:var(--slate-100); color:var(--text-m); }
+
+/* SOURCES */
+.sources-foot {
+  margin-top:14px; padding:14px 18px; border-radius:12px;
+  background:var(--surface); border:1px solid var(--border);
+  font-size:12px; color:var(--text-m); line-height:1.8; box-shadow:var(--shadow-sm);
+}
+.news-foot {
+  text-align:center; font-size:11px; color:var(--text-m);
+  margin-top:16px; padding-top:14px; border-top:1px solid var(--border);
+}
+
+@media(max-width:900px) {
+  .gazette-title { font-size:36px; }
+  .stats-row { grid-template-columns:repeat(3,1fr); }
+  .stat-cell:nth-child(3) { border-right:none; }
+  .grid-2, .grid-2-equal { grid-template-columns:1fr; }
+  .svc-header, .svc-row { grid-template-columns:1fr repeat(3,60px); }
+  .svc-stat:nth-child(5), .svc-stat:nth-child(6),
+  .svc-header div:nth-child(5), .svc-header div:nth-child(6) { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+
+<div class="masthead">
+  <div class="masthead-top">
+    <span>국내 주차 플랫폼 CX 정보 종합 모니터</span>
+    <span class="right-cluster">
+      <span class="vol-pill">26Y 1W</span>
+      <span class="iss-pill">AUTO</span>
+    </span>
+  </div>
+  <h1 class="gazette-title">THE PARKING GAZETTE</h1>
+  <div class="tagline">모두의주차장 사업이익팀 CX이슈파트 · Weekly Edition</div>
+  <div class="masthead-bar">
+    <span class="vol">Vol.1 · No.001</span>
+    <span class="date">Thu, May 21, 2026</span>
+    <span class="sync">COVERAGE PERIOD · 2026-05-14 ~ 2026-05-21</span>
+  </div>
+</div>
+
+
+
+<div class="stats-row">
+  <div class="stat-cell">
+    <div class="stat-v">310</div>
+    <div class="stat-l">TOTAL ITEMS</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-v">104</div>
+    <div class="stat-l">REVIEWS</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-v">206</div>
+    <div class="stat-l">NEWS · BLOG</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-v">13</div>
+    <div class="stat-l">SERVICES</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-v">27%</div>
+    <div class="stat-l">NEGATIVE RATE</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-v">44.3</div>
+    <div class="stat-l">PER DAY AVG</div>
+  </div>
+</div>
+
+
+<div class="sec-title">
+  This Week's Lead
+  <span class="sec-sub">2026-05-14 ~ 2026-05-21 기간 수집 데이터 기반</span>
+</div>
+
+
+<div class="top-story">
+  <div class="top-story-label">TOP STORY · LEAD</div>
+  <div class="ts-meta">2026-05-21 &nbsp;·&nbsp; 모두의주차장 &nbsp;·&nbsp; <span class="type-badge tb-news">블로그</span> <span class="ct-badge ct-biz">사업확장</span> <span class="s-neu">NEU</span></div>
+  <h2 class="ts-headline"><a href="https://blog.naver.com/qsx654/224291864251" target="_blank" rel="noopener">천호 빵지순례 성공과 실패 사이 오뜨르베이커리 초코바게트...</a></h2>
+  <p class="ts-lede">효성해링턴타워 모두의주차장 공유주차장 이용 추천 천호역에서 도보 5분 정도라 대중교통으로 가기 괜찮았어요. 주말 오전에는 웨이팅 줄이 꽤 길다고 해서 저도 오픈런 계획까지 세웠거든요. 진짜 알람까지...</p>
+</div>
+
+
+<div class="grid-2">
+  
+<div class="card">
+  <div class="card-head">
+    <span class="ch-title">🏆 Parking App League</span>
+    <span class="ch-sub">앱 평점 현황 — 현재 2위</span>
+  </div>
+  <div class="league-body">
+  <div class="league-row">
+    <div class="lr-rank">1</div>
+    <div class="lr-medal">🥇</div>
+    <div class="lr-info">
+      <div class="lr-name">주만사 </div>
+      <div class="lr-platforms">A 4.82 &nbsp; i 4.70</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:95%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★4.76</span>
+      <span class="lr-cnt">8,186 reviews</span>
+    </div>
+  </div>
+  <div class="league-row us">
+    <div class="lr-rank">2</div>
+    <div class="lr-medal">🥈</div>
+    <div class="lr-info">
+      <div class="lr-name">모두의주차장 <span class="us-tag">자사</span></div>
+      <div class="lr-platforms">A 4.68 &nbsp; i 4.40</div>
+      <div class="bar-wrap"><div class="bar-fill us" style="width:91%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★4.54</span>
+      <span class="lr-cnt">11,644 reviews</span>
+    </div>
+  </div>
+  <div class="league-row">
+    <div class="lr-rank">3</div>
+    <div class="lr-medal">🥉</div>
+    <div class="lr-info">
+      <div class="lr-name">아이파킹 </div>
+      <div class="lr-platforms">A 4.58 &nbsp; i 4.34</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:89%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★4.46</span>
+      <span class="lr-cnt">8,832 reviews</span>
+    </div>
+  </div>
+  <div class="league-row">
+    <div class="lr-rank">4</div>
+    <div class="lr-medal"></div>
+    <div class="lr-info">
+      <div class="lr-name">카카오T 주차 </div>
+      <div class="lr-platforms">A 3.26 &nbsp; i 4.71</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:80%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★3.98</span>
+      <span class="lr-cnt">597,842 reviews</span>
+    </div>
+  </div>
+  <div class="league-row">
+    <div class="lr-rank">5</div>
+    <div class="lr-medal"></div>
+    <div class="lr-info">
+      <div class="lr-name">하이파킹 (투루파킹) </div>
+      <div class="lr-platforms">A 2.84 &nbsp; i 4.06</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:69%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★3.45</span>
+      <span class="lr-cnt">37 reviews</span>
+    </div>
+  </div>
+  <div class="league-row">
+    <div class="lr-rank">6</div>
+    <div class="lr-medal"></div>
+    <div class="lr-info">
+      <div class="lr-name">Tmap 주차 </div>
+      <div class="lr-platforms">A 3.49 &nbsp; i 3.37</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:69%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★3.43</span>
+      <span class="lr-cnt">136,161 reviews</span>
+    </div>
+  </div>
+  <div class="league-row">
+    <div class="lr-rank">7</div>
+    <div class="lr-medal"></div>
+    <div class="lr-info">
+      <div class="lr-name">파킹프렌즈 </div>
+      <div class="lr-platforms">A 2.20 &nbsp; i 2.33</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:45%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★2.27</span>
+      <span class="lr-cnt">630 reviews</span>
+    </div>
+  </div>
+  <div class="league-row">
+    <div class="lr-rank">8</div>
+    <div class="lr-medal"></div>
+    <div class="lr-info">
+      <div class="lr-name">나이스파크 </div>
+      <div class="lr-platforms">— &nbsp; i 2.00</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:40%"></div></div>
+    </div>
+    <div class="lr-score">
+      <span class="lr-avg">★2.00</span>
+      <span class="lr-cnt">53 reviews</span>
+    </div>
+  </div>
+  </div>
+</div>
+
+  
+<div class="card">
+  <div class="card-head">
+    <span class="ch-title">📋 Service Dispatch</span>
+    <span class="ch-sub">서비스별 수집 현황</span>
+  </div>
+  <div class="dispatch-body">
+    <div class="svc-header">
+      <div class="svc-name">서비스</div>
+      <div class="svc-stat">전체</div>
+      <div class="svc-stat">리뷰</div>
+      <div class="svc-stat">뉴스</div>
+      <div class="svc-stat">부정</div>
+      <div class="svc-stat">긍정</div>
+    </div>
+    
+  <div class="svc-row">
+    <div class="svc-name">카카오T 주차 </div>
+    <div class="svc-stat">95</div>
+    <div class="svc-stat">38</div>
+    <div class="svc-stat">57</div>
+    <div class="svc-stat neg-count hot">36</div>
+    <div class="svc-stat pos-count">13</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">Tmap 주차 </div>
+    <div class="svc-stat">63</div>
+    <div class="svc-stat">62</div>
+    <div class="svc-stat">1</div>
+    <div class="svc-stat neg-count hot">37</div>
+    <div class="svc-stat pos-count">0</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">하이파킹 (투루파킹) </div>
+    <div class="svc-stat">55</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">55</div>
+    <div class="svc-stat neg-count">3</div>
+    <div class="svc-stat pos-count">34</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">나이스파크 </div>
+    <div class="svc-stat">18</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">18</div>
+    <div class="svc-stat neg-count">1</div>
+    <div class="svc-stat pos-count">6</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">아마노코리아 </div>
+    <div class="svc-stat">17</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">17</div>
+    <div class="svc-stat neg-count">1</div>
+    <div class="svc-stat pos-count">9</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">SK쉴더스 주차 </div>
+    <div class="svc-stat">11</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">11</div>
+    <div class="svc-stat neg-count">2</div>
+    <div class="svc-stat pos-count">2</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">한국전자금융 </div>
+    <div class="svc-stat">11</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">11</div>
+    <div class="svc-stat neg-count">1</div>
+    <div class="svc-stat pos-count">2</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">파킹프렌즈 </div>
+    <div class="svc-stat">9</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">9</div>
+    <div class="svc-stat neg-count">0</div>
+    <div class="svc-stat pos-count">2</div>
+  </div>
+  <div class="svc-row us">
+    <div class="svc-name">모두의주차장 <span class="us-tag">자사</span></div>
+    <div class="svc-stat">8</div>
+    <div class="svc-stat">2</div>
+    <div class="svc-stat">6</div>
+    <div class="svc-stat neg-count">2</div>
+    <div class="svc-stat pos-count">0</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">아이파킹 </div>
+    <div class="svc-stat">8</div>
+    <div class="svc-stat">1</div>
+    <div class="svc-stat">7</div>
+    <div class="svc-stat neg-count">2</div>
+    <div class="svc-stat pos-count">0</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">주만사 </div>
+    <div class="svc-stat">8</div>
+    <div class="svc-stat">1</div>
+    <div class="svc-stat">7</div>
+    <div class="svc-stat neg-count">0</div>
+    <div class="svc-stat pos-count">0</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">케이엠파크 </div>
+    <div class="svc-stat">5</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">5</div>
+    <div class="svc-stat neg-count">0</div>
+    <div class="svc-stat pos-count">1</div>
+  </div>
+  <div class="svc-row">
+    <div class="svc-name">어반포트 </div>
+    <div class="svc-stat">2</div>
+    <div class="svc-stat">0</div>
+    <div class="svc-stat">2</div>
+    <div class="svc-stat neg-count">0</div>
+    <div class="svc-stat pos-count">0</div>
+  </div>
+  </div>
+</div>
+
+</div>
+
+<div class="sec-title">
+  VOC &amp; Competitor Wire
+  <span class="sec-sub">리뷰 하이라이트 · 경쟁사 동향</span>
+</div>
+
+<div class="grid-2-equal">
+  
+<div class="card">
+  <div class="card-head">
+    <span class="ch-title">🗣 VOC Brief</span>
+    <span class="ch-sub">이번 주 주목할 고객 목소리</span>
+  </div>
+  <div class="voc-body-wrap">
+  <div class="voc-card neg">
+    <div class="voc-meta">2026-05-14 · Tmap 주차 · <span class="type-badge tb-rev">리뷰(AOS)</span> <span class="s-neg">NEG</span></div>
+    <div class="voc-title"><a href="https://play.google.com/store/apps/details?id=com.skt.tmap.ku#r9b236028" target="_blank" rel="noopener">[Android ★1] 신성일</a></div>
+    <div class="voc-body">26년 5월 13일자로 Google playstore에서 업데이트 한 이후로 Android auto를 사용하여 목적지를 설정하면 길안내 표시가 1초도 안되어 다시 리셋되는 현상이 발생하고 있습니다. 해당 증상을 복구하는 방법은 핸드폰에서 T맵을 실행후 핸드폰으로 목적지를 설정하여 길안내</div>
+  </div>
+  <div class="voc-card neg">
+    <div class="voc-meta">2026-05-14 · Tmap 주차 · <span class="type-badge tb-rev">리뷰(AOS)</span> <span class="s-neg">NEG</span></div>
+    <div class="voc-title"><a href="https://play.google.com/store/apps/details?id=com.skt.tmap.ku#re54e750d" target="_blank" rel="noopener">[Android ★1] 윤타송</a></div>
+    <div class="voc-body">급감속 기준이 3초에 30킬로 감속으로 되어있네요. 30킬로로 달리다 신호걸려서 정지해도 급감속이면 그냥신호 위반하고 가야하고 차가끼어들어도 뚫고 가라는 건가요? 좀 가능한 조건을 만들거나 지신 없으면 이런 서비스 연계는 안해야죠. 가뜩이나 길안내도 못하는 네비가 평가질까지 엉망이고. </div>
+  </div>
+  <div class="voc-card neg">
+    <div class="voc-meta">2026-05-17 · Tmap 주차 · <span class="type-badge tb-rev">리뷰(AOS)</span> <span class="s-neg">NEG</span></div>
+    <div class="voc-title"><a href="https://play.google.com/store/apps/details?id=com.skt.tmap.ku#r8fd7b2b9" target="_blank" rel="noopener">[Android ★1] 박세준</a></div>
+    <div class="voc-body">단속 카메라가 없어졌습니까? 공사가 종료 되었습니까? 등 주행에 불필요한 설문 정보를 주행 중에 팝업으로 띄우는건 사고 유발 아닌가요? 도착 예정 정보도 팝업창으로 다 가리고 금방 없어지지도 않고 x 눌러야 없어지고ㅋㅋㅋ 운전자 입장에서 불필요하게 집중을 저하 시키는 것 같아요. 하도 </div>
+  </div>
+  </div>
+</div>
+
+  
+<div class="card">
+  <div class="card-head">
+    <span class="ch-title">📡 Competitor Wire</span>
+    <span class="ch-sub">경쟁사 주간 동향</span>
+  </div>
+  <div class="wire-body">
+  <div class="wire-row">
+    <div class="wire-meta">2026-05-20 · 카카오T 주차 <span class="ct-badge ct-policy">정책</span> <span class="s-pos">POS</span></div>
+    <div class="wire-title"><a href="https://bluebeat.tistory.com/246" target="_blank" rel="noopener">춘천 남이섬 배편 시간표 요금 서비스 정보확인</a></div>
+    <div class="wire-sum">춘천 남이섬 배편 시간표 보기
+
+춘천 남이섬 배편 예매 할인 바로가기
+
+춘천 남이섬 배편 시간표 요약정리
+
+강원도 춘천 경기도 가평 가볼만한곳 남이섬 배 시간표 남이섬 ...
+
+날</div>
+  </div>
+  <div class="wire-row">
+    <div class="wire-meta">2026-05-19 · 카카오T 주차 <span class="ct-badge ct-biz">사업확장</span> <span class="s-pos">POS</span></div>
+    <div class="wire-title"><a href="https://www.etoday.co.kr/news/view/2585908" target="_blank" rel="noopener">카카오모빌리티, HD현대사이트솔루션과 맞손⋯물류 현장으로 ‘피지컬...</a></div>
+    <div class="wire-sum">북마크 되었습니다. 마이페이지에서 확인하세요.
+
+▲19일 (사진 왼쪽) HD현대사이트솔루션 송희준 대표와 카카오모빌리티 류긍선 대표는 차세대 무인 물류 및 피지컬 AI 생태계 구축</div>
+  </div>
+  <div class="wire-row">
+    <div class="wire-meta">2026-05-21 · 카카오T 주차 <span class="ct-badge ct-policy">정책</span> <span class="s-pos">POS</span></div>
+    <div class="wire-title"><a href="https://www.topdaily.kr/articles/110190" target="_blank" rel="noopener">LG유플러스볼트업, 매출 성장에도 수익성 확보 '난항'</a></div>
+    <div class="wire-sum">충전 인프라 확대 속 비용 확대 상존 급속 충전 경쟁 심화에 요금 인상 부담
+
+LG유플러스와 카카오모빌리티가 설립한 합작법인(JV) 엘지유플러스볼트업(이하 볼트업)이 외형 성장을 </div>
+  </div>
+  <div class="wire-row">
+    <div class="wire-meta">2026-05-20 · 하이파킹 (투루파킹) <span class="ct-badge ct-biz">사업확장</span> <span class="s-pos">POS</span></div>
+    <div class="wire-title"><a href="https://www.cnbnews.com/news/articleView.html?idxno=1002223" target="_blank" rel="noopener">[내예기] &amp;quot;상조 넘어 '종합 라이프 큐레이터'로&amp;quot;…보람그룹의 혁신은 어...</a></div>
+    <div class="wire-sum">상조업계 혁신 이끌어온 보람그룹…‘시즌2’ 가속
+
+헬스케어에서 반려동물까지…맞춤형 고객 서비스
+
+삼성전자 등 기업들과 협업해 고객 삶의 질 향상
+
+[내예기]는 ‘내일을 예비하는 기</div>
+  </div>
+  <div class="wire-row">
+    <div class="wire-meta">2026-05-19 · 카카오T 주차 <span class="ct-badge ct-biz">사업확장</span> <span class="s-pos">POS</span></div>
+    <div class="wire-title"><a href="https://www.techm.kr/news/articleView.html?idxno=151962" target="_blank" rel="noopener">카카오모빌리티, 피지컬 AI 생태계 확장...산업 협력·인재 육성 투트랙</a></div>
+    <div class="wire-sum">피지컬AI 도약을 선언한 카카오모빌리티가 관련 생태계 확대를 위해 박차를 가하고 있다. 물류 업계와 손잡고 피지컬AI 기술 역량을 강화하는 동시에 미래 인재 확보로 해당 기술력을 </div>
+  </div>
+  </div>
+</div>
+
+</div>
+
+
+<div class="sources-foot">
+  <strong>SOURCES &amp; METHODOLOGY</strong> &nbsp;—&nbsp;
+  Coverage period: 2026-05-14 ~ 2026-05-21 · 310 items
+  · 수집 채널: Google Play / iTunes RSS · 네이버 검색 API · Google News RSS · HTML diff
+  · 본 리포트는 GitHub Actions에서 매주 화요일 KST 11:00 자동 생성됩니다.
+</div>
+
+
+<div class="news-foot">
+  ─── END OF ISSUE ───<br>
+  THE PARKING GAZETTE · 26Y 1W · Auto-generated by GitHub Actions · 2026-05-21
+</div>
+
+</div>
+</body>
+</html>
