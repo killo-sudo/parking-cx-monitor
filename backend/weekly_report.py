@@ -6,7 +6,8 @@ weekly_report.py — THE PARKING GAZETTE 주간 리포트 생성기
 
 import html as html_lib
 import json
-from collections import defaultdict
+import re
+from collections import defaultdict, Counter
 from datetime import timedelta, date
 from pathlib import Path
 
@@ -20,20 +21,30 @@ SERVICE_ORDER = [
     "urbanport", "koreanef",
 ]
 
-SOURCE_LABEL = {
-    "news": "뉴스", "blog": "블로그", "rss": "RSS",
-    "homepage": "홈페이지", "html_list": "보도자료", "html_diff": "홈피변경",
-    "appstore": "리뷰(AOS)", "ios_appstore": "리뷰(iOS)",
-    "app_info": "앱정보", "youtube_rss": "유튜브",
-}
-
 REVIEW_TYPES = {"appstore", "ios_appstore"}
 NEWS_TYPES   = {"news", "blog", "rss", "html_list", "html_diff", "homepage", "youtube_rss"}
 
+PLATFORM_LABEL = {"google_play": "Google Play", "ios": "App Store"}
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# Korean stop-words (common particles, conjunctions, auxiliary verbs)
+# ─────────────────────────────────────────────
+KO_STOPWORDS = {
+    "이", "가", "을", "를", "은", "는", "의", "에", "에서", "로", "으로", "와", "과",
+    "도", "만", "까지", "부터", "에게", "한테", "께", "이다", "있다", "없다", "하다",
+    "되다", "않다", "못하다", "같다", "그", "저", "이", "이런", "저런", "그런", "어떤",
+    "한", "한번", "좀", "더", "또", "다시", "아직", "이미", "너무", "정말", "진짜",
+    "앱", "이용", "사용", "주차", "주차장", "그냥", "제발", "부탁", "감사", "고맙",
+    "합니다", "입니다", "습니다", "에요", "이에요", "네요", "군요", "거든요", "인데요",
+    "해요", "해서", "하고", "하면", "하지", "하는", "하여", "해서", "합니다",
+    "있어요", "없어요", "같아요", "같네요", "같은데", "것", "거", "게", "걸", "건",
+    "때", "때문", "수", "듯", "점", "편", "번", "개", "등", "및", "또는",
+}
+
+
+# ─────────────────────────────────────────────
 # IO helpers
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
 def load_json(path, default=None):
     p = Path(path)
@@ -55,18 +66,19 @@ def parse_date(s: str):
         return None
 
 
-# ──────────────────────────────────────────────
-# Meta (volume counter)
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# Meta (volume/archive counter)
+# ─────────────────────────────────────────────
 
 def load_meta() -> dict:
     m = load_json(DOCS / "gazette_meta.json", {})
     today = date.today()
     return {
-        "year":            m.get("year", today.year % 100),
-        "week_num":        m.get("week_num", 0),
-        "issue_total":     m.get("issue_total", 0),
+        "year":             m.get("year", today.year % 100),
+        "week_num":         m.get("week_num", 0),
+        "issue_total":      m.get("issue_total", 0),
         "last_report_date": m.get("last_report_date"),
+        "issues":           m.get("issues", []),
     }
 
 
@@ -99,9 +111,9 @@ def get_period(meta: dict) -> tuple:
     return from_dt, to_dt
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 # Data processing
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
 def filter_period(items: list, from_dt: date, to_dt: date) -> list:
     result = []
@@ -113,7 +125,6 @@ def filter_period(items: list, from_dt: date, to_dt: date) -> list:
 
 
 def pick_top_story(items: list) -> dict | None:
-    """뉴스·블로그 중 모두의주차장 관련 or 경쟁사 사업확장·정책 우선"""
     candidates = [i for i in items if i.get("source_type") in NEWS_TYPES
                   and i.get("title") and len(i.get("title", "")) > 10]
     if not candidates:
@@ -133,20 +144,32 @@ def pick_top_story(items: list) -> dict | None:
     return max(candidates, key=score)
 
 
-def app_league(app_info: list) -> list:
-    """서비스별 Android+iOS 평균 평점 계산, 내림차순"""
+def period_app_league(items: list) -> list:
+    """해당 기간 수집된 리뷰 기준 평균 평점 계산."""
     by_svc = defaultdict(list)
-    for a in app_info:
-        if a.get("rating"):
-            by_svc[a["service_id"]].append(a)
+    for item in items:
+        if item.get("source_type") not in REVIEW_TYPES:
+            continue
+        rating = item.get("rating") or item.get("score")
+        if rating is None:
+            continue
+        try:
+            r = float(rating)
+        except (TypeError, ValueError):
+            continue
+        by_svc[item.get("service_id", "unknown")].append((r, item))
+
     rows = []
-    for svc_id, entries in by_svc.items():
-        avg = sum(e["rating"] for e in entries) / len(entries)
-        total_ratings = sum(e.get("num_ratings", 0) for e in entries)
-        name = entries[0].get("name_ko", svc_id)
-        rows.append({"service_id": svc_id, "name_ko": name,
-                     "avg": round(avg, 2), "total_ratings": total_ratings,
-                     "entries": entries})
+    for svc_id, pairs in by_svc.items():
+        avg = sum(r for r, _ in pairs) / len(pairs)
+        name = pairs[0][1].get("name_ko", svc_id)
+        aos_cnt = sum(1 for _, i in pairs if i.get("source_type") == "appstore")
+        ios_cnt = sum(1 for _, i in pairs if i.get("source_type") == "ios_appstore")
+        rows.append({
+            "service_id": svc_id, "name_ko": name,
+            "avg": round(avg, 2), "review_count": len(pairs),
+            "aos_cnt": aos_cnt, "ios_cnt": ios_cnt,
+        })
     rows.sort(key=lambda r: r["avg"], reverse=True)
     return rows
 
@@ -160,50 +183,48 @@ def service_stats(items: list) -> list:
         svc_items = by_svc.get(svc_id, [])
         if not svc_items:
             continue
-        reviews = [i for i in svc_items if i["source_type"] in REVIEW_TYPES]
-        news    = [i for i in svc_items if i["source_type"] in NEWS_TYPES]
+        reviews = [i for i in svc_items if i.get("source_type") in REVIEW_TYPES]
+        news    = [i for i in svc_items if i.get("source_type") in NEWS_TYPES]
         neg     = sum(1 for i in svc_items if i.get("sentiment") == "negative")
         pos     = sum(1 for i in svc_items if i.get("sentiment") == "positive")
+        neu     = len(svc_items) - neg - pos
         name    = svc_items[0].get("name_ko", svc_id)
         rows.append({
             "service_id": svc_id, "name_ko": name,
             "total": len(svc_items), "reviews": len(reviews), "news": len(news),
-            "neg": neg, "pos": pos,
+            "neg": neg, "pos": pos, "neu": neu,
         })
-    # services not in ORDER
     for svc_id, svc_items in by_svc.items():
         if svc_id not in SERVICE_ORDER:
             name = svc_items[0].get("name_ko", svc_id)
-            reviews = [i for i in svc_items if i["source_type"] in REVIEW_TYPES]
-            news    = [i for i in svc_items if i["source_type"] in NEWS_TYPES]
+            reviews = [i for i in svc_items if i.get("source_type") in REVIEW_TYPES]
+            news    = [i for i in svc_items if i.get("source_type") in NEWS_TYPES]
             neg = sum(1 for i in svc_items if i.get("sentiment") == "negative")
             pos = sum(1 for i in svc_items if i.get("sentiment") == "positive")
+            neu = len(svc_items) - neg - pos
             rows.append({"service_id": svc_id, "name_ko": name,
                          "total": len(svc_items), "reviews": len(reviews), "news": len(news),
-                         "neg": neg, "pos": pos})
+                         "neg": neg, "pos": pos, "neu": neu})
     rows.sort(key=lambda r: r["total"], reverse=True)
     return rows
 
 
-def pick_notable_reviews(items: list, n=4) -> list:
-    """주목할 리뷰: 부정 우선, 텍스트 있는 것"""
+def pick_notable_reviews(items: list, n=5) -> list:
     candidates = [i for i in items
                   if i.get("source_type") in REVIEW_TYPES
-                  and i.get("summary") and len(i.get("summary", "")) > 5]
+                  and i.get("summary") and len(i.get("summary") or "") > 5]
     neg = [i for i in candidates if i.get("sentiment") == "negative"]
     pos = [i for i in candidates if i.get("sentiment") == "positive"]
-    # sort by summary length (more content = more useful)
-    neg.sort(key=lambda i: len(i.get("summary", "")), reverse=True)
-    pos.sort(key=lambda i: len(i.get("summary", "")), reverse=True)
-    return (neg[:3] + pos[:1])[:n]
+    neg.sort(key=lambda i: len(i.get("summary") or ""), reverse=True)
+    pos.sort(key=lambda i: len(i.get("summary") or ""), reverse=True)
+    return (neg[:4] + pos[:1])[:n]
 
 
 def pick_news_briefs(items: list, n=5) -> list:
-    """경쟁사 뉴스 브리핑: 모두의주차장 제외, 뉴스·블로그"""
     candidates = [i for i in items
                   if i.get("source_type") in NEWS_TYPES
                   and i.get("service_id") != "moduparking"
-                  and i.get("title") and len(i.get("title", "")) > 5]
+                  and i.get("title") and len(i.get("title") or "") > 5]
     candidates.sort(key=lambda i: (
         i.get("change_type", "") in ("사업확장", "정책", "제휴"),
         len(i.get("summary") or ""),
@@ -211,9 +232,72 @@ def pick_news_briefs(items: list, n=5) -> list:
     return candidates[:n]
 
 
-# ──────────────────────────────────────────────
+def extract_keywords(items: list, top_n=22) -> list:
+    """한국어 텍스트에서 2글자 이상 단어 빈도 추출 + 감성 레이블."""
+    token_sentiment = defaultdict(list)
+    pattern = re.compile(r"[가-힣]{2,7}")
+    for item in items:
+        text = " ".join(filter(None, [
+            item.get("title", ""), item.get("summary", "")
+        ]))
+        sent = item.get("sentiment", "neutral")
+        for tok in pattern.findall(text):
+            if tok not in KO_STOPWORDS:
+                token_sentiment[tok].append(sent)
+
+    # Top N by count
+    counts = Counter({k: len(v) for k, v in token_sentiment.items()})
+    top = counts.most_common(top_n)
+
+    results = []
+    for word, cnt in top:
+        sents = token_sentiment[word]
+        neg_ratio = sents.count("negative") / len(sents)
+        pos_ratio = sents.count("positive") / len(sents)
+        if neg_ratio >= 0.6:
+            sev = "sev-1" if neg_ratio >= 0.8 else "sev-2"
+        elif pos_ratio >= 0.5:
+            sev = "sev-4"
+        else:
+            sev = "sev-3"
+        results.append({"word": word, "cnt": cnt, "sev": sev})
+    return results
+
+
+def build_sparkline(items: list, from_dt: date, to_dt: date, width=58, height=22) -> str:
+    """일별 항목 수로 SVG 폴리라인 생성."""
+    days = (to_dt - from_dt).days or 1
+    daily = Counter()
+    for item in items:
+        dt = parse_date(item.get("published_at") or item.get("collected_at", ""))
+        if dt:
+            daily[dt] += 1
+
+    vals = []
+    for i in range(days + 1):
+        d = from_dt + timedelta(days=i)
+        vals.append(daily.get(d, 0))
+
+    if max(vals, default=0) == 0:
+        return f'<svg class="spark" width="{width}" height="{height}" viewBox="0 0 {width} {height}"></svg>'
+
+    mx = max(vals)
+    n = len(vals)
+    pts = []
+    for i, v in enumerate(vals):
+        x = round(i / max(n - 1, 1) * width, 1)
+        y = round((1 - v / mx) * (height - 4) + 2, 1)
+        pts.append(f"{x},{y}")
+    pts_str = " ".join(pts)
+    return (f'<svg class="spark" width="{width}" height="{height}" '
+            f'viewBox="0 0 {width} {height}">'
+            f'<polyline points="{pts_str}" fill="none" stroke="#1d4ed8" stroke-width="1.6"/>'
+            f'</svg>')
+
+
+# ─────────────────────────────────────────────
 # HTML helpers
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
 def esc(s) -> str:
     return html_lib.escape(str(s or ""), quote=False)
@@ -222,621 +306,1050 @@ def esc(s) -> str:
 def fmt_date_ko(d: date) -> str:
     MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    DAYS   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    DAYS   = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     return f"{DAYS[d.weekday()]}, {MONTHS[d.month-1]} {d.day}, {d.year}"
 
 
-def sentiment_badge(s: str) -> str:
-    if s == "negative":
-        return '<span class="s-neg">NEG</span>'
-    if s == "positive":
-        return '<span class="s-pos">POS</span>'
-    return '<span class="s-neu">NEU</span>'
+def kw_size_class(cnt: int, max_cnt: int) -> str:
+    if max_cnt <= 0:
+        return "s-xs"
+    ratio = cnt / max_cnt
+    if ratio >= 0.8:
+        return "s-xl"
+    if ratio >= 0.55:
+        return "s-lg"
+    if ratio >= 0.35:
+        return "s-md"
+    if ratio >= 0.18:
+        return "s-sm"
+    return "s-xs"
 
 
-def type_badge(t: str) -> str:
-    label = SOURCE_LABEL.get(t, t)
-    css = "tb-rev" if t in REVIEW_TYPES else "tb-news"
-    return f'<span class="type-badge {css}">{esc(label)}</span>'
+def neg_rate_class(pct: float) -> str:
+    if pct >= 35:
+        return "high"
+    if pct >= 22:
+        return "mid"
+    return "low"
+
+
+def badge_html(label: str, cls: str) -> str:
+    return f'<span class="badge {esc(cls)}">{esc(label)}</span>'
 
 
 def change_badge(ct: str) -> str:
-    cls = {
-        "VOC": "ct-voc", "기술": "ct-tech", "정책": "ct-policy",
-        "사업확장": "ct-biz", "제휴": "ct-alliance", "기타": "ct-etc",
-    }.get(ct, "ct-etc")
-    return f'<span class="ct-badge {cls}">{esc(ct)}</span>'
+    MAP = {
+        "VOC": "voc", "기술": "tech", "정책": "policy",
+        "사업확장": "biz", "제휴": "partner", "기타": "",
+    }
+    cls = MAP.get(ct, "")
+    if not cls:
+        return ""
+    return badge_html(ct, cls)
 
 
-def rating_star(r: float) -> str:
-    filled = int(r)
-    half   = 1 if (r - filled) >= 0.5 else 0
-    empty  = 5 - filled - half
-    return "★" * filled + ("½" if half else "") + "☆" * empty
+def stars_html(rating: float | None) -> str:
+    if rating is None:
+        return ""
+    filled = min(5, max(0, round(rating)))
+    empty  = 5 - filled
+    on  = "★" * filled
+    off = "★" * empty
+    if off:
+        return f'<span class="voc-stars">{on}<span class="off">{off}</span></span>'
+    return f'<span class="voc-stars">{on}</span>'
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# Archive nav
+# ─────────────────────────────────────────────
+
+def render_archive_nav(meta: dict, year: int, week_num: int) -> str:
+    issues = meta.get("issues", [])
+    cur_year_str = f"{year:02d}"
+
+    # Past issues by year
+    by_year = defaultdict(list)
+    for iss in issues:
+        by_year[iss.get("year", year)].append(iss)
+    all_years = sorted(set(list(by_year.keys()) + [year]))
+
+    # Year switcher
+    yr_pills = ""
+    for y in sorted(all_years):
+        active = " active" if y == year else ""
+        yr_pills += f'<span class="yr{active}">{y + 2000}Y</span>'
+
+    # Breadcrumb
+    breadcrumb = (
+        f'<span>Index</span>'
+        f'<span class="sep">/</span>'
+        f'<span>20{year}</span>'
+        f'<span class="sep">/</span>'
+        f'<span class="now">WEEK {cur_year_str}Y · {week_num}W</span>'
+    )
+
+    # Week pills — past issues are linked, current is live, future are scheduled
+    past_set = {(iss.get("year"), iss.get("week_num")): iss.get("file", "#")
+                for iss in issues}
+    pills_html = ""
+    max_week = max(week_num, max((iss.get("week_num", 0) for iss in issues), default=0))
+    for w in range(1, max_week + 3):
+        key = (year, w)
+        if w == week_num:
+            pills_html += (
+                f'<a class="week-pill live" role="tab" aria-selected="true">'
+                f'<span class="lbl">WEEK {cur_year_str}Y · {w}W</span></a>'
+            )
+        elif key in past_set:
+            href = esc(past_set[key])
+            pills_html += (
+                f'<a class="week-pill" href="{href}" role="tab">'
+                f'<span class="lbl">{cur_year_str}Y · {w}W</span></a>'
+            )
+        else:
+            pills_html += (
+                f'<a class="week-pill scheduled" role="tab">'
+                f'<span class="lbl">{cur_year_str}Y · {w}W</span></a>'
+            )
+
+    return f"""
+<nav class="archive-nav" aria-label="Issue archive">
+  <div class="archive-top">
+    <span class="arch-label">▤ Archive Index</span>
+    <div class="breadcrumb">{breadcrumb}</div>
+    <div class="meta">{yr_pills}</div>
+  </div>
+  <div class="archive-bottom">
+    <div class="tree-label">
+      <span class="glyph">20{year} └─</span>
+      <span>WEEKLY ISSUES</span>
+    </div>
+    <div class="week-tabs" role="tablist">{pills_html}</div>
+  </div>
+</nav>"""
+
+
+# ─────────────────────────────────────────────
 # Section renderers
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
 def render_masthead(year: int, week_num: int, issue_total: int,
                     from_dt: date, to_dt: date) -> str:
-    vol_tag  = f"{year:02d}Y {week_num}W"
-    iss_tag  = f"Vol.1 · No.{issue_total:03d}"
-    date_str = fmt_date_ko(to_dt)
-    period   = f"{from_dt.strftime('%Y-%m-%d')} ~ {to_dt.strftime('%Y-%m-%d')}"
+    vol_tag  = f"{year:02d}Y · {week_num}W"
+    date_str = fmt_date_ko(to_dt).upper()
+    period   = f"{from_dt.strftime('%Y.%m.%d')} — {to_dt.strftime('%Y.%m.%d')}"
     return f"""
-<div class="masthead">
+<header class="masthead">
   <div class="masthead-top">
-    <span>국내 주차 플랫폼 CX 정보 종합 모니터</span>
-    <span class="right-cluster">
-      <span class="vol-pill">{esc(vol_tag)}</span>
-      <span class="iss-pill">AUTO</span>
-    </span>
+    <div class="left">
+      <span><span class="dot"></span>LIVE EDITION</span>
+      <span>VOL. I · NO. {issue_total:02d}</span>
+    </div>
+    <div class="right">
+      <span>{esc(date_str)}</span>
+      <span>SEOUL · KRW 0</span>
+      <span>EDITED BY <strong style="color:#111;">KILLO 기자</strong></span>
+    </div>
   </div>
-  <h1 class="gazette-title">THE PARKING GAZETTE</h1>
-  <div class="tagline">모두의주차장 사업이익팀 CX이슈파트 · Weekly Edition</div>
-  <div class="masthead-bar">
-    <span class="vol">{esc(iss_tag)}</span>
-    <span class="date">{esc(date_str)}</span>
-    <span class="sync">COVERAGE PERIOD · {esc(period)}</span>
+  <div class="masthead-title">
+    <h1><span class="the">The</span>PARKING&nbsp;GAZETTE</h1>
+    <div class="masthead-tag">A Weekly Dispatch on Parking, Mobility &amp; Customer Voice — Published Every Tuesday by the Modu Newsroom</div>
   </div>
-</div>
-"""
+  <div class="masthead-meta">
+    <div class="left">
+      <span class="coverage">Coverage Period : {esc(period)} (Mon–Sun)</span>
+    </div>
+    <div class="center">
+      <span class="week-badge"><span>WEEK</span><span class="num">{esc(vol_tag)}</span></span>
+    </div>
+    <div class="right">
+      <span>ISSUE #{issue_total:03d} · CUMULATIVE</span>
+    </div>
+  </div>
+</header>"""
 
 
-def render_stats_row(items: list, from_dt: date, to_dt: date) -> str:
-    total    = len(items)
-    reviews  = sum(1 for i in items if i["source_type"] in REVIEW_TYPES)
-    news     = sum(1 for i in items if i["source_type"] in NEWS_TYPES)
-    svcs     = len({i["service_id"] for i in items})
-    neg_pct  = round(sum(1 for i in items if i.get("sentiment") == "negative") / max(total, 1) * 100)
-    days     = (to_dt - from_dt).days or 1
-    per_day  = round(total / days, 1)
-    return f"""
-<div class="stats-row">
-  <div class="stat-cell">
-    <div class="stat-v">{total:,}</div>
-    <div class="stat-l">TOTAL ITEMS</div>
-  </div>
-  <div class="stat-cell">
-    <div class="stat-v">{reviews:,}</div>
-    <div class="stat-l">REVIEWS</div>
-  </div>
-  <div class="stat-cell">
-    <div class="stat-v">{news:,}</div>
-    <div class="stat-l">NEWS · BLOG</div>
-  </div>
-  <div class="stat-cell">
-    <div class="stat-v">{svcs}</div>
-    <div class="stat-l">SERVICES</div>
-  </div>
-  <div class="stat-cell">
-    <div class="stat-v">{neg_pct}%</div>
-    <div class="stat-l">NEGATIVE RATE</div>
-  </div>
-  <div class="stat-cell">
-    <div class="stat-v">{per_day}</div>
-    <div class="stat-l">PER DAY AVG</div>
-  </div>
-</div>
-"""
+def render_stats(items: list, from_dt: date, to_dt: date) -> str:
+    total   = len(items)
+    reviews = [i for i in items if i.get("source_type") in REVIEW_TYPES]
+    news    = [i for i in items if i.get("source_type") in NEWS_TYPES]
+    svcs    = len({i.get("service_id") for i in items})
+    neg     = sum(1 for i in items if i.get("sentiment") == "negative")
+    days    = (to_dt - from_dt).days or 1
+    per_day = round(total / days, 1)
+    neg_pct = round(neg / max(total, 1) * 100, 1)
+
+    spark_total   = build_sparkline(items, from_dt, to_dt)
+    spark_reviews = build_sparkline(reviews, from_dt, to_dt)
+    spark_news    = build_sparkline(news, from_dt, to_dt)
+
+    cells = [
+        ("총 수집건",    f"{total:,}",    "건",  spark_total,   ""),
+        ("앱 리뷰",     f"{len(reviews):,}", "건", spark_reviews, ""),
+        ("뉴스·블로그", f"{len(news):,}", "건",  spark_news,    ""),
+        ("모니터 서비스", f"{svcs}",       "개",  "",            ""),
+        ("부정 비율",   f"{neg_pct}",    "%",   "",            ""),
+        ("일평균 수집",  f"{per_day}",    "건",  "",            ""),
+    ]
+
+    cells_html = ""
+    for label, val, unit, spark, delta in cells:
+        cells_html += f"""
+  <div class="stat">
+    <div class="label">{esc(label)}</div>
+    <div class="value">{esc(val)}<span class="unit">{esc(unit)}</span></div>
+    {f'<div class="delta">{esc(delta)}</div>' if delta else ''}
+    {spark}
+  </div>"""
+
+    return f'<section class="stats" aria-label="Weekly KPIs">{cells_html}\n</section>'
 
 
-def render_top_story(item: dict | None) -> str:
+def _render_top_story(item: dict | None, items: list) -> str:
     if not item:
         return ""
     title   = esc(item.get("title", "(제목 없음)"))
-    summary = esc(item.get("summary", ""))[:300]
+    summary = esc(item.get("summary", ""))
     svc     = esc(item.get("name_ko", item.get("service_id", "")))
-    src     = type_badge(item.get("source_type", ""))
-    ct      = change_badge(item.get("change_type", "기타"))
-    sb      = sentiment_badge(item.get("sentiment", "neutral"))
+    ct_badge = change_badge(item.get("change_type", ""))
+    sent    = item.get("sentiment", "neutral")
+    sent_b  = badge_html("NEG", "neg") if sent == "negative" else (badge_html("POS", "pos") if sent == "positive" else "")
     date_s  = esc(item.get("published_at", ""))
     url     = esc(item.get("url", "#"))
+    src_type = item.get("source_type", "")
+    src_label = "Google Play" if src_type == "appstore" else ("App Store" if src_type == "ios_appstore" else "뉴스/블로그")
+
+    # Count for this service in this period
+    svc_items = [i for i in items if i.get("service_id") == item.get("service_id")]
+    keyfact_num = len(svc_items)
+
+    # Split summary into 2 paras
+    words = (item.get("summary") or "").split()
+    mid   = max(1, len(words) // 2)
+    para1 = esc(" ".join(words[:mid]))
+    para2 = esc(" ".join(words[mid:])) if len(words) > mid else ""
+
     return f"""
-<div class="top-story">
-  <div class="top-story-label">TOP STORY · LEAD</div>
-  <div class="ts-meta">{date_s} &nbsp;·&nbsp; {svc} &nbsp;·&nbsp; {src} {ct} {sb}</div>
-  <h2 class="ts-headline"><a href="{url}" target="_blank" rel="noopener">{title}</a></h2>
-  <p class="ts-lede">{summary}</p>
-</div>
-"""
+<section class="top-story">
+  <article>
+    <div class="ts-badges">
+      {badge_html("LEAD", "lead")}
+      {badge_html("TOP STORY", "top")}
+      {ct_badge}
+      {sent_b}
+    </div>
+    <div class="ts-meta">
+      <span>{esc(svc)}</span>
+      <span class="sep">·</span>
+      <span>{esc(src_label)}</span>
+      <span class="sep">·</span>
+      <span>{date_s}</span>
+    </div>
+    <h2 class="ts-headline"><a href="{url}" target="_blank" rel="noopener">{title}</a></h2>
+    <p class="ts-sub">이번 주 가장 주목받은 소식입니다.</p>
+    <div class="ts-body">
+      <p>{para1}</p>
+      {'<p>' + para2 + '</p>' if para2 else ''}
+    </div>
+  </article>
+  <aside class="ts-side">
+    <h4>By the Numbers</h4>
+    <div class="keyfact">{keyfact_num}</div>
+    <div class="keyfact-cap"><strong>{esc(svc)}</strong> 이번 주 수집 항목 수</div>
+    <blockquote class="pullquote">{summary[:180] if summary else '이번 주 주요 이슈를 확인하세요.'}</blockquote>
+    <div class="pullquote-cite">— {esc(src_label)} · {date_s}</div>
+  </aside>
+</section>"""
 
 
-def render_league(league: list) -> str:
+def render_league(league: list, year: int, week_num: int) -> str:
     if not league:
-        return ""
+        return "<p style='color:var(--muted);font-size:13px;'>이번 주 리뷰 데이터 없음</p>"
+
+    modu = next((r for r in league if r["service_id"] == "moduparking"), None)
+    modu_rank = next((i + 1 for i, r in enumerate(league) if r["service_id"] == "moduparking"), None)
+    modu_pos_str = f"업계 {modu_rank}위 유지" if modu_rank else ""
+
     rows_html = ""
-    modu_rank = next((i + 1 for i, r in enumerate(league)
-                      if r["service_id"] == "moduparking"), None)
     for rank, row in enumerate(league, 1):
-        is_us = row["service_id"] == "moduparking"
-        medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, "")
-        cls   = "league-row us" if is_us else "league-row"
-        us_tag = '<span class="us-tag">자사</span>' if is_us else ""
-        bar_w = round(row["avg"] / 5 * 100)
-        bar_cls = "bar-fill us" if is_us else "bar-fill"
-        aos_r = next((e for e in row["entries"] if e["platform"] == "google_play"), None)
-        ios_r = next((e for e in row["entries"] if e["platform"] == "ios"), None)
-        aos_str = f"A {aos_r['rating']:.2f}" if aos_r else "—"
-        ios_str = f"i {ios_r['rating']:.2f}" if ios_r else "—"
+        is_self = row["service_id"] == "moduparking"
+        rank_cls = "self" if is_self else (f"rank-{rank}" if rank == 1 else "")
+        row_cls  = f"league-row {rank_cls}".strip()
+        bar_w    = round(row["avg"] / 5 * 100)
+        name_badge = '<span class="badge" style="font-size:9px;padding:1px 6px;margin-left:6px;border-color:var(--cyan-500);color:var(--cyan-600);background:#fff;">OUR APP</span>' if is_self else ""
+        meta = f'리뷰 {row["review_count"]:,}건 (기간 내)'
+        delta_cls = ""
+        delta_str = ""
         rows_html += f"""
-  <div class="{cls}">
-    <div class="lr-rank">{rank}</div>
-    <div class="lr-medal">{medal}</div>
-    <div class="lr-info">
-      <div class="lr-name">{esc(row['name_ko'])} {us_tag}</div>
-      <div class="lr-platforms">{esc(aos_str)} &nbsp; {esc(ios_str)}</div>
-      <div class="bar-wrap"><div class="{bar_cls}" style="width:{bar_w}%"></div></div>
-    </div>
-    <div class="lr-score">
-      <span class="lr-avg">{'★'}{row['avg']:.2f}</span>
-      <span class="lr-cnt">{row['total_ratings']:,} reviews</span>
-    </div>
-  </div>"""
-    pos_note = f" — 현재 {modu_rank}위" if modu_rank else ""
+<div class="{esc(row_cls)}">
+  <div class="rank">{rank}</div>
+  <div>
+    <div class="name">{esc(row['name_ko'])} {name_badge}</div>
+    <div class="meta-line"><span>{meta}</span></div>
+    <div class="bar-wrap"><div class="bar" style="width:{bar_w}%"></div></div>
+  </div>
+  <div>
+    <div class="score"><span class="star">★</span> {row['avg']:.2f}</div>
+    <div class="delta-mini {delta_cls}">{esc(delta_str)}</div>
+  </div>
+</div>"""
+
+    callout = ""
+    if modu:
+        gap_str = ""
+        if len(league) > 1:
+            others = [r for r in league if r["service_id"] != "moduparking"]
+            if others:
+                nearest = min(others, key=lambda r: abs(r["avg"] - modu["avg"]))
+                diff = modu["avg"] - nearest["avg"]
+                gap_str = f'격차 {diff:+.2f}pt (vs. {esc(nearest["name_ko"])})'
+        callout = f"""
+<div class="self-callout">
+  <span><span class="you">모두의주차장</span> {esc(modu_pos_str)}</span>
+  <span>{esc(gap_str)}</span>
+</div>"""
+
     return f"""
-<div class="card">
-  <div class="card-head">
-    <span class="ch-title">🏆 Parking App League</span>
-    <span class="ch-sub">앱 평점 현황{esc(pos_note)}</span>
-  </div>
-  <div class="league-body">{rows_html}
-  </div>
+<h3>주차 앱 평점 리그</h3>
+<div class="byline-inline" style="margin:6px 0 10px;">
+  <span class="av">C</span>
+  <span class="by" style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">집계 ·</span>
+  <span class="nm">카니 기자</span>
+  <span>· DATA DESK</span>
 </div>
-"""
+<div class="col-deck">기간 내 수집된 리뷰 기준 평균 평점 · ★ 5점 만점</div>
+<div class="league-list">{rows_html}</div>
+{callout}"""
 
 
-def render_service_dispatch(svc_rows: list) -> str:
+def render_dispatch(svc_rows: list) -> str:
     if not svc_rows:
-        return ""
+        return "<p style='color:var(--muted);font-size:13px;'>데이터 없음</p>"
     rows_html = ""
     for row in svc_rows:
-        is_us = row["service_id"] == "moduparking"
-        cls   = "svc-row us" if is_us else "svc-row"
-        us_tag = '<span class="us-tag">자사</span>' if is_us else ""
-        neg_cls = "neg-count hot" if row["neg"] > 20 else "neg-count"
+        is_self = row["service_id"] == "moduparking"
+        tr_cls  = "self" if is_self else ""
+        total   = row["total"]
+        neg_pct = round(row["neg"] / max(total, 1) * 100, 1)
+        pos_pct = round(row["pos"] / max(total, 1) * 100, 1)
+        neu_pct = max(0, 100 - neg_pct - pos_pct)
+        rate_cls = neg_rate_class(neg_pct)
+        svc_name_cls = "svc self" if is_self else "svc"
         rows_html += f"""
-  <div class="{cls}">
-    <div class="svc-name">{esc(row['name_ko'])} {us_tag}</div>
-    <div class="svc-stat">{row['total']:,}</div>
-    <div class="svc-stat">{row['reviews']:,}</div>
-    <div class="svc-stat">{row['news']:,}</div>
-    <div class="svc-stat {neg_cls}">{row['neg']:,}</div>
-    <div class="svc-stat pos-count">{row['pos']:,}</div>
-  </div>"""
+<tr class="{esc(tr_cls)}">
+  <td class="{esc(svc_name_cls)}">{esc(row['name_ko'])}</td>
+  <td class="num">{total:,}</td>
+  <td class="num">{row['reviews']:,}</td>
+  <td class="num">{row['news']:,}</td>
+  <td><span class="mix">
+    <span class="pos" style="width:{pos_pct}%"></span>
+    <span class="neu" style="width:{neu_pct}%"></span>
+    <span class="neg" style="width:{neg_pct}%"></span>
+  </span></td>
+  <td class="num"><span class="neg-rate {esc(rate_cls)}">{neg_pct}%</span></td>
+</tr>"""
+
     return f"""
-<div class="card">
-  <div class="card-head">
-    <span class="ch-title">📋 Service Dispatch</span>
-    <span class="ch-sub">서비스별 수집 현황</span>
-  </div>
-  <div class="dispatch-body">
-    <div class="svc-header">
-      <div class="svc-name">서비스</div>
-      <div class="svc-stat">전체</div>
-      <div class="svc-stat">리뷰</div>
-      <div class="svc-stat">뉴스</div>
-      <div class="svc-stat">부정</div>
-      <div class="svc-stat">긍정</div>
-    </div>
-    {rows_html}
-  </div>
+<h3>서비스 디스패치</h3>
+<div class="byline-inline" style="margin:6px 0 10px;">
+  <span class="av">C</span>
+  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">집계 ·</span>
+  <span class="nm">카니 기자</span>
+  <span>· DATA DESK</span>
 </div>
-"""
+<div class="col-deck">이번 주 모니터링 대상 서비스별 데이터 수집 및 감성 분포</div>
+<table>
+  <thead>
+    <tr>
+      <th>서비스</th>
+      <th class="num">수집</th>
+      <th class="num">리뷰</th>
+      <th class="num">뉴스</th>
+      <th>감성 분포</th>
+      <th class="num">부정률</th>
+    </tr>
+  </thead>
+  <tbody>{rows_html}</tbody>
+</table>"""
+
+
+def render_keyword_cloud(kws: list, label: str, sample_n: int, vol_tag: str) -> str:
+    if not kws:
+        return "<p style='color:var(--muted);font-size:13px;padding:20px 0;'>키워드 없음</p>"
+    max_cnt = max(k["cnt"] for k in kws) if kws else 1
+    cloud_html = ""
+    for kw in kws:
+        sz  = kw_size_class(kw["cnt"], max_cnt)
+        sev = kw["sev"]
+        cnt = kw["cnt"]
+        cloud_html += (
+            f'<span class="kw {esc(sev)} {esc(sz)}">{esc(kw["word"])}'
+            f'<span class="cnt">{cnt}</span></span>\n'
+        )
+
+    # Summary
+    total_sents = sum(kw["cnt"] for kw in kws)
+    neg_kws = sum(kw["cnt"] for kw in kws if kw["sev"] in ("sev-1", "sev-2"))
+    pos_kws = sum(kw["cnt"] for kw in kws if kw["sev"] == "sev-4")
+    neu_kws = total_sents - neg_kws - pos_kws
+    neg_pct = round(neg_kws / max(total_sents, 1) * 100)
+    pos_pct = round(pos_kws / max(total_sents, 1) * 100)
+    neu_pct = 100 - neg_pct - pos_pct
+
+    return f"""
+<div class="kwmap-head">
+  <h3>{esc(label)}</h3>
+  <span class="sample">표본 {sample_n:,}건 · {esc(vol_tag)}</span>
+</div>
+<div class="byline-inline" style="margin:6px 0 10px;">
+  <span class="av">K</span>
+  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">분석 ·</span>
+  <span class="nm">KILLO 기자</span>
+  <span>· CX DESK</span>
+</div>
+<div class="col-deck">조사·접속사 제거 후 2글자 이상 한국어 단어만 추출. 글자 크기 = 빈출 횟수.</div>
+<div class="cloud" aria-label="{esc(label)} 키워드 클라우드">
+{cloud_html}</div>
+<div class="kw-summary">
+  <span><strong>NEG {neg_pct}%</strong></span>
+  <span><strong>NEU {neu_pct}%</strong></span>
+  <span><strong>POS {pos_pct}%</strong></span>
+</div>"""
 
 
 def render_voc_brief(items: list) -> str:
     reviews = pick_notable_reviews(items)
     if not reviews:
-        return ""
+        return "<p style='color:var(--muted);font-size:13px;'>이번 주 리뷰 없음</p>"
+
     cards = ""
     for item in reviews:
-        title   = esc(item.get("title", ""))
-        summary = esc(item.get("summary", ""))[:160]
-        svc     = esc(item.get("name_ko", item.get("service_id", "")))
-        sb      = sentiment_badge(item.get("sentiment", "neutral"))
-        src     = type_badge(item.get("source_type", ""))
-        date_s  = esc(item.get("published_at", ""))
-        url     = esc(item.get("url", "#"))
-        cls     = "voc-card neg" if item.get("sentiment") == "negative" else "voc-card pos"
+        is_self = item.get("service_id") == "moduparking"
+        svc_name = esc(item.get("name_ko", item.get("service_id", "")))
+        svc_cls  = "voc-svc self" if is_self else "voc-svc"
+        sent     = item.get("sentiment", "neutral")
+        card_cls = "voc-card neg" if sent == "negative" else "voc-card pos"
+        sent_b   = badge_html("NEG", "neg") if sent == "negative" else badge_html("POS", "pos")
+        summary  = esc((item.get("summary") or "")[:200])
+        date_s   = esc(item.get("published_at", ""))
+        src_type = item.get("source_type", "")
+        platform = "Google Play" if src_type == "appstore" else ("App Store" if src_type == "ios_appstore" else "")
+        url      = esc(item.get("url", "#"))
+
+        rating_val = item.get("rating") or item.get("score")
+        star_html  = stars_html(float(rating_val) if rating_val else None)
+
+        # Extract hashtags from keywords in text
+        text = item.get("title", "") + " " + (item.get("summary") or "")
+        pattern = re.compile(r"[가-힣]{2,6}")
+        raw_words = pattern.findall(text)
+        tags = [w for w in raw_words[:6] if w not in KO_STOPWORDS][:3]
+        tags_html = "".join(f'<span class="tag">#{esc(t)}</span>' for t in tags)
+
         cards += f"""
-  <div class="{cls}">
-    <div class="voc-meta">{date_s} · {svc} · {src} {sb}</div>
-    <div class="voc-title"><a href="{url}" target="_blank" rel="noopener">{title}</a></div>
-    <div class="voc-body">{summary}</div>
-  </div>"""
+<div class="{card_cls}">
+  <div class="voc-head">
+    <div class="left">
+      <span class="{svc_cls}">{svc_name}</span>
+      {star_html}
+      {sent_b}
+    </div>
+    <span class="voc-date">{date_s}{' · ' + platform if platform else ''}</span>
+  </div>
+  <p class="voc-quote">{summary}</p>
+  <div class="voc-foot">{tags_html}</div>
+</div>"""
+
     return f"""
-<div class="card">
-  <div class="card-head">
-    <span class="ch-title">🗣 VOC Brief</span>
-    <span class="ch-sub">이번 주 주목할 고객 목소리</span>
-  </div>
-  <div class="voc-body-wrap">{cards}
-  </div>
+<h3>VOC 브리프</h3>
+<div class="byline-inline" style="margin:6px 0 10px;">
+  <span class="av">K</span>
+  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">선정 ·</span>
+  <span class="nm">KILLO 기자</span>
+  <span>· CX DESK</span>
 </div>
-"""
+<div class="col-deck">자사 및 경쟁사 리뷰 — 부정·긍정 시그널 큐레이션</div>
+<div class="voc-list">{cards}</div>"""
 
 
-def render_competitor_wire(items: list) -> str:
+def render_wire(items: list) -> str:
     briefs = pick_news_briefs(items)
     if not briefs:
-        return ""
-    rows = ""
-    for item in briefs:
+        return "<p style='color:var(--muted);font-size:13px;'>이번 주 경쟁사 뉴스 없음</p>"
+
+    items_html = ""
+    for idx, item in enumerate(briefs, 1):
         title  = esc(item.get("title", ""))
-        svc    = esc(item.get("name_ko", item.get("service_id", "")))
-        ct     = change_badge(item.get("change_type", "기타"))
-        sb     = sentiment_badge(item.get("sentiment", "neutral"))
-        date_s = esc(item.get("published_at", ""))
         url    = esc(item.get("url", "#"))
-        sum_s  = esc(item.get("summary", ""))[:100]
-        rows += f"""
-  <div class="wire-row">
-    <div class="wire-meta">{date_s} · {svc} {ct} {sb}</div>
-    <div class="wire-title"><a href="{url}" target="_blank" rel="noopener">{title}</a></div>
-    {'<div class="wire-sum">' + sum_s + '</div>' if sum_s else ''}
-  </div>"""
-    return f"""
-<div class="card">
-  <div class="card-head">
-    <span class="ch-title">📡 Competitor Wire</span>
-    <span class="ch-sub">경쟁사 주간 동향</span>
+        svc    = esc(item.get("name_ko", item.get("service_id", "")))
+        ct_b   = change_badge(item.get("change_type", ""))
+        date_s = esc(item.get("published_at", ""))
+        src_type = item.get("source_type", "")
+        src_label = "뉴스" if src_type in ("news", "rss") else "블로그"
+        items_html += f"""
+<div class="wire-item">
+  <div class="wire-num">{idx:02d}</div>
+  <div>
+    <h4 class="wire-headline"><a href="{url}" target="_blank" rel="noopener">{title}</a></h4>
+    <div class="wire-meta">
+      <span class="src">{esc(svc)}</span>
+      {ct_b}
+      <span>{esc(src_label)}</span>
+    </div>
   </div>
-  <div class="wire-body">{rows}
+  <div class="wire-side">
+    <span class="date">{date_s}</span>
   </div>
-</div>
-"""
+</div>"""
 
-
-def render_sources(from_dt: date, to_dt: date, total: int) -> str:
     return f"""
-<div class="sources-foot">
-  <strong>SOURCES &amp; METHODOLOGY</strong> &nbsp;—&nbsp;
-  Coverage period: {esc(str(from_dt))} ~ {esc(str(to_dt))} · {total:,} items
-  · 수집 채널: Google Play / iTunes RSS · 네이버 검색 API · Google News RSS · HTML diff
-  · 본 리포트는 GitHub Actions에서 매주 화요일 KST 11:00 자동 생성됩니다.
+<h3>컴페티터 와이어</h3>
+<div class="byline-inline" style="margin:6px 0 10px;">
+  <span class="av">M</span>
+  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">취재 ·</span>
+  <span class="nm">모카 기자</span>
+  <span>· NEWS DESK</span>
 </div>
-"""
+<div class="col-deck">이번 주 업계 보도 — 사업 확장 · 제휴 · 정책 · 기술</div>
+<div class="wire-list">{items_html}</div>"""
 
 
-# ──────────────────────────────────────────────
+def render_sources(from_dt: date, to_dt: date, total: int, year: int, week_num: int) -> str:
+    vol_tag = f"{year:02d}Y · {week_num}W"
+    return f"""
+<div class="sources">
+  <div>
+    <h5>Coverage &amp; Methodology</h5>
+    <p>기간: {esc(str(from_dt))} ~ {esc(str(to_dt))}<br>
+    총 {total:,}건 수집. 수집 채널: Google Play 리뷰 스크레이퍼, iTunes RSS API, 네이버 검색 API (뉴스·블로그), Google News RSS, HTML 변경 감지.</p>
+  </div>
+  <div>
+    <h5>Data Freshness</h5>
+    <p>본 리포트는 GitHub Actions에서 매주 화요일 KST 11:00 자동 생성됩니다. 수집 주기: 매일 07:15 KST.</p>
+  </div>
+  <div>
+    <h5>Disclaimer</h5>
+    <p>감성 분류는 키워드 기반 자동 분류로, 맥락에 따라 오류가 있을 수 있습니다. 최종 판단은 담당자 확인을 권장합니다.</p>
+  </div>
+  <div class="colophon">
+    <span class="logo">The Parking Gazette</span>
+    <span>WEEK {esc(vol_tag)} · Auto-generated · {esc(str(to_dt))} · © Modu CX Newsroom</span>
+  </div>
+</div>"""
+
+
+# ─────────────────────────────────────────────
 # CSS
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
 CSS = """
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --slate-900:#0f172a; --slate-800:#1e293b; --slate-700:#334155;
-  --slate-500:#64748b; --slate-400:#94a3b8; --slate-300:#cbd5e1;
-  --slate-200:#e2e8f0; --slate-100:#f1f5f9; --slate-50:#f8fafc;
-  --blue-900:#1e3a8a; --blue-700:#1d4ed8; --blue-600:#2563eb;
-  --blue-500:#3b82f6; --blue-400:#60a5fa; --blue-200:#bfdbfe;
-  --blue-100:#dbeafe; --blue-50:#eff6ff;
-  --cyan-500:#06b6d4; --cyan-400:#22d3ee; --cyan-100:#cffafe;
-  --emerald-500:#10b981; --emerald-100:#d1fae5;
-  --red-500:#ef4444; --red-100:#fee2e2;
-  --amber-500:#f59e0b; --amber-100:#fef3c7;
-  --surface:#fff; --bg:var(--slate-50); --border:var(--slate-200);
-  --text:var(--slate-900); --text-2:var(--slate-700); --text-m:var(--slate-500);
-  --shadow-sm:0 1px 3px rgba(15,23,42,.06);
-  --shadow-md:0 4px 12px rgba(15,23,42,.08);
-  --font:-apple-system,BlinkMacSystemFont,'Pretendard','Apple SD Gothic Neo',sans-serif;
-  --mono:'SF Mono',Consolas,monospace;
+  --ink: #0b0b0c;
+  --ink-2: #1f2024;
+  --muted: #5b6068;
+  --rule: #0b0b0c;
+  --paper: #f4efe6;
+  --paper-2: #ece6da;
+  --card: #ffffff;
+  --slate-50: #f5f7fa;
+  --slate-100: #eef1f5;
+  --slate-200: #dbe0e7;
+  --slate-300: #c1c8d2;
+  --slate-500: #6c7480;
+  --slate-700: #2f3640;
+  --slate-900: #14171c;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e3a8a;
+  --cyan-500: #06b6d4;
+  --cyan-600: #0891b2;
+  --cyan-50:  #ecfeff;
+  --red-600:  #dc2626;
+  --red-50:   #fef2f2;
+  --emerald-600: #059669;
+  --emerald-50:  #ecfdf5;
+  --amber-500: #d97706;
 }
-html { font-size:15px; scroll-behavior:smooth; }
-body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:1.65; }
-a { color:var(--blue-600); text-decoration:none; }
-a:hover { text-decoration:underline; }
 
-.container { max-width:1120px; margin:0 auto; padding:24px 20px 64px; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "IBM Plex Sans KR", system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-feature-settings: "ss01","tnum";
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+  padding: 28px 28px 80px;
+}
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(0,0,0,.025), transparent 60%),
+    radial-gradient(circle at 80% 70%, rgba(0,0,0,.02), transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+.paper {
+  position: relative; z-index: 1;
+  max-width: 1280px;
+  margin: 0 auto;
+  background: var(--card);
+  border: 2px solid var(--ink);
+  box-shadow: 0 1px 0 var(--ink), 0 24px 60px -28px rgba(0,0,0,.35);
+}
+a { color: var(--blue-700); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ARCHIVE NAV */
+.archive-nav {
+  background: var(--ink);
+  color: #d8dbe0;
+  border-bottom: 2px solid var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.archive-top {
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 18px;
+  border-bottom: 1px solid #2a2c33;
+  flex-wrap: wrap;
+}
+.archive-top .arch-label { color: #fff; font-weight: 600; letter-spacing: .2em; padding-right: 14px; border-right: 1px solid #2a2c33; white-space: nowrap; }
+.archive-top .breadcrumb { color: #9aa0aa; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.archive-top .breadcrumb .now { color: #fff; background: var(--red-600); padding: 2px 8px; letter-spacing: .14em; font-weight: 600; white-space: nowrap; }
+.archive-top .breadcrumb .sep { color: #4a4d55; }
+.archive-top .meta { margin-left: auto; color: #9aa0aa; display: flex; gap: 14px; white-space: nowrap; flex-shrink: 0; }
+.archive-top .meta .yr { cursor: pointer; padding: 2px 6px; }
+.archive-top .meta .yr:hover { color: #fff; }
+.archive-top .meta .yr.active { color: #fff; border: 1px solid #fff; }
+.archive-bottom { display: grid; grid-template-columns: auto 1fr; align-items: stretch; padding: 8px 18px 10px; }
+.tree-label { display: flex; align-items: center; gap: 6px; color: #9aa0aa; padding-right: 14px; border-right: 1px solid #2a2c33; margin-right: 14px; }
+.tree-label .glyph { color: #6a6d75; font-family: "IBM Plex Mono", monospace; }
+.week-tabs { display: flex; gap: 5px; overflow-x: auto; align-items: center; scrollbar-width: thin; }
+.week-tabs::-webkit-scrollbar { height: 4px; }
+.week-tabs::-webkit-scrollbar-thumb { background: #2a2c33; }
+.week-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #15171c; border: 1px solid #2a2c33; color: #888c95; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 500; letter-spacing: .08em; cursor: pointer; transition: all .12s ease; }
+.week-pill:hover { color: #fff; border-color: #4a4d55; background: #1f2127; }
+.week-pill.live { background: #fff; color: var(--ink); border-color: #fff; font-weight: 700; }
+.week-pill.live::before { content: ""; width: 6px; height: 6px; background: var(--red-600); border-radius: 50%; animation: pulse 1.4s ease-in-out infinite; }
+.week-pill.scheduled { border-style: dashed; border-color: #2a2c33; color: #5a5d65; }
+.week-pill .lbl { font-family: "IBM Plex Mono", monospace; }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.85); } }
+
+/* BYLINE */
+.byline { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; background: var(--paper); border: 1px solid var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); }
+.byline .avatar { width: 22px; height: 22px; background: var(--ink); color: #fff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: "Playfair Display", serif; font-style: italic; font-weight: 900; font-size: 12px; }
+.byline .name { font-weight: 700; }
+.byline .role { color: var(--muted); }
+.byline-inline { display: inline-flex; align-items: center; gap: 6px; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.byline-inline .av { width: 14px; height: 14px; background: var(--ink); color: #fff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: "Playfair Display", serif; font-style: italic; font-weight: 900; font-size: 9px; }
+.byline-inline .nm { color: var(--ink); font-weight: 700; }
+.byline-inline .by { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: .04em; }
 
 /* MASTHEAD */
-.masthead {
-  background:var(--surface); border:2px solid var(--slate-900);
-  border-radius:12px; padding:22px 28px 14px; margin-bottom:14px;
-  box-shadow:var(--shadow-md);
-}
-.masthead-top {
-  display:flex; justify-content:space-between; align-items:center;
-  font-size:11px; color:var(--text-m); letter-spacing:1.2px; font-weight:700;
-  text-transform:uppercase; padding-bottom:10px; border-bottom:1px solid var(--border);
-  margin-bottom:10px;
-}
-.right-cluster { display:flex; gap:10px; align-items:center; }
-.vol-pill {
-  background:var(--blue-700); color:#fff; padding:3px 10px; border-radius:4px;
-  font-size:12px; font-weight:800; letter-spacing:0.5px;
-}
-.iss-pill {
-  background:var(--emerald-500); color:#fff; padding:3px 8px; border-radius:4px;
-  font-size:10px; font-weight:800; letter-spacing:1px;
-}
-.gazette-title {
-  font-family:var(--font); font-size:52px; font-weight:900; letter-spacing:-2.4px;
-  text-align:center; color:var(--text); line-height:1; margin-bottom:4px;
-}
-.tagline {
-  text-align:center; font-size:12px; color:var(--text-m); margin-bottom:12px; font-weight:500;
-}
-.masthead-bar {
-  border-top:3px double var(--slate-900); border-bottom:1px solid var(--border);
-  padding:8px 0; display:flex; justify-content:space-between; align-items:center;
-  font-size:11.5px; color:var(--text-2); font-weight:600;
-}
+.masthead { border-bottom: 2px solid var(--ink); padding: 18px 32px 22px; background: #fff; }
+.masthead-top { display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); padding-bottom: 10px; border-bottom: 1px solid var(--ink); }
+.masthead-top .left, .masthead-top .right { display: flex; gap: 18px; align-items: center; }
+.dot { width: 6px; height: 6px; background: var(--red-600); border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.masthead-title { text-align: center; padding: 14px 0 6px; }
+.masthead-title h1 { font-family: "Playfair Display", "Noto Serif KR", serif; font-weight: 900; font-size: clamp(48px, 8vw, 104px); line-height: .92; letter-spacing: -.01em; margin: 0; }
+.masthead-title h1 .the { font-family: "Playfair Display", serif; font-style: italic; font-weight: 400; font-size: .42em; vertical-align: top; margin-right: 14px; letter-spacing: .04em; }
+.masthead-tag { font-family: "Noto Serif KR", serif; font-weight: 400; font-style: italic; color: var(--muted); margin-top: 8px; font-size: 14px; letter-spacing: .02em; }
+.masthead-meta { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ink); border-bottom: 4px double var(--ink); padding-bottom: 12px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.masthead-meta .center { text-align: center; }
+.masthead-meta .right { text-align: right; }
+.week-badge { display: inline-flex; align-items: baseline; gap: 6px; background: var(--ink); color: #fff; padding: 4px 10px; font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 12px; letter-spacing: .12em; white-space: nowrap; }
+.week-badge .num { font-size: 14px; white-space: nowrap; }
+.coverage { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 500; font-size: 13px; letter-spacing: .04em; text-transform: none; }
 
-/* STATS ROW */
-.stats-row {
-  display:grid; grid-template-columns:repeat(6,1fr); margin-bottom:14px;
-  background:var(--surface); border:1px solid var(--border); border-radius:12px;
-  box-shadow:var(--shadow-sm); overflow:hidden;
-}
-.stat-cell {
-  padding:18px 10px; text-align:center; border-right:1px solid var(--border);
-}
-.stat-cell:last-child { border-right:none; }
-.stat-v { font-size:22px; font-weight:800; color:var(--text); letter-spacing:-0.5px; }
-.stat-l { font-size:10.5px; color:var(--text-m); font-weight:700; letter-spacing:1px; margin-top:5px; text-transform:uppercase; }
-
-/* SECTION TITLE */
-.sec-title {
-  font-size:12.5px; font-weight:800; color:var(--text); text-transform:uppercase;
-  letter-spacing:1.5px; padding:7px 0; border-top:2px solid var(--slate-900);
-  border-bottom:1px solid var(--slate-900); margin:18px 0 12px;
-  display:flex; justify-content:space-between; align-items:center;
-}
-.sec-title .sec-sub { font-size:11px; font-weight:500; color:var(--text-m); text-transform:none; letter-spacing:0; }
+/* STATS */
+.stats { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 2px solid var(--ink); }
+.stat { padding: 18px 18px 16px; border-right: 1px solid var(--ink); background: #fff; position: relative; }
+.stat:last-child { border-right: none; }
+.stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 38px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
+.stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 13px; margin-left: 4px; color: var(--muted); }
+.stat .delta { margin-top: 8px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.delta.up { color: var(--emerald-600); }
+.delta.down { color: var(--red-600); }
+.delta .arrow { font-weight: 700; }
+.spark { position: absolute; right: 14px; top: 14px; opacity: .7; }
 
 /* TOP STORY */
-.top-story {
-  background:var(--surface); border:1px solid var(--border); border-radius:12px;
-  padding:28px 30px; margin-bottom:14px; position:relative; box-shadow:var(--shadow-sm);
-}
-.top-story-label {
-  position:absolute; top:-11px; left:24px;
-  background:var(--slate-900); color:#fff; padding:4px 14px; border-radius:4px;
-  font-size:10.5px; font-weight:800; letter-spacing:1.8px;
-}
-.ts-meta { font-size:11.5px; color:var(--text-m); margin-bottom:10px; }
-.ts-headline { font-size:26px; font-weight:900; line-height:1.35; letter-spacing:-0.6px; margin-bottom:12px; }
-.ts-headline a { color:var(--text); }
-.ts-headline a:hover { color:var(--blue-700); }
-.ts-lede {
-  font-size:14px; color:var(--text-2); line-height:1.8;
-  padding:0 0 0 14px; border-left:4px solid var(--cyan-500);
-}
+.top-story { padding: 28px 32px 32px; border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: 1.5fr 1fr; gap: 36px; background: #fff; }
+.ts-badges { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.badge { display: inline-flex; align-items: center; padding: 3px 9px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; border-radius: 999px; border: 1px solid var(--ink); background: #fff; color: var(--ink); }
+.badge.lead { background: var(--ink); color: #fff; }
+.badge.top  { background: var(--red-600); color: #fff; border-color: var(--red-600); }
+.badge.voc  { background: var(--cyan-50); color: var(--cyan-600); border-color: var(--cyan-500); }
+.badge.tech { background: #f5f3ff; color: #6d28d9; border-color: #6d28d9; }
+.badge.policy { background: #fef9c3; color: #854d0e; border-color: #854d0e; }
+.badge.biz  { background: #fff1f2; color: #be123c; border-color: #be123c; }
+.badge.partner { background: #ecfeff; color: var(--blue-700); border-color: var(--blue-700); }
+.badge.neg  { background: var(--red-50); color: var(--red-600); border-color: var(--red-600); }
+.badge.pos  { background: var(--emerald-50); color: var(--emerald-600); border-color: var(--emerald-600); }
+.ts-meta { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; gap: 14px; align-items: center; }
+.ts-meta .sep { color: var(--slate-300); }
+.ts-headline { font-family: "Noto Serif KR", "Playfair Display", serif; font-weight: 900; font-size: 38px; line-height: 1.08; letter-spacing: -.02em; margin: 0 0 14px; color: var(--ink); }
+.ts-headline a { color: inherit; text-decoration: none; }
+.ts-headline a:hover { color: var(--blue-700); }
+.ts-sub { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 400; font-size: 16px; color: var(--slate-700); margin: 0 0 18px; line-height: 1.5; }
+.ts-body { font-family: "Noto Serif KR", serif; font-size: 15px; line-height: 1.7; color: var(--ink-2); column-count: 2; column-gap: 24px; column-rule: 1px solid var(--slate-200); }
+.ts-body p { margin: 0 0 12px; }
+.ts-body p:first-child::first-letter { font-family: "Playfair Display", serif; font-weight: 900; font-size: 56px; float: left; line-height: .9; padding: 4px 8px 0 0; color: var(--blue-700); }
+.ts-side { border-left: 1px solid var(--ink); padding-left: 28px; }
+.ts-side h4 { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--ink); }
+.keyfact { font-family: "Playfair Display", serif; font-weight: 900; font-size: 64px; line-height: 1; margin: 0 0 4px; color: var(--red-600); }
+.keyfact-cap { font-family: "Noto Serif KR", serif; font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.pullquote { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 500; font-size: 17px; line-height: 1.45; color: var(--ink); padding: 14px 0 12px; border-top: 4px double var(--ink); border-bottom: 1px solid var(--ink); margin: 18px 0 10px; position: relative; }
+.pullquote::before { content: "“"; font-family: "Playfair Display", serif; font-size: 56px; line-height: .6; color: var(--blue-700); margin-right: 4px; vertical-align: -10px; }
+.pullquote-cite { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 
-/* GRID */
-.grid-2 { display:grid; grid-template-columns:1.4fr 1fr; gap:14px; margin-bottom:14px; }
-.grid-2-equal { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+/* SECTION ROW */
+.section-row { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid var(--ink); }
+.section-row > .col { border-right: 1px solid var(--ink); background: #fff; }
+.section-row > .col:last-child { border-right: none; }
+.col-head { background: var(--ink); color: #fff; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
+.col-head .name { font-weight: 600; }
+.col-head .kicker { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 400; letter-spacing: .02em; text-transform: none; font-size: 12px; color: #cfd3da; }
+.col-body { padding: 18px 20px 22px; }
 
-/* CARD */
-.card {
-  background:var(--surface); border:1px solid var(--border); border-radius:12px;
-  box-shadow:var(--shadow-sm); overflow:hidden; margin-bottom:14px;
-}
-.card-head {
-  background:var(--slate-900); color:#fff; padding:11px 18px;
-  display:flex; justify-content:space-between; align-items:center;
-}
-.ch-title { font-size:13.5px; font-weight:800; }
-.ch-sub { font-size:10.5px; opacity:0.78; }
-
-/* LEAGUE */
-.league-body { padding:4px 0 8px; }
-.league-row {
-  display:grid; grid-template-columns:28px 24px 1fr 110px;
-  gap:10px; align-items:center; padding:10px 18px;
-  border-bottom:1px solid var(--slate-100);
-}
-.league-row:last-child { border-bottom:none; }
-.league-row.us {
-  background:linear-gradient(90deg,var(--cyan-100),transparent);
-  border-left:3px solid var(--cyan-500);
-}
-.lr-rank { font-size:18px; font-weight:900; color:var(--text-m); font-family:var(--mono); }
-.league-row.us .lr-rank { color:var(--cyan-500); }
-.lr-medal { font-size:16px; }
-.lr-name { font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
-.league-row.us .lr-name { color:var(--blue-900); }
-.lr-platforms { font-size:11px; color:var(--text-m); margin:3px 0 4px; font-family:var(--mono); }
-.bar-wrap { height:6px; background:var(--slate-100); border-radius:3px; overflow:hidden; }
-.bar-fill { height:100%; background:linear-gradient(90deg,var(--slate-400),var(--slate-700)); border-radius:3px; }
-.bar-fill.us { background:linear-gradient(90deg,var(--cyan-400),var(--cyan-500)); }
-.lr-score { text-align:right; }
-.lr-avg { display:block; font-size:16px; font-weight:800; color:var(--text); }
-.league-row.us .lr-avg { color:var(--cyan-500); }
-.lr-cnt { font-size:10.5px; color:var(--text-m); margin-top:2px; display:block; }
+/* APP LEAGUE */
+.league h3, .dispatch h3, .voc h3, .wire h3 { font-family: "Playfair Display", "Noto Serif KR", serif; font-weight: 900; font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+.col-deck { font-family: "Noto Serif KR", serif; font-style: italic; color: var(--muted); font-size: 13px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--slate-200); }
+.league-list { display: flex; flex-direction: column; gap: 10px; }
+.league-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--slate-200); background: #fff; position: relative; }
+.league-row.self { border: 2px solid var(--cyan-500); background: var(--cyan-50); }
+.league-row .rank { font-family: "Playfair Display", serif; font-weight: 900; font-size: 22px; color: var(--ink); text-align: center; }
+.league-row.self .rank { color: var(--cyan-600); }
+.league-row.rank-1 .rank { color: var(--amber-500); }
+.league-row .name { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 600; font-size: 14px; }
+.league-row .bar-wrap { margin-top: 5px; height: 6px; background: var(--slate-100); border-radius: 999px; overflow: hidden; }
+.league-row .bar { height: 100%; background: var(--ink); border-radius: 999px; }
+.league-row.self .bar { background: var(--cyan-500); }
+.league-row.rank-1 .bar { background: var(--amber-500); }
+.league-row .meta-line { display: flex; gap: 8px; align-items: baseline; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.league-row .score { font-family: "Playfair Display", serif; font-weight: 900; font-size: 20px; line-height: 1; color: var(--ink); text-align: right; }
+.league-row.self .score { color: var(--cyan-600); }
+.league-row .star { color: var(--amber-500); }
+.league-row .delta-mini { font-family: "IBM Plex Mono", monospace; font-size: 10px; margin-top: 4px; text-align: right; color: var(--muted); }
+.delta-mini.up { color: var(--emerald-600); }
+.delta-mini.down { color: var(--red-600); }
+.self-callout { margin-top: 14px; padding: 10px 12px; background: var(--ink); color: #fff; display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.self-callout .you { color: var(--cyan-500); font-weight: 600; }
 
 /* DISPATCH */
-.dispatch-body { padding:4px 0 8px; }
-.svc-header {
-  display:grid; grid-template-columns:1fr repeat(5,70px);
-  padding:8px 18px; font-size:10.5px; font-weight:800; color:var(--text-m);
-  text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border);
-}
-.svc-row {
-  display:grid; grid-template-columns:1fr repeat(5,70px);
-  padding:8px 18px; border-bottom:1px solid var(--slate-100); align-items:center;
-}
-.svc-row:last-child { border-bottom:none; }
-.svc-row.us { background:linear-gradient(90deg,var(--cyan-100),transparent); border-left:3px solid var(--cyan-500); }
-.svc-name { font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
-.svc-stat { font-size:13px; font-weight:600; color:var(--text-2); text-align:center; font-family:var(--mono); }
-.neg-count { color:var(--red-500) !important; }
-.neg-count.hot { font-weight:900; }
-.pos-count { color:var(--emerald-500) !important; }
+.dispatch table { width: 100%; border-collapse: collapse; font-family: "IBM Plex Sans KR", sans-serif; font-size: 13px; }
+.dispatch th { text-align: left; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 8px 6px; border-bottom: 1px solid var(--ink); font-weight: 500; }
+.dispatch th.num, .dispatch td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.dispatch td { padding: 11px 6px; border-bottom: 1px solid var(--slate-100); vertical-align: middle; }
+.dispatch tr.self td { background: var(--cyan-50); }
+.dispatch tr.self td:first-child { border-left: 3px solid var(--cyan-500); padding-left: 9px; }
+.dispatch .svc { font-weight: 600; }
+.dispatch tr.self .svc { color: var(--cyan-600); }
+.dispatch .mix { display: inline-flex; height: 6px; width: 80px; background: var(--slate-100); border-radius: 99px; overflow: hidden; }
+.mix .pos { background: var(--emerald-600); }
+.mix .neu { background: var(--slate-300); }
+.mix .neg { background: var(--red-600); }
+.neg-rate { font-family: "IBM Plex Mono", monospace; font-weight: 600; }
+.neg-rate.high { color: var(--red-600); }
+.neg-rate.mid  { color: var(--amber-500); }
+.neg-rate.low  { color: var(--emerald-600); }
+
+/* KEYWORD MAP */
+.kwmap-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.kwmap-head h3 { margin: 0; }
+.kwmap-head .sample { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.cloud { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 14px 22px; padding: 28px 8px 32px; min-height: 240px; background: #fff; border-top: 1px dashed var(--slate-200); border-bottom: 1px dashed var(--slate-200); margin-bottom: 14px; position: relative; }
+.cloud::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(circle at 15% 25%, rgba(29,78,216,.04), transparent 40%), radial-gradient(circle at 85% 75%, rgba(220,38,38,.035), transparent 40%); pointer-events: none; }
+.kw { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 700; line-height: 1; letter-spacing: -.01em; display: inline-flex; align-items: center; transition: transform .15s ease; cursor: default; }
+.kw:hover { transform: translateY(-1px) scale(1.04); }
+.kw .cnt { font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 500; color: var(--muted); margin-left: 4px; align-self: flex-start; margin-top: 2px; letter-spacing: .04em; }
+.kw.sev-1 { background: #fde2e2; color: #991b1b; padding: 6px 14px; border-radius: 6px; font-weight: 800; }
+.kw.sev-1 .cnt { color: #b91c1c; }
+.kw.sev-2 { color: var(--red-600); }
+.kw.sev-3 { color: var(--slate-500); font-weight: 600; }
+.kw.sev-4 { background: #d1fae5; color: #065f46; padding: 6px 14px; border-radius: 6px; font-weight: 800; }
+.kw.sev-4 .cnt { color: #047857; }
+.kw.s-xl { font-size: 46px; }
+.kw.s-lg { font-size: 34px; }
+.kw.s-md { font-size: 24px; }
+.kw.s-sm { font-size: 17px; }
+.kw.s-xs { font-size: 13px; }
+.kw-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 12px; background: var(--slate-50); border: 1px solid var(--slate-200); font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--slate-700); justify-content: center; }
+.kw-legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.kw-legend .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.sw-1 { background: #fde2e2; border: 1px solid #fca5a5; }
+.sw-2 { background: var(--red-600); }
+.sw-3 { background: var(--slate-500); }
+.sw-4 { background: #d1fae5; border: 1px solid #6ee7b7; }
+.kw-summary { display: flex; gap: 14px; margin-top: 12px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); justify-content: center; }
+.kw-summary strong { color: var(--ink); font-weight: 600; }
 
 /* VOC */
-.voc-body-wrap { padding:14px 18px; display:flex; flex-direction:column; gap:10px; }
-.voc-card { border-radius:8px; padding:12px 14px; border-left:3px solid transparent; }
-.voc-card.neg { background:var(--red-100); border-left-color:var(--red-500); }
-.voc-card.pos { background:var(--emerald-100); border-left-color:var(--emerald-500); }
-.voc-meta { font-size:11px; color:var(--text-m); margin-bottom:5px; }
-.voc-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:5px; }
-.voc-title a { color:inherit; }
-.voc-body { font-size:12.5px; color:var(--text-2); line-height:1.7; }
+.voc-list { display: flex; flex-direction: column; gap: 12px; }
+.voc-card { padding: 14px 16px; background: #fff; border: 1px solid var(--slate-200); border-left-width: 4px; }
+.voc-card.neg { border-left-color: var(--red-600); }
+.voc-card.pos { border-left-color: var(--emerald-600); }
+.voc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+.voc-head .left { display: flex; gap: 8px; align-items: center; }
+.voc-svc { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+.voc-svc.self { color: var(--cyan-600); }
+.voc-stars { color: var(--amber-500); font-size: 12px; letter-spacing: 1px; }
+.voc-stars .off { color: var(--slate-300); }
+.voc-date { font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); letter-spacing: .08em; }
+.voc-quote { font-family: "Noto Serif KR", serif; font-size: 14px; line-height: 1.55; color: var(--ink); margin: 0; }
+.voc-foot { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+.tag { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 2px 7px; background: var(--slate-100); color: var(--slate-700); border-radius: 2px; }
 
-/* COMPETITOR WIRE */
-.wire-body { padding:4px 18px 14px; }
-.wire-row { padding:10px 0; border-bottom:1px solid var(--slate-100); }
-.wire-row:last-child { border-bottom:none; }
-.wire-meta { font-size:11px; color:var(--text-m); margin-bottom:4px; }
-.wire-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:3px; }
-.wire-title a { color:inherit; }
-.wire-sum { font-size:12px; color:var(--text-2); line-height:1.6; }
+/* WIRE */
+.wire-list { display: flex; flex-direction: column; }
+.wire-item { display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--slate-200); align-items: start; }
+.wire-item:last-child { border-bottom: none; }
+.wire-num { font-family: "Playfair Display", serif; font-weight: 900; font-size: 28px; line-height: 1; color: var(--slate-300); }
+.wire-headline { font-family: "Noto Serif KR", serif; font-weight: 700; font-size: 15px; line-height: 1.35; margin: 0 0 6px; color: var(--ink); }
+.wire-headline a { color: inherit; text-decoration: none; border-bottom: 1px solid transparent; }
+.wire-headline a:hover { border-bottom-color: var(--ink); }
+.wire-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.wire-meta .src { color: var(--blue-700); font-weight: 600; }
+.wire-side { text-align: right; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--muted); }
+.wire-side .date { display: block; margin-bottom: 4px; }
 
-/* BADGES */
-.us-tag {
-  background:var(--cyan-500); color:#fff; font-size:9px; font-weight:800;
-  padding:1px 6px; border-radius:3px;
-}
-.s-neg { background:var(--red-100); color:var(--red-500); font-size:10px; font-weight:800; padding:1px 6px; border-radius:3px; }
-.s-pos { background:var(--emerald-100); color:var(--emerald-500); font-size:10px; font-weight:800; padding:1px 6px; border-radius:3px; }
-.s-neu { background:var(--slate-100); color:var(--text-m); font-size:10px; font-weight:600; padding:1px 6px; border-radius:3px; }
-.type-badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; }
-.tb-rev { background:var(--blue-100); color:var(--blue-700); }
-.tb-news { background:var(--slate-100); color:var(--text-m); }
-.ct-badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; }
-.ct-voc { background:var(--amber-100); color:var(--amber-500); }
-.ct-tech { background:var(--blue-100); color:var(--blue-700); }
-.ct-policy { background:#f3e8ff; color:#7c3aed; }
-.ct-biz { background:var(--emerald-100); color:var(--emerald-500); }
-.ct-alliance { background:var(--cyan-100); color:var(--cyan-500); }
-.ct-etc { background:var(--slate-100); color:var(--text-m); }
+/* SOURCES / FOOTER */
+.sources { padding: 18px 32px 22px; background: var(--paper-2); color: var(--ink-2); display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 28px; border-top: 4px double var(--ink); }
+.sources h5 { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin: 0 0 8px; color: var(--ink); }
+.sources p { font-family: "Noto Serif KR", serif; font-size: 12px; line-height: 1.6; margin: 0; color: var(--ink-2); }
+.colophon { grid-column: 1 / -1; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--slate-300); display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.colophon .logo { font-family: "Playfair Display", serif; font-weight: 900; font-style: italic; text-transform: none; color: var(--ink); letter-spacing: -.01em; font-size: 13px; }
 
-/* SOURCES */
-.sources-foot {
-  margin-top:14px; padding:14px 18px; border-radius:12px;
-  background:var(--surface); border:1px solid var(--border);
-  font-size:12px; color:var(--text-m); line-height:1.8; box-shadow:var(--shadow-sm);
-}
-.news-foot {
-  text-align:center; font-size:11px; color:var(--text-m);
-  margin-top:16px; padding-top:14px; border-top:1px solid var(--border);
-}
-
-@media(max-width:900px) {
-  .gazette-title { font-size:36px; }
-  .stats-row { grid-template-columns:repeat(3,1fr); }
-  .stat-cell:nth-child(3) { border-right:none; }
-  .grid-2, .grid-2-equal { grid-template-columns:1fr; }
-  .svc-header, .svc-row { grid-template-columns:1fr repeat(3,60px); }
-  .svc-stat:nth-child(5), .svc-stat:nth-child(6),
-  .svc-header div:nth-child(5), .svc-header div:nth-child(6) { display:none; }
+/* RESPONSIVE */
+@media (max-width: 960px) {
+  body { padding: 16px; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+  .stat:nth-child(2n) { border-right: none; }
+  .top-story { grid-template-columns: 1fr; gap: 24px; padding: 22px; }
+  .ts-side { border-left: none; padding-left: 0; padding-top: 18px; border-top: 1px solid var(--ink); }
+  .ts-body { column-count: 1; }
+  .ts-headline { font-size: 28px; }
+  .section-row { grid-template-columns: 1fr; }
+  .section-row > .col { border-right: none; border-bottom: 1px solid var(--ink); }
+  .section-row > .col:last-child { border-bottom: none; }
+  .sources { grid-template-columns: 1fr; }
+  .masthead-meta { grid-template-columns: 1fr; text-align: center; gap: 8px; }
+  .masthead-meta .right { text-align: center; }
+  .archive-bottom { grid-template-columns: 1fr; padding: 8px 12px 10px; }
+  .tree-label { border-right: none; padding-right: 0; margin-right: 0; margin-bottom: 6px; }
+  .kw.s-xl { font-size: 32px; }
+  .kw.s-lg { font-size: 24px; }
+  .kw.s-md { font-size: 18px; }
+  .kw.s-sm { font-size: 14px; }
 }
 """
 
-
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 # Full HTML
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
-def render_full_html(items, app_info_list, year, week_num, issue_total, from_dt, to_dt) -> str:
-    top_story = pick_top_story(items)
-    league    = app_league(app_info_list)
-    svc_rows  = service_stats(items)
+GOOGLE_FONTS = (
+    "https://fonts.googleapis.com/css2?"
+    "family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400"
+    "&family=Noto+Serif+KR:wght@400;500;700;900"
+    "&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700"
+    "&family=IBM+Plex+Mono:wght@400;500;600"
+    "&display=swap"
+)
 
-    masthead        = render_masthead(year, week_num, issue_total, from_dt, to_dt)
-    stats_row       = render_stats_row(items, from_dt, to_dt)
-    top_story_html  = render_top_story(top_story)
-    league_html     = render_league(league)
-    dispatch_html   = render_service_dispatch(svc_rows)
-    voc_html        = render_voc_brief(items)
-    wire_html       = render_competitor_wire(items)
-    sources_html    = render_sources(from_dt, to_dt, len(items))
 
-    vol_tag  = f"{year:02d}Y {week_num}W"
-    date_str = fmt_date_ko(to_dt)
+def render_full_html(items, year, week_num, issue_total,
+                     from_dt, to_dt, meta) -> str:
+    top_story  = pick_top_story(items)
+    league     = period_app_league(items)
+    svc_rows   = service_stats(items)
 
-    return f"""<!DOCTYPE html>
+    modu_items  = [i for i in items if i.get("service_id") == "moduparking"]
+    other_items = [i for i in items if i.get("service_id") != "moduparking"
+                   and i.get("source_type") in REVIEW_TYPES]
+
+    modu_kws  = extract_keywords(modu_items)
+    other_kws = extract_keywords(other_items)
+
+    vol_tag    = f"{year:02d}Y · {week_num}W"
+    date_str   = fmt_date_ko(to_dt)
+
+    archive_nav = render_archive_nav(meta, year, week_num)
+    masthead    = render_masthead(year, week_num, issue_total, from_dt, to_dt)
+    stats       = render_stats(items, from_dt, to_dt)
+    top_s       = _render_top_story(top_story, items)
+    league_html = render_league(league, year, week_num)
+    dispatch_html = render_dispatch(svc_rows)
+    modu_cloud  = render_keyword_cloud(modu_kws, "자사 키워드 맵", len(modu_items), vol_tag)
+    other_cloud = render_keyword_cloud(other_kws, "타사 키워드 맵", len(other_items), vol_tag)
+    voc_html    = render_voc_brief(items)
+    wire_html   = render_wire(items)
+    sources_html = render_sources(from_dt, to_dt, len(items), year, week_num)
+
+    kw_legend = """
+<div class="col" style="grid-column:1/-1;border-right:none;border-top:1px solid var(--ink);">
+  <div class="kw-legend">
+    <span class="item"><span class="swatch sw-1"></span>강한 부정 (Bg 강조)</span>
+    <span class="item"><span class="swatch sw-2"></span>부정</span>
+    <span class="item"><span class="swatch sw-3"></span>중립</span>
+    <span class="item"><span class="swatch sw-4"></span>긍정 (Bg 강조)</span>
+    <span class="item" style="margin-left:18px;">크기 = 주간 빈출 횟수</span>
+  </div>
+</div>"""
+
+    return f"""<!doctype html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>THE PARKING GAZETTE · {esc(vol_tag)} · {esc(date_str)}</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE PARKING GAZETTE — {esc(vol_tag)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="{GOOGLE_FONTS}" rel="stylesheet">
 <style>{CSS}</style>
 </head>
 <body>
-<div class="container">
+<main class="paper">
+
+{archive_nav}
 
 {masthead}
 
-{stats_row}
+{stats}
 
-<div class="sec-title">
-  This Week's Lead
-  <span class="sec-sub">{esc(str(from_dt))} ~ {esc(str(to_dt))} 기간 수집 데이터 기반</span>
-</div>
+{top_s}
 
-{top_story_html}
+<!-- SECTION A+B: LEAGUE + DISPATCH -->
+<section class="section-row">
+  <div class="col">
+    <div class="col-head">
+      <span class="name">SECTION A · APP LEAGUE</span>
+      <span class="kicker">주차 앱 평점 순위 — {esc(vol_tag)}</span>
+    </div>
+    <div class="col-body league">
+      {league_html}
+    </div>
+  </div>
+  <div class="col">
+    <div class="col-head">
+      <span class="name">SECTION B · SERVICE DISPATCH</span>
+      <span class="kicker">서비스별 수집 현황</span>
+    </div>
+    <div class="col-body dispatch">
+      {dispatch_html}
+    </div>
+  </div>
+</section>
 
-<div class="grid-2">
-  {league_html}
-  {dispatch_html}
-</div>
+<!-- SECTION C+D: KEYWORD MAPS -->
+<section class="section-row">
+  <div class="col">
+    <div class="col-head">
+      <span class="name">SECTION C · VOICE OF CUSTOMER · 자사</span>
+      <span class="kicker">모두의주차장 — 키워드 빈출 맵</span>
+    </div>
+    <div class="col-body kwmap">
+      {modu_cloud}
+    </div>
+  </div>
+  <div class="col">
+    <div class="col-head">
+      <span class="name">SECTION D · VOICE OF CUSTOMER · 타사</span>
+      <span class="kicker">경쟁사 합산 — 키워드 빈출 맵</span>
+    </div>
+    <div class="col-body kwmap">
+      {other_cloud}
+    </div>
+  </div>
+  {kw_legend}
+</section>
 
-<div class="sec-title">
-  VOC &amp; Competitor Wire
-  <span class="sec-sub">리뷰 하이라이트 · 경쟁사 동향</span>
-</div>
-
-<div class="grid-2-equal">
-  {voc_html}
-  {wire_html}
-</div>
+<!-- SECTION E+F: VOC + WIRE -->
+<section class="section-row">
+  <div class="col">
+    <div class="col-head">
+      <span class="name">SECTION E · VOC BRIEF</span>
+      <span class="kicker">이번 주 고객의 목소리</span>
+    </div>
+    <div class="col-body voc">
+      {voc_html}
+    </div>
+  </div>
+  <div class="col">
+    <div class="col-head">
+      <span class="name">SECTION F · COMPETITOR WIRE</span>
+      <span class="kicker">경쟁사 뉴스 일지</span>
+    </div>
+    <div class="col-body wire">
+      {wire_html}
+    </div>
+  </div>
+</section>
 
 {sources_html}
 
-<div class="news-foot">
-  ─── END OF ISSUE ───<br>
-  THE PARKING GAZETTE · {esc(vol_tag)} · Auto-generated by GitHub Actions · {esc(str(to_dt))}
-</div>
-
-</div>
+</main>
 </body>
-</html>
-"""
+</html>"""
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 # Main
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
 def main():
     meta = load_meta()
     year, week_num, issue_total = advance_meta(meta)
     from_dt, to_dt = get_period(meta)
 
-    print(f"[gazette] {year:02d}Y {week_num}W · Vol.1 No.{issue_total:03d}")
+    print(f"[gazette] {year:02d}Y {week_num}W · Issue #{issue_total:03d}")
     print(f"[gazette] period: {from_dt} ~ {to_dt}")
 
-    raw_data    = load_json(DOCS / "data.json", {})
-    all_items   = raw_data.get("items", []) if isinstance(raw_data, dict) else []
+    raw_data     = load_json(DOCS / "data.json", {})
+    all_items    = raw_data.get("items", []) if isinstance(raw_data, dict) else []
     period_items = filter_period(all_items, from_dt, to_dt)
-    app_info    = load_json(DOCS / "app_info.json", []) or []
 
     print(f"[gazette] {len(period_items)} items in period (total: {len(all_items)})")
 
-    html = render_full_html(period_items, app_info, year, week_num, issue_total, from_dt, to_dt)
+    html = render_full_html(period_items, year, week_num, issue_total,
+                            from_dt, to_dt, meta)
+
+    archive_filename = f"gazette_{to_dt.strftime('%Y_%m_%d')}.html"
 
     out = DOCS / "gazette_latest.html"
     out.write_text(html, encoding="utf-8")
     print(f"[gazette] written → {out}")
 
-    archive = DOCS / f"gazette_{to_dt.strftime('%Y_%m_%d')}.html"
+    archive = DOCS / archive_filename
     archive.write_text(html, encoding="utf-8")
     print(f"[gazette] archive → {archive}")
+
+    # Update meta with issue history
+    issues = meta.get("issues", [])
+    # Avoid duplicate entry for same date
+    if not any(iss.get("year") == year and iss.get("week_num") == week_num for iss in issues):
+        issues.append({
+            "year":     year,
+            "week_num": week_num,
+            "date":     to_dt.isoformat(),
+            "file":     archive_filename,
+        })
 
     new_meta = {
         "year":             year,
         "week_num":         week_num,
         "issue_total":      issue_total,
         "last_report_date": to_dt.isoformat(),
+        "issues":           issues,
     }
     save_meta(new_meta)
-    print(f"[gazette] meta saved")
+    print("[gazette] meta saved")
 
 
 if __name__ == "__main__":
