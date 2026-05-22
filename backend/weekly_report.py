@@ -1614,6 +1614,7 @@ a:hover { text-decoration: underline; }
 
 /* SECTION ROW */
 .section-row { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid var(--ink); }
+.section-row.single-col { grid-template-columns: 1fr; }
 .section-row > .col { border-right: 1px solid var(--ink); background: var(--card); }
 .section-row > .col:last-child { border-right: none; }
 .col-head { background: var(--ink); color: #fff; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; }
@@ -1625,7 +1626,8 @@ a:hover { text-decoration: underline; }
 .league h3, .dispatch h3, .voc h3, .wire h3 { font-family: "Playfair Display", "Noto Serif KR", serif; font-weight: 900; font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
 .col-deck { font-family: "Noto Serif KR", serif; font-style: italic; color: var(--muted); font-size: 13px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--slate-200); }
 
-.lg-grid { display: flex; flex-direction: column; gap: 18px; }
+.lg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) { .lg-grid { grid-template-columns: 1fr; } }
 .lg-panel { background: var(--card); border: 1px solid var(--slate-200); border-radius: 6px; overflow: hidden; }
 .lg-head { background: var(--ink); color: #fff; padding: 10px 14px; font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; }
 .lg-list { padding: 4px 0; }
@@ -1925,24 +1927,15 @@ def render_full_html(items, year, week_num, issue_total,
 
 {top_s}
 
-<!-- SECTION A+B: LEAGUE + DISPATCH -->
-<section class="section-row">
+<!-- SECTION A: APP LEAGUE (full width) -->
+<section class="section-row single-col">
   <div class="col">
     <div class="col-head">
       <span class="name">SECTION A · APP LEAGUE</span>
-      <span class="kicker">주차 앱 평점 순위 — {esc(vol_tag)}</span>
+      <span class="kicker">앱스토어 누적 평점 (Android · iOS 분리) — 기간 무관 시점 종합 순위</span>
     </div>
     <div class="col-body league">
       {league_html}
-    </div>
-  </div>
-  <div class="col">
-    <div class="col-head">
-      <span class="name">SECTION B · SERVICE DISPATCH</span>
-      <span class="kicker">서비스별 수집 현황</span>
-    </div>
-    <div class="col-body dispatch">
-      {dispatch_html}
     </div>
   </div>
 </section>
