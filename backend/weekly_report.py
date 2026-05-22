@@ -1006,11 +1006,7 @@ def _render_top_story(item: dict | None, items: list, cur_stats: dict) -> str:
     src_type = item.get("source_type", "")
     src_label = "Google Play" if src_type == "appstore" else ("App Store" if src_type == "ios_appstore" else "뉴스")
 
-    # 본문 2단 분할
-    words = (item.get("summary") or "").split()
-    mid   = max(1, len(words) // 2)
-    para1 = esc(" ".join(words[:mid]))
-    para2 = esc(" ".join(words[mid:])) if len(words) > mid else ""
+    body_text = esc((item.get("summary") or "").strip())
 
     # ── 사이드: 자사 부정 리뷰 분석 (CX팀장 권고) ──
     self_neg_pct  = cur_stats.get("self_neg_pct", 0)
@@ -1085,8 +1081,7 @@ def _render_top_story(item: dict | None, items: list, cur_stats: dict) -> str:
     <h2 class="ts-headline"><a href="{url}" target="_blank" rel="noopener">{title}</a></h2>
     <p class="ts-sub">이번 주 가장 주목받은 경쟁사 뉴스. 우측 사이드는 자사 리뷰 분석입니다.</p>
     <div class="ts-body">
-      <p>{para1}</p>
-      {'<p>' + para2 + '</p>' if para2 else ''}
+      <p>{body_text}</p>
     </div>
   </article>
   <aside class="ts-side">{side_html}
@@ -1591,7 +1586,7 @@ a:hover { text-decoration: underline; }
 .ts-headline a { color: inherit; text-decoration: none; }
 .ts-headline a:hover { color: var(--blue-700); }
 .ts-sub { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 400; font-size: 16px; color: var(--slate-700); margin: 0 0 18px; line-height: 1.5; }
-.ts-body { font-family: "Noto Serif KR", serif; font-size: 15px; line-height: 1.7; color: var(--ink-2); columns: 280px; column-gap: 24px; column-rule: 1px solid var(--slate-200); }
+.ts-body { font-family: "Noto Serif KR", serif; font-size: 15px; line-height: 1.7; color: var(--ink-2); }
 .ts-body p { margin: 0 0 12px; }
 .ts-body p:first-child::first-letter { font-family: "Playfair Display", serif; font-weight: 900; font-size: 56px; float: left; line-height: .9; padding: 4px 8px 0 0; color: var(--blue-700); }
 .ts-side { border-left: 1px solid var(--ink); padding-left: 28px; }
@@ -1758,7 +1753,6 @@ a:hover { text-decoration: underline; }
   .stat:nth-child(2n) { border-right: none; }
   .top-story { grid-template-columns: 1fr; gap: 24px; padding: 22px; }
   .ts-side { border-left: none; padding-left: 0; padding-top: 18px; border-top: 1px solid var(--ink); }
-  .ts-body { column-count: 1; }
   .ts-headline { font-size: 28px; }
   .section-row { grid-template-columns: 1fr; }
   .section-row > .col { border-right: none; border-bottom: 1px solid var(--ink); }
