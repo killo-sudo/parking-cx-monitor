@@ -147,8 +147,13 @@ def pick_top_story(items: list) -> dict | None:
             s += 5
         if i.get("sentiment") == "negative":
             s += 3
-        if len(i.get("summary") or "") > 50:
+        sl = len(i.get("summary") or "")
+        if sl >= 300:
+            s += 5     # LEAD 카드에 충실한 본문 (KBS·전자신문 등 풀텍스트)
+        elif sl >= 150:
             s += 2
+        else:
+            s -= 3     # 짧은 RSS 발췌(<150자)는 LEAD 부적합 — ibabynews 등
         return s
 
     competitors = [i for i in news if i.get("service_id") != "moduparking"]
