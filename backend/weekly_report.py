@@ -1182,21 +1182,16 @@ def _render_league_panel(rows: list, platform_label: str) -> str:
 </div>"""
 
 
-def render_league(app_info: list, year: int, week_num: int) -> str:
-    """주차 앱 평점 리그 — Android + iOS 분리 랭킹 (이미지 스타일)."""
-    android = build_app_league(app_info, "google_play")
-    ios     = build_app_league(app_info, "ios")
-
-    if not android and not ios:
+def render_league_for_platform(app_info: list, platform: str) -> str:
+    """단일 플랫폼 평점 리그 — Section A/B 각각에 배치."""
+    rows = build_app_league(app_info, platform)
+    if not rows:
         return "<p style='color:var(--muted);font-size:13px;'>앱 평점 데이터 없음</p>"
-
+    label = "Android 평점 순위" if platform == "google_play" else "iOS 평점 순위"
     return f"""
-<h3>🏆 Parking App League</h3>
-<div class="col-deck">앱스토어 누적 평점 기준 · Android · iOS 분리 랭킹 · ★ 5점 만점</div>
-<div class="lg-grid">
-  {_render_league_panel(android, "Android 평점 순위")}
-  {_render_league_panel(ios, "iOS 평점 순위")}
-</div>"""
+<h3>🏆 {label}</h3>
+<div class="col-deck">앱스토어 누적 평점 · 기간 무관 시점 종합 · ★ 5점 만점</div>
+{_render_league_panel(rows, label)}"""
 
 
 def render_dispatch(svc_rows: list) -> str:
@@ -1556,16 +1551,22 @@ a:hover { text-decoration: underline; }
 .week-badge .num { font-size: 14px; white-space: nowrap; }
 .coverage { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 500; font-size: 13px; letter-spacing: .04em; text-transform: none; }
 
-/* STATS — 2×3 그리드 + 한 줄 강제 + 폰트 축소 */
-.stats { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 2px solid var(--ink); background: var(--card); }
-.stat { padding: 18px 22px 16px; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--card); position: relative; min-height: 92px; overflow: hidden; }
-.stat:nth-child(2n) { border-right: none; }
-.stat:nth-last-child(-n+2) { border-bottom: none; }
-.stat .label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; white-space: nowrap; }
-.stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 34px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 13px; margin-left: 4px; color: var(--muted); }
-.stat .sub { margin-top: 6px; font-family: "IBM Plex Sans KR", sans-serif; font-size: 11.5px; color: var(--ink-2); line-height: 1.35; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stat .delta { margin-top: 6px; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 5px; letter-spacing: .04em; white-space: nowrap; }
+/* STATS — 1행 6열 가로 정렬 */
+.stats { display: grid; grid-template-columns: repeat(6, 1fr); border-bottom: 2px solid var(--ink); background: var(--card); }
+.stat { padding: 14px 12px 12px; border-right: 1px solid var(--ink); background: var(--card); position: relative; min-height: 110px; overflow: hidden; }
+.stat:last-child { border-right: none; }
+.stat .label { font-family: "IBM Plex Mono", monospace; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .value { font-family: "Playfair Display", serif; font-weight: 900; font-size: 28px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .value .unit { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 500; font-size: 11px; margin-left: 3px; color: var(--muted); }
+.stat .sub { margin-top: 5px; font-family: "IBM Plex Sans KR", sans-serif; font-size: 10.5px; color: var(--ink-2); line-height: 1.35; letter-spacing: 0; }
+.stat .delta { margin-top: 5px; font-family: "IBM Plex Mono", monospace; font-size: 9.5px; color: var(--muted); display: flex; align-items: center; gap: 4px; letter-spacing: .02em; flex-wrap: wrap; }
+/* 모바일: 6열 → 2열로 폴백 */
+@media (max-width: 900px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat { border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+  .stat:nth-child(2n) { border-right: none; }
+  .stat:nth-last-child(-n+2) { border-bottom: none; }
+}
 .delta.up { color: var(--emerald-600); }
 .delta.down { color: var(--red-600); }
 .delta .arrow { font-weight: 700; font-size: 12px; }
@@ -1882,8 +1883,8 @@ def render_full_html(items, year, week_num, issue_total,
     masthead    = render_masthead(year, week_num, issue_total, from_dt, to_dt)
     stats       = render_stats(items, from_dt, to_dt, cur_stats, prev_stats, prev_label, new_voc)
     top_s       = _render_top_story(top_story, items, cur_stats)
-    league_html = render_league(app_info_data, year, week_num)
-    dispatch_html = render_dispatch(svc_rows)
+    league_android = render_league_for_platform(app_info_data, "google_play")
+    league_ios     = render_league_for_platform(app_info_data, "ios")
     modu_cloud  = render_keyword_cloud(modu_kws, "자사 키워드 맵", len(modu_items), vol_tag)
     other_cloud = render_keyword_cloud(other_kws, "타사 키워드 맵", len(other_items), vol_tag)
     voc_html    = render_voc_brief(items)
@@ -1927,15 +1928,24 @@ def render_full_html(items, year, week_num, issue_total,
 
 {top_s}
 
-<!-- SECTION A: APP LEAGUE (full width) -->
-<section class="section-row single-col">
+<!-- SECTION A · B: ANDROID 랭킹 | iOS 랭킹 -->
+<section class="section-row">
   <div class="col">
     <div class="col-head">
-      <span class="name">SECTION A · APP LEAGUE</span>
-      <span class="kicker">앱스토어 누적 평점 (Android · iOS 분리) — 기간 무관 시점 종합 순위</span>
+      <span class="name">SECTION A · ANDROID LEAGUE</span>
+      <span class="kicker">Google Play 누적 평점 — 시점 종합 순위</span>
     </div>
     <div class="col-body league">
-      {league_html}
+      {league_android}
+    </div>
+  </div>
+  <div class="col">
+    <div class="col-head">
+      <span class="name">SECTION B · iOS LEAGUE</span>
+      <span class="kicker">App Store 누적 평점 — 시점 종합 순위</span>
+    </div>
+    <div class="col-body league">
+      {league_ios}
     </div>
   </div>
 </section>
