@@ -155,7 +155,7 @@ a:hover { text-decoration: underline; }
 .spark { position: absolute; right: 22px; top: 22px; opacity: .8; width: 110px; height: 36px; }
 
 /* TOP STORY */
-.top-story { padding: 28px 32px 32px; border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: 1.5fr 1fr; gap: 36px; background: var(--card); }
+.top-story { padding: 28px 32px 32px; border-bottom: 2px solid var(--ink); display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 36px; background: var(--card); }
 .ts-badges { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .badge { display: inline-flex; align-items: center; padding: 3px 9px; font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; border-radius: 999px; border: 1px solid var(--ink); background: var(--card); color: var(--ink); }
 .badge.lead { background: var(--ink); color: #fff; }
@@ -173,7 +173,7 @@ a:hover { text-decoration: underline; }
 .ts-headline a { color: inherit; text-decoration: none; }
 .ts-headline a:hover { color: var(--blue-700); }
 .ts-sub { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 400; font-size: 16px; color: var(--slate-700); margin: 0 0 18px; line-height: 1.5; }
-.ts-body { font-family: "Noto Serif KR", serif; font-size: 15px; line-height: 1.7; color: var(--ink-2); column-count: 2; column-gap: 24px; column-rule: 1px solid var(--slate-200); }
+.ts-body { font-family: "Noto Serif KR", serif; font-size: 15px; line-height: 1.7; color: var(--ink-2); columns: 280px; column-gap: 24px; column-rule: 1px solid var(--slate-200); }
 .ts-body p { margin: 0 0 12px; }
 .ts-body p:first-child::first-letter { font-family: "Playfair Display", serif; font-weight: 900; font-size: 56px; float: left; line-height: .9; padding: 4px 8px 0 0; color: var(--blue-700); }
 .ts-side { border-left: 1px solid var(--ink); padding-left: 28px; }
