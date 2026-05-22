@@ -1094,64 +1094,109 @@ def _render_top_story(item: dict | None, items: list, cur_stats: dict) -> str:
 </section>"""
 
 
-def render_league(league: list, year: int, week_num: int) -> str:
-    if not league:
-        return "<p style='color:var(--muted);font-size:13px;'>이번 주 리뷰 데이터 없음</p>"
+_OPERATOR_MAP = {
+    "moduparking":    "모두컴퍼니(쏘카)",
+    "kakaot_parking": "카카오모빌리티",
+    "tmap_parking":   "티맵모빌리티",
+    "iparking":       "파킹클라우드(주)",
+    "nicepark":       "나이스파크(주)",
+    "highparking":    "휴맥스모빌리티",
+    "parkingfriends": "MDS Mobility",
+    "zoomansa":       "(주)주만사",
+    "amano_korea":    "아마노그룹",
+    "kmpark":         "(주)케이엠파크",
+    "parkingcloud":   "파킹클라우드(주)",
+    "sk_shielders":   "에스케이쉴더스(주)",
+}
 
-    modu = next((r for r in league if r["service_id"] == "moduparking"), None)
-    modu_rank = next((i + 1 for i, r in enumerate(league) if r["service_id"] == "moduparking"), None)
-    modu_pos_str = f"업계 {modu_rank}위 유지" if modu_rank else ""
+_NAME_MAP = {
+    "moduparking":    "모두의주차장",
+    "kakaot_parking": "카카오T 주차",
+    "tmap_parking":   "Tmap 주차",
+    "iparking":       "아이파킹",
+    "nicepark":       "나이스파크",
+    "highparking":    "하이파킹",
+    "parkingfriends": "파킹프렌즈",
+    "zoomansa":       "주만사",
+}
 
+
+def load_app_info() -> list:
+    """docs/app_info.json 로드 — Daily Crawl이 매일 갱신."""
+    return load_json(DOCS / "app_info.json", []) or []
+
+
+def build_app_league(app_info: list, platform: str) -> list:
+    """플랫폼별 평점 랭킹 — rating 내림차순 정렬."""
+    rows = []
+    for entry in app_info:
+        if entry.get("platform") != platform:
+            continue
+        rating = entry.get("rating")
+        if rating is None:
+            continue
+        sid = entry.get("service_id", "")
+        rows.append({
+            "service_id":  sid,
+            "name_ko":     _NAME_MAP.get(sid, entry.get("name_ko", sid)),
+            "operator":    _OPERATOR_MAP.get(sid, ""),
+            "rating":      float(rating),
+            "num_ratings": int(entry.get("num_ratings", 0) or 0),
+        })
+    rows.sort(key=lambda r: (-r["rating"], -r["num_ratings"]))
+    return rows
+
+
+def _render_league_panel(rows: list, platform_label: str) -> str:
+    """단일 플랫폼 랭킹 패널 (이미지 디자인 일치)."""
+    if not rows:
+        return f"""<div class="lg-panel"><div class="lg-head">{platform_label}</div>
+<p style="color:var(--muted);font-size:13px;padding:18px;">데이터 없음</p></div>"""
+
+    MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
     rows_html = ""
-    for rank, row in enumerate(league, 1):
-        is_self = row["service_id"] == "moduparking"
-        rank_cls = "self" if is_self else (f"rank-{rank}" if rank == 1 else "")
-        row_cls  = f"league-row {rank_cls}".strip()
-        bar_w    = round(row["avg"] / 5 * 100)
-        name_badge = '<span class="badge" style="font-size:9px;padding:1px 6px;margin-left:6px;border-color:var(--cyan-500);color:var(--cyan-600);background:#fff;">OUR APP</span>' if is_self else ""
-        meta = f'리뷰 {row["review_count"]:,}건 (기간 내)'
-        delta_cls = ""
-        delta_str = ""
+    for rank, r in enumerate(rows, 1):
+        is_self = r["service_id"] == "moduparking"
+        row_cls = "lg-row self" if is_self else "lg-row"
+        medal   = MEDALS.get(rank, "")
+        bar_w   = round(r["rating"] / 5 * 100)
+        bar_cls = "lg-bar self" if is_self else ("lg-bar gold" if rank == 1 else "lg-bar")
+        self_badge = '<span class="lg-self-badge">자사</span>' if is_self else ""
+        operator   = esc(r.get("operator") or "")
         rows_html += f"""
-<div class="{esc(row_cls)}">
-  <div class="rank">{rank}</div>
-  <div>
-    <div class="name">{esc(row['name_ko'])} {name_badge}</div>
-    <div class="meta-line"><span>{meta}</span></div>
-    <div class="bar-wrap"><div class="bar" style="width:{bar_w}%"></div></div>
+<div class="{row_cls}">
+  <div class="lg-rank">{rank}<span class="lg-medal">{medal}</span></div>
+  <div class="lg-body">
+    <div class="lg-name">{esc(r['name_ko'])}{self_badge}<span class="lg-op"> · {operator}</span></div>
+    <div class="lg-barwrap"><div class="{bar_cls}" style="width:{bar_w}%"></div></div>
   </div>
-  <div>
-    <div class="score"><span class="star">★</span> {row['avg']:.2f}</div>
-    <div class="delta-mini {delta_cls}">{esc(delta_str)}</div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> {r['rating']:.2f}</div>
+    <div class="lg-cnt">{r['num_ratings']:,}</div>
   </div>
 </div>"""
 
-    callout = ""
-    if modu:
-        gap_str = ""
-        if len(league) > 1:
-            others = [r for r in league if r["service_id"] != "moduparking"]
-            if others:
-                nearest = min(others, key=lambda r: abs(r["avg"] - modu["avg"]))
-                diff = modu["avg"] - nearest["avg"]
-                gap_str = f'격차 {diff:+.2f}pt (vs. {esc(nearest["name_ko"])})'
-        callout = f"""
-<div class="self-callout">
-  <span><span class="you">모두의주차장</span> {esc(modu_pos_str)}</span>
-  <span>{esc(gap_str)}</span>
+    return f"""<div class="lg-panel">
+  <div class="lg-head">{platform_label}</div>
+  <div class="lg-list">{rows_html}</div>
 </div>"""
+
+
+def render_league(app_info: list, year: int, week_num: int) -> str:
+    """주차 앱 평점 리그 — Android + iOS 분리 랭킹 (이미지 스타일)."""
+    android = build_app_league(app_info, "google_play")
+    ios     = build_app_league(app_info, "ios")
+
+    if not android and not ios:
+        return "<p style='color:var(--muted);font-size:13px;'>앱 평점 데이터 없음</p>"
 
     return f"""
-<h3>주차 앱 평점 리그</h3>
-<div class="byline-inline" style="margin:6px 0 10px;">
-  <span class="av">C</span>
-  <span class="by" style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">집계 ·</span>
-  <span class="nm">카니 기자</span>
-  <span>· DATA DESK</span>
-</div>
-<div class="col-deck">기간 내 수집된 리뷰 기준 평균 평점 · ★ 5점 만점</div>
-<div class="league-list">{rows_html}</div>
-{callout}"""
+<h3>🏆 Parking App League</h3>
+<div class="col-deck">앱스토어 누적 평점 기준 · Android · iOS 분리 랭킹 · ★ 5점 만점</div>
+<div class="lg-grid">
+  {_render_league_panel(android, "Android 평점 순위")}
+  {_render_league_panel(ios, "iOS 평점 순위")}
+</div>"""
 
 
 def render_dispatch(svc_rows: list) -> str:
@@ -1576,29 +1621,38 @@ a:hover { text-decoration: underline; }
 .col-head .kicker { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 400; letter-spacing: .02em; text-transform: none; font-size: 12px; color: #cfd3da; }
 .col-body { padding: 18px 20px 22px; }
 
-/* APP LEAGUE */
+/* APP LEAGUE — iOS/Android 분리 랭킹 (이미지 디자인) */
 .league h3, .dispatch h3, .voc h3, .wire h3 { font-family: "Playfair Display", "Noto Serif KR", serif; font-weight: 900; font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
 .col-deck { font-family: "Noto Serif KR", serif; font-style: italic; color: var(--muted); font-size: 13px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--slate-200); }
-.league-list { display: flex; flex-direction: column; gap: 10px; }
-.league-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--slate-200); background: var(--card); position: relative; }
-.league-row.self { border: 2px solid var(--cyan-500); background: var(--cyan-50); }
-.league-row .rank { font-family: "Playfair Display", serif; font-weight: 900; font-size: 22px; color: var(--ink); text-align: center; }
-.league-row.self .rank { color: var(--cyan-600); }
-.league-row.rank-1 .rank { color: var(--amber-500); }
-.league-row .name { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 600; font-size: 14px; }
-.league-row .bar-wrap { margin-top: 5px; height: 6px; background: var(--slate-100); border-radius: 999px; overflow: hidden; }
-.league-row .bar { height: 100%; background: var(--ink); border-radius: 999px; }
-.league-row.self .bar { background: var(--cyan-500); }
-.league-row.rank-1 .bar { background: var(--amber-500); }
-.league-row .meta-line { display: flex; gap: 8px; align-items: baseline; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
-.league-row .score { font-family: "Playfair Display", serif; font-weight: 900; font-size: 20px; line-height: 1; color: var(--ink); text-align: right; }
-.league-row.self .score { color: var(--cyan-600); }
-.league-row .star { color: var(--amber-500); }
-.league-row .delta-mini { font-family: "IBM Plex Mono", monospace; font-size: 10px; margin-top: 4px; text-align: right; color: var(--muted); }
-.delta-mini.up { color: var(--emerald-600); }
-.delta-mini.down { color: var(--red-600); }
-.self-callout { margin-top: 14px; padding: 10px 12px; background: var(--ink); color: #fff; display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
-.self-callout .you { color: var(--cyan-500); font-weight: 600; }
+
+.lg-grid { display: flex; flex-direction: column; gap: 18px; }
+.lg-panel { background: var(--card); border: 1px solid var(--slate-200); border-radius: 6px; overflow: hidden; }
+.lg-head { background: var(--ink); color: #fff; padding: 10px 14px; font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; }
+.lg-list { padding: 4px 0; }
+
+.lg-row { display: grid; grid-template-columns: 48px 1fr 110px; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--slate-100); position: relative; }
+.lg-row:last-child { border-bottom: none; }
+.lg-row.self { background: var(--cyan-50); border-left: 4px solid var(--cyan-500); padding-left: 12px; }
+
+.lg-rank { font-family: "Playfair Display", serif; font-weight: 900; font-size: 24px; color: var(--ink); display: flex; align-items: center; gap: 4px; }
+.lg-row.self .lg-rank { color: var(--cyan-600); }
+.lg-medal { font-size: 18px; }
+
+.lg-body { min-width: 0; }
+.lg-name { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 700; font-size: 14px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-row.self .lg-name { color: var(--cyan-600); }
+.lg-self-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; font-family: "IBM Plex Mono", monospace; font-size: 9px; font-weight: 700; letter-spacing: .1em; color: var(--cyan-600); background: #fff; border: 1px solid var(--cyan-500); border-radius: 4px; vertical-align: middle; }
+.lg-op { font-weight: 400; font-size: 12px; color: var(--muted); }
+.lg-barwrap { margin-top: 6px; height: 6px; background: var(--slate-100); border-radius: 999px; overflow: hidden; }
+.lg-bar { height: 100%; background: linear-gradient(90deg, var(--slate-700), var(--slate-900)); border-radius: 999px; }
+.lg-bar.self { background: var(--cyan-500); }
+.lg-bar.gold { background: linear-gradient(90deg, var(--amber-500), #d97706); }
+
+.lg-side { text-align: right; }
+.lg-score { font-family: "Playfair Display", serif; font-weight: 900; font-size: 20px; line-height: 1; color: var(--ink); }
+.lg-row.self .lg-score { color: var(--cyan-600); }
+.lg-star { color: var(--amber-500); margin-right: 2px; }
+.lg-cnt { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: .04em; }
 
 /* DISPATCH */
 .dispatch table { width: 100%; border-collapse: collapse; font-family: "IBM Plex Sans KR", sans-serif; font-size: 13px; }
@@ -1821,11 +1875,12 @@ def render_full_html(items, year, week_num, issue_total,
     vol_tag    = f"{year:02d}Y · {week_num}W"
     date_str   = fmt_date_ko(to_dt)
 
+    app_info_data = load_app_info()
     archive_nav = render_archive_nav(meta, year, week_num)
     masthead    = render_masthead(year, week_num, issue_total, from_dt, to_dt)
     stats       = render_stats(items, from_dt, to_dt, cur_stats, prev_stats, prev_label, new_voc)
     top_s       = _render_top_story(top_story, items, cur_stats)
-    league_html = render_league(league, year, week_num)
+    league_html = render_league(app_info_data, year, week_num)
     dispatch_html = render_dispatch(svc_rows)
     modu_cloud  = render_keyword_cloud(modu_kws, "자사 키워드 맵", len(modu_items), vol_tag)
     other_cloud = render_keyword_cloud(other_kws, "타사 키워드 맵", len(other_items), vol_tag)
