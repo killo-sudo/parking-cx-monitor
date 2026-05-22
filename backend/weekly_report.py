@@ -252,13 +252,56 @@ def pick_news_briefs(items: list, n=5) -> list:
 
 # 명사로 분석되지만 키워드로 의미 없는 단어 (브랜드명·일반어 등)
 _NOUN_EXTRA_STOPWORDS = {
+    # 일반 단어
     "앱", "어플", "이용", "사용", "정말", "진짜", "너무", "그냥", "제발",
     "부탁", "감사", "고맙", "현장", "실제", "이후", "이전", "지금",
     "오늘", "어제", "내일", "올해", "작년",
     "때문", "경우", "이번", "다음", "지난",
     "전혀", "조금", "많이", "자꾸", "계속", "다시", "또한",
     "사실", "확실", "정확", "분명", "그것", "이것",
+    # 비주차 도메인 — 카카오T 택시·내비, Tmap 내비 등에서 새어 나오는 단어
+    "바이크", "택시", "내비", "네비", "길찾기", "경로", "지도",
+    # 의미 약한 메타 단어
+    "관리", "정보", "설명", "이내", "당일", "기분", "여부",
+    "사례", "개선", "반려", "생각", "처리", "구매", "리뷰",
+    "생각", "이내", "내역",
 }
+
+# 한국 성씨 (인명 NNP 필터링용) — 단일성씨 위주, 복합성씨 일부
+_KOREAN_SURNAMES = {
+    "김", "이", "박", "최", "정", "강", "조", "윤", "장", "임",
+    "한", "오", "서", "신", "권", "황", "안", "송", "류", "전",
+    "홍", "고", "문", "양", "손", "배", "백", "허", "유", "남",
+    "심", "노", "하", "곽", "성", "차", "주", "우", "구", "민",
+    "원", "공", "방", "변", "함", "표", "현", "마", "기", "라",
+    "지", "추", "도", "탁", "선", "설", "여", "맹", "사", "위",
+    "단", "왕", "옥", "동", "어", "복", "은", "편", "용",
+}
+
+# 브랜드 화이트리스트 — 인명 휴리스틱이 잘못 차단하지 않도록 보호
+_BRAND_WHITELIST_NORMALIZED = {
+    "카카오", "카카오t", "카카오모빌리티", "케이엠파킹", "케이엠파크",
+    "티맵", "tmap", "tmap주차", "티맵모빌리티",
+    "모두의주차장", "모두의", "모두컴퍼니",
+    "아이파킹", "iparking", "파킹클라우드", "parkingcloud",
+    "나이스파크", "nicepark",
+    "하이파킹", "투루파킹", "휴맥스모빌리티", "휴맥스",
+    "파킹프렌즈", "mds", "주만사", "아마노", "아마노코리아",
+    "쉴더스", "에스케이쉴더스", "sk쉴더스",
+}
+
+
+def _is_likely_person_name(word: str) -> bool:
+    """2~4자 단어가 한국 성씨로 시작하고 브랜드 화이트리스트에 없으면 인명 후보로 간주."""
+    if not word or len(word) < 2 or len(word) > 4:
+        return False
+    if word.lower() in _BRAND_WHITELIST_NORMALIZED:
+        return False
+    # 단일성씨 + 1~3자 이름 패턴
+    first = word[0]
+    if first in _KOREAN_SURNAMES:
+        return True
+    return False
 
 
 def _get_kiwi():
@@ -273,48 +316,115 @@ def _get_kiwi():
 
 
 def _extract_nouns(text: str) -> list:
-    """본문에서 명사(NNG/NNP)만 추출. kiwipiepy 없으면 regex fallback.
+    """본문에서 명사(NNG)만 추출. 고유명사(NNP)는 브랜드 화이트리스트만 통과 + 인명 제외.
     공통 stopword·조사 제거 + 2글자 이상.
     """
     if not text:
         return []
+
+    def _is_keep(form: str, tag: str) -> bool:
+        if len(form) < 2:
+            return False
+        if form in KO_STOPWORDS or form in _NOUN_EXTRA_STOPWORDS:
+            return False
+        # NNG (일반명사) — 인명 휴리스틱으로 한 번 더 거름
+        if tag == "NNG":
+            return not _is_likely_person_name(form)
+        # NNP (고유명사) — 브랜드 화이트리스트만 통과 (인명 신재혁 등 차단)
+        if tag == "NNP":
+            return form.lower() in _BRAND_WHITELIST_NORMALIZED
+        return False
+
     kiwi = _get_kiwi()
     if kiwi is not None:
         try:
             tokens = kiwi.tokenize(text)
-            return [t.form for t in tokens
-                    if t.tag in ("NNG", "NNP")          # 일반명사·고유명사만
-                    and len(t.form) >= 2
-                    and t.form not in KO_STOPWORDS
-                    and t.form not in _NOUN_EXTRA_STOPWORDS]
+            return [t.form for t in tokens if _is_keep(t.form, t.tag)]
         except Exception:
             pass
-    # Fallback: regex (덜 정확하나 작동)
+    # Fallback: regex
     pat = re.compile(r"[가-힣]{2,7}")
     return [w for w in pat.findall(text)
-            if w not in KO_STOPWORDS and w not in _NOUN_EXTRA_STOPWORDS]
+            if w not in KO_STOPWORDS
+            and w not in _NOUN_EXTRA_STOPWORDS
+            and not _is_likely_person_name(w)]
+
+
+def _extract_nouns_ordered(text: str) -> list:
+    """단순히 명사 추출 — _extract_nouns와 동일하지만 명시적 이름.
+    bigram 결합용으로 순서 보존이 필요해서 별도 함수로 둠 (지금은 동일하나 향후 분기 가능).
+    """
+    return _extract_nouns(text)
+
+
+def _bigram_candidate(a: str, b: str) -> str | None:
+    """두 명사를 붙여서 의미있는 복합어 후보 생성. 4~8자만 유효."""
+    if not a or not b:
+        return None
+    merged = a + b
+    if 4 <= len(merged) <= 8:
+        return merged
+    return None
 
 
 def extract_keywords(items: list, top_n=22) -> list:
-    """한국어 명사 빈출 키워드 + 감성 레이블 (kiwipiepy 형태소 분석)."""
-    token_sentiment = defaultdict(list)
+    """한국어 명사 빈출 + 인접 bigram 복합어. 빈출 bigram은 단일 명사보다 우선.
+    예: "결제" + "오류"가 자주 인접 → "결제오류" 키워드로 표시.
+    """
+    uni_sentiment: dict[str, list[str]] = defaultdict(list)
+    bi_sentiment:  dict[str, list[str]] = defaultdict(list)
+
     for item in items:
         text = " ".join(filter(None, [
             item.get("title", ""), item.get("summary", "")
         ]))
         sent = item.get("sentiment", "neutral")
-        for tok in _extract_nouns(text):
-            token_sentiment[tok].append(sent)
+        nouns = _extract_nouns_ordered(text)
 
-    # Top N by count
-    counts = Counter({k: len(v) for k, v in token_sentiment.items()})
-    top = counts.most_common(top_n)
+        for n in nouns:
+            uni_sentiment[n].append(sent)
+
+        for i in range(len(nouns) - 1):
+            bg = _bigram_candidate(nouns[i], nouns[i + 1])
+            if bg and bg not in KO_STOPWORDS and bg not in _NOUN_EXTRA_STOPWORDS:
+                bi_sentiment[bg].append(sent)
+
+    # 자주 등장하는 bigram (cnt ≥ 2)만 유효
+    common_bigrams = {bg: sents for bg, sents in bi_sentiment.items() if len(sents) >= 2}
+
+    # bigram 구성 unigram 일부 차감 (이중 노출 방지) — 휴리스틱
+    for bg, sents in common_bigrams.items():
+        n = len(sents)
+        # bigram을 구성한다고 추정되는 unigram 후보 — 정확한 split 모르나 빈도 동일하면 차감
+        # 보수적으로: bigram 빈도만큼 unigram에서 cnt 차감 (음수 방지)
+        for uni in list(uni_sentiment.keys()):
+            if uni in bg and len(uni_sentiment[uni]) >= n:
+                # bigram 빈도만큼 차감
+                uni_sentiment[uni] = uni_sentiment[uni][n:]
+
+    # 최종 통합 — bigram 먼저, 그 다음 unigram (cnt 내림차순)
+    combined: list[tuple[str, list[str], str]] = []
+    for word, sents in common_bigrams.items():
+        combined.append((word, sents, "bigram"))
+    for word, sents in uni_sentiment.items():
+        if len(sents) >= 1:
+            combined.append((word, sents, "unigram"))
+
+    # 정렬: bigram에 +0.5 가중 (동률시 우선), 그 다음 빈도 내림차순
+    def _key(t):
+        word, sents, kind = t
+        boost = 0.5 if kind == "bigram" else 0.0
+        return -(len(sents) + boost)
+    combined.sort(key=_key)
+    top = combined[:top_n]
 
     results = []
-    for word, cnt in top:
-        sents = token_sentiment[word]
-        neg_ratio = sents.count("negative") / len(sents)
-        pos_ratio = sents.count("positive") / len(sents)
+    for word, sents, kind in top:
+        cnt = len(sents)
+        if cnt == 0:
+            continue
+        neg_ratio = sents.count("negative") / cnt
+        pos_ratio = sents.count("positive") / cnt
         if neg_ratio >= 0.6:
             sev = "sev-1" if neg_ratio >= 0.8 else "sev-2"
         elif pos_ratio >= 0.5:
@@ -511,7 +621,7 @@ def render_masthead(year: int, week_num: int, issue_total: int,
     <div class="right">
       <span>{esc(date_str)}</span>
       <span>SEOUL · KRW 0</span>
-      <span>EDITED BY <strong style="color:#111;">KILLO 기자</strong></span>
+      <span>MODU CX NEWSROOM</span>
     </div>
   </div>
   <div class="masthead-title">
@@ -1123,13 +1233,7 @@ def render_keyword_cloud(kws: list, label: str, sample_n: int, vol_tag: str) -> 
   <h3>{esc(label)}</h3>
   <span class="sample">표본 {sample_n:,}건 · {esc(vol_tag)}</span>
 </div>
-<div class="byline-inline" style="margin:6px 0 10px;">
-  <span class="av">K</span>
-  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">분석 ·</span>
-  <span class="nm">KILLO 기자</span>
-  <span>· CX DESK</span>
-</div>
-<div class="col-deck">조사·접속사 제거 후 2글자 이상 한국어 단어만 추출. 글자 크기 = 빈출 횟수.</div>
+<div class="col-deck">한국어 형태소 분석으로 명사·인접 복합어 추출. 글자 크기 = 빈출 횟수.</div>
 <div class="cloud" aria-label="{esc(label)} 키워드 클라우드">
 {cloud_html}</div>
 <div class="kw-summary">
@@ -1184,12 +1288,6 @@ def render_voc_brief(items: list) -> str:
 
     return f"""
 <h3>VOC 브리프</h3>
-<div class="byline-inline" style="margin:6px 0 10px;">
-  <span class="av">K</span>
-  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">선정 ·</span>
-  <span class="nm">KILLO 기자</span>
-  <span>· CX DESK</span>
-</div>
 <div class="col-deck">자사 및 경쟁사 리뷰 — 부정·긍정 시그널 큐레이션</div>
 <div class="voc-list">{cards}</div>"""
 
@@ -1270,7 +1368,7 @@ def render_sources(from_dt: date, to_dt: date, total: int, year: int, week_num: 
   <div class="src-block">
     <h5>Newsroom</h5>
     <ul class="src-list">
-      <li><span class="kw-label">Editor-in-Chief</span> <strong>KILLO 기자</strong> (CX Desk)</li>
+      <li><span class="kw-label">Newsroom</span> <strong>모두컴퍼니 CX팀</strong></li>
       <li><span class="kw-label">Data Desk</span> 카니 기자 · <span class="kw-label">News Desk</span> 모카 기자</li>
       <li><span class="kw-label">Next Issue</span> {next_yr:02d}Y {next_week}W (자동 발행)</li>
       <li><span class="kw-label">Contact</span> cx-newsroom@moducompany.com</li>
