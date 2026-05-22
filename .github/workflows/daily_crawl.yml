@@ -33,6 +33,11 @@ jobs:
 
       - name: Run crawler
         run: python backend/daily_crawl.py
+        env:
+          # ── 일회성 백필: 2026-01-01 이후 전체 리뷰 풀스캔 ──
+          # 백필 끝나면 이 두 줄 반드시 제거 (증분 모드로 복귀)
+          FORCE_FULL_CRAWL: "1"
+          CRAWL_FROM_DATE: "2026-01-01"
 
       - name: Update docs/app_info.json
         run: |

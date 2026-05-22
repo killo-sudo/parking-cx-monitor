@@ -196,6 +196,20 @@ _NEWS_EXCLUDE_KW = {
 _PARKING_FILTERED_REVIEW_SVCS = {"kakaot_parking", "tmap_parking"}
 
 
+def _review_cutoff_date():
+    """리뷰 수집 시 작성일이 이 날짜 이전이면 제외.
+    환경변수 CRAWL_FROM_DATE (예: '2026-01-01') 또는 None 반환.
+    """
+    raw = os.environ.get("CRAWL_FROM_DATE", "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        log.warning(f"CRAWL_FROM_DATE 형식 오류 (YYYY-MM-DD 필요): {raw}")
+        return None
+
+
 def _has_parking_kw(text: str) -> bool:
     """본문에 주차 관련 키워드 1개 이상 포함 여부 (리뷰용)."""
     if not text:
@@ -296,6 +310,7 @@ def crawl_appstore(source: dict) -> list[dict]:
         log.error(f"Google Play 조회 실패 [{app_id}]: {e}")
         return []
 
+    cutoff = _review_cutoff_date()
     items: list[dict] = []
     for r in result:
         score  = r.get("score", 5)
@@ -305,6 +320,8 @@ def crawl_appstore(source: dict) -> list[dict]:
         pub_raw = r.get("at")
         if not isinstance(pub_raw, datetime) or pub_raw.year < 2020:
             continue  # 날짜 불명 → 제외
+        if cutoff and pub_raw.date() < cutoff:
+            continue  # 컷오프 이전 작성 → 제외
         pub_date_str = pub_raw.strftime("%Y-%m-%d")
 
         content = (r.get("content") or "")[:1000]
@@ -361,6 +378,7 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
         return []
 
     # 첫 번째 항목은 앱 정보, 나머지가 리뷰
+    cutoff = _review_cutoff_date()
     items: list[dict] = []
     for entry in entries[1:]:
         try:
@@ -373,28 +391,44 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
             if score > flag_below:
                 continue
 
-            title   = entry.get("title", {}).get("label", "제목없음")
-            content = entry.get("content", {}).get("label", "")[:1000]
-            author  = entry.get("author", {}).get("name", {}).get("label", "익명")
+            rev_title = entry.get("title", {}).get("label", "").strip()
+            content   = entry.get("content", {}).get("label", "").strip()
+            author    = entry.get("author", {}).get("name", {}).get("label", "익명")
 
             # iOS 리뷰는 날짜 정보가 'updated' 필드에 있음
             updated = entry.get("updated", {}).get("label", "")
             if not updated or updated[:4] < "2020":
                 continue  # 날짜 불명 → 제외
             pub_str = updated[:10]
+            if cutoff:
+                try:
+                    if datetime.strptime(pub_str, "%Y-%m-%d").date() < cutoff:
+                        continue
+                except ValueError:
+                    pass
 
-            # 모빌리티 통합 앱(카카오T/Tmap) — 본문·제목에 주차 키워드 없으면 제외
-            if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(title + " " + content):
+            # iOS는 제목·본문이 별도 필드. 본문이 짧으면 제목이 실제 의미일 때가 많음
+            # → "요약" 컬럼에 둘을 합쳐 사용자가 한 컬럼에서 전체 리뷰를 본다
+            if rev_title and content:
+                merged_summary = f"[{rev_title}] {content}"
+            elif rev_title:
+                merged_summary = rev_title
+            else:
+                merged_summary = content
+            merged_summary = merged_summary[:1200]
+
+            # 모빌리티 통합 앱(카카오T/Tmap) — 합쳐진 본문에 주차 키워드 없으면 제외
+            if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(merged_summary):
                 continue
 
-            review_hash = hashlib.md5((content + pub_str + author).encode()).hexdigest()[:8]
+            review_hash = hashlib.md5((merged_summary + pub_str + author).encode()).hexdigest()[:8]
             items.append({
                 "service_id":   sid,
                 "published_at": pub_str,
                 "source_type":  "ios_appstore",
                 "change_type":  "VOC",
-                "title":        f"[iOS ★{score}] {author}: {title[:40]}",
-                "summary":      content,
+                "title":        f"[iOS ★{score}] {author}",
+                "summary":      merged_summary,
                 "url":          f"https://apps.apple.com/kr/app/id{app_id}#r{review_hash}",
                 "sentiment":    "negative" if score <= 2 else "neutral",
             })
