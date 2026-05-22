@@ -455,12 +455,12 @@ def render_archive_nav(meta: dict, year: int, week_num: int) -> str:
         f'<span class="now">WEEK {cur_year_str}Y · {week_num}W</span>'
     )
 
-    # Week pills — 20주차부터만 표시
+    # Week pills — 이미 발행된 호 + 현재 호만 표시 (미래 placeholder 제거)
     past_set = {(iss.get("year"), iss.get("week_num")): iss.get("file", "#")
                 for iss in issues}
+    # 현재 주차까지만 (week_num 이하), 미래는 안 보여줌
     pills_html = ""
-    max_week = max(week_num, max((iss.get("week_num", 0) for iss in issues), default=0))
-    for w in range(MIN_WEEK_DISPLAYED, max_week + 3):
+    for w in range(MIN_WEEK_DISPLAYED, week_num + 1):
         key = (year, w)
         if w == week_num:
             pills_html += (
@@ -473,11 +473,7 @@ def render_archive_nav(meta: dict, year: int, week_num: int) -> str:
                 f'<a class="week-pill" href="{href}" role="tab">'
                 f'<span class="lbl">{cur_year_str}Y · {w}W</span></a>'
             )
-        else:
-            pills_html += (
-                f'<a class="week-pill scheduled" role="tab">'
-                f'<span class="lbl">{cur_year_str}Y · {w}W</span></a>'
-            )
+        # 미래 주차(week_num+1 이상)는 표시 안 함
 
     return f"""
 <nav class="archive-nav" aria-label="Issue archive">
