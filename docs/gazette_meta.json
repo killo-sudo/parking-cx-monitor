@@ -11,29 +11,41 @@
       "file": "gazette_2026_05_17.html",
       "stats": {
         "self_neg_pct": 100.0,
-        "self_neg_n": 3,
-        "self_review_n": 3,
+        "self_neg_n": 6,
+        "self_review_n": 6,
         "self_top_cat": "결제오류",
         "self_top_cat_pct": 66.7,
-        "self_top_cat_n": 2,
+        "self_top_cat_n": 4,
         "self_neg_avg_star": 1.0,
         "gap": 0.0,
         "self_avg": 1.0,
         "peer_avg": 1.0,
-        "comp_events": 0,
-        "comp_top3": [],
+        "comp_events": 12,
+        "comp_top3": [
+          [
+            "카카오T 주차",
+            10
+          ],
+          [
+            "아마노코리아",
+            2
+          ]
+        ],
         "neg_keywords": [
           "환불",
-          "관리",
-          "건물",
           "결제",
+          "관리",
+          "예약",
+          "건물",
           "출차",
           "리뷰",
           "처리",
           "기분",
+          "취소",
+          "설명",
+          "당일",
           "구매",
           "상담",
-          "예약",
           "등록",
           "지도",
           "위치",
@@ -49,15 +61,12 @@
           "고객",
           "이중",
           "개발자",
-          "목표",
-          "정보",
-          "설명",
-          "의구심"
+          "목표"
         ],
-        "total": 33,
-        "reviews": 8,
-        "news": 25,
-        "per_day": 5.5
+        "total": 57,
+        "reviews": 12,
+        "news": 45,
+        "per_day": 9.5
       }
     }
   ]
