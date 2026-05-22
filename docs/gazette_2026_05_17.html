@@ -198,29 +198,38 @@ a:hover { text-decoration: underline; }
 .col-head .kicker { font-family: "Noto Serif KR", serif; font-style: italic; font-weight: 400; letter-spacing: .02em; text-transform: none; font-size: 12px; color: #cfd3da; }
 .col-body { padding: 18px 20px 22px; }
 
-/* APP LEAGUE */
+/* APP LEAGUE — iOS/Android 분리 랭킹 (이미지 디자인) */
 .league h3, .dispatch h3, .voc h3, .wire h3 { font-family: "Playfair Display", "Noto Serif KR", serif; font-weight: 900; font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
 .col-deck { font-family: "Noto Serif KR", serif; font-style: italic; color: var(--muted); font-size: 13px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--slate-200); }
-.league-list { display: flex; flex-direction: column; gap: 10px; }
-.league-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--slate-200); background: var(--card); position: relative; }
-.league-row.self { border: 2px solid var(--cyan-500); background: var(--cyan-50); }
-.league-row .rank { font-family: "Playfair Display", serif; font-weight: 900; font-size: 22px; color: var(--ink); text-align: center; }
-.league-row.self .rank { color: var(--cyan-600); }
-.league-row.rank-1 .rank { color: var(--amber-500); }
-.league-row .name { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 600; font-size: 14px; }
-.league-row .bar-wrap { margin-top: 5px; height: 6px; background: var(--slate-100); border-radius: 999px; overflow: hidden; }
-.league-row .bar { height: 100%; background: var(--ink); border-radius: 999px; }
-.league-row.self .bar { background: var(--cyan-500); }
-.league-row.rank-1 .bar { background: var(--amber-500); }
-.league-row .meta-line { display: flex; gap: 8px; align-items: baseline; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
-.league-row .score { font-family: "Playfair Display", serif; font-weight: 900; font-size: 20px; line-height: 1; color: var(--ink); text-align: right; }
-.league-row.self .score { color: var(--cyan-600); }
-.league-row .star { color: var(--amber-500); }
-.league-row .delta-mini { font-family: "IBM Plex Mono", monospace; font-size: 10px; margin-top: 4px; text-align: right; color: var(--muted); }
-.delta-mini.up { color: var(--emerald-600); }
-.delta-mini.down { color: var(--red-600); }
-.self-callout { margin-top: 14px; padding: 10px 12px; background: var(--ink); color: #fff; display: flex; justify-content: space-between; align-items: center; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
-.self-callout .you { color: var(--cyan-500); font-weight: 600; }
+
+.lg-grid { display: flex; flex-direction: column; gap: 18px; }
+.lg-panel { background: var(--card); border: 1px solid var(--slate-200); border-radius: 6px; overflow: hidden; }
+.lg-head { background: var(--ink); color: #fff; padding: 10px 14px; font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 600; }
+.lg-list { padding: 4px 0; }
+
+.lg-row { display: grid; grid-template-columns: 48px 1fr 110px; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--slate-100); position: relative; }
+.lg-row:last-child { border-bottom: none; }
+.lg-row.self { background: var(--cyan-50); border-left: 4px solid var(--cyan-500); padding-left: 12px; }
+
+.lg-rank { font-family: "Playfair Display", serif; font-weight: 900; font-size: 24px; color: var(--ink); display: flex; align-items: center; gap: 4px; }
+.lg-row.self .lg-rank { color: var(--cyan-600); }
+.lg-medal { font-size: 18px; }
+
+.lg-body { min-width: 0; }
+.lg-name { font-family: "IBM Plex Sans KR", sans-serif; font-weight: 700; font-size: 14px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-row.self .lg-name { color: var(--cyan-600); }
+.lg-self-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; font-family: "IBM Plex Mono", monospace; font-size: 9px; font-weight: 700; letter-spacing: .1em; color: var(--cyan-600); background: #fff; border: 1px solid var(--cyan-500); border-radius: 4px; vertical-align: middle; }
+.lg-op { font-weight: 400; font-size: 12px; color: var(--muted); }
+.lg-barwrap { margin-top: 6px; height: 6px; background: var(--slate-100); border-radius: 999px; overflow: hidden; }
+.lg-bar { height: 100%; background: linear-gradient(90deg, var(--slate-700), var(--slate-900)); border-radius: 999px; }
+.lg-bar.self { background: var(--cyan-500); }
+.lg-bar.gold { background: linear-gradient(90deg, var(--amber-500), #d97706); }
+
+.lg-side { text-align: right; }
+.lg-score { font-family: "Playfair Display", serif; font-weight: 900; font-size: 20px; line-height: 1; color: var(--ink); }
+.lg-row.self .lg-score { color: var(--cyan-600); }
+.lg-star { color: var(--amber-500); margin-right: 2px; }
+.lg-cnt { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: .04em; }
 
 /* DISPATCH */
 .dispatch table { width: 100%; border-collapse: collapse; font-family: "IBM Plex Sans KR", sans-serif; font-size: 13px; }
@@ -427,7 +436,7 @@ a:hover { text-decoration: underline; }
     <div class="right">
       <span>SUNDAY, MAY 17, 2026</span>
       <span>SEOUL · KRW 0</span>
-      <span>EDITED BY <strong style="color:#111;">KILLO 기자</strong></span>
+      <span>MODU CX NEWSROOM</span>
     </div>
   </div>
   <div class="masthead-title">
@@ -474,8 +483,8 @@ a:hover { text-decoration: underline; }
   </div>
   <div class="stat">
     <div class="label">신규 VOC 키워드</div>
-    <div class="value">0.0<span class="unit">%</span></div>
-    <div class="sub">신규 0/30개 — —</div>
+    <div class="value">55.2<span class="unit">%</span></div>
+    <div class="sub">신규 16/29개 — 불가 · 상황 · 짜증</div>
     
   </div>
   <div class="stat">
@@ -537,7 +546,173 @@ a:hover { text-decoration: underline; }
       <span class="kicker">주차 앱 평점 순위 — 26Y · 20W</span>
     </div>
     <div class="col-body league">
-      <p style='color:var(--muted);font-size:13px;'>이번 주 리뷰 데이터 없음</p>
+      
+<h3>🏆 Parking App League</h3>
+<div class="col-deck">앱스토어 누적 평점 기준 · Android · iOS 분리 랭킹 · ★ 5점 만점</div>
+<div class="lg-grid">
+  <div class="lg-panel">
+  <div class="lg-head">Android 평점 순위</div>
+  <div class="lg-list">
+<div class="lg-row">
+  <div class="lg-rank">1<span class="lg-medal">🥇</span></div>
+  <div class="lg-body">
+    <div class="lg-name">주만사<span class="lg-op"> · (주)주만사</span></div>
+    <div class="lg-barwrap"><div class="lg-bar gold" style="width:96%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 4.82</div>
+    <div class="lg-cnt">5,830</div>
+  </div>
+</div>
+<div class="lg-row self">
+  <div class="lg-rank">2<span class="lg-medal">🥈</span></div>
+  <div class="lg-body">
+    <div class="lg-name">모두의주차장<span class="lg-self-badge">자사</span><span class="lg-op"> · 모두컴퍼니(쏘카)</span></div>
+    <div class="lg-barwrap"><div class="lg-bar self" style="width:94%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 4.68</div>
+    <div class="lg-cnt">7,420</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">3<span class="lg-medal">🥉</span></div>
+  <div class="lg-body">
+    <div class="lg-name">아이파킹<span class="lg-op"> · 파킹클라우드(주)</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:91%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 4.57</div>
+    <div class="lg-cnt">5,553</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">4<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">Tmap 주차<span class="lg-op"> · 티맵모빌리티</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:70%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 3.49</div>
+    <div class="lg-cnt">104,613</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">5<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">카카오T 주차<span class="lg-op"> · 카카오모빌리티</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:65%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 3.26</div>
+    <div class="lg-cnt">133,971</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">6<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">하이파킹<span class="lg-op"> · 휴맥스모빌리티</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:57%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 2.84</div>
+    <div class="lg-cnt">19</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">7<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">파킹프렌즈<span class="lg-op"> · MDS Mobility</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:44%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 2.20</div>
+    <div class="lg-cnt">456</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">8<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">나이스파크<span class="lg-op"> · 나이스파크(주)</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:0%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 0.00</div>
+    <div class="lg-cnt">0</div>
+  </div>
+</div></div>
+</div>
+  <div class="lg-panel">
+  <div class="lg-head">iOS 평점 순위</div>
+  <div class="lg-list">
+<div class="lg-row">
+  <div class="lg-rank">1<span class="lg-medal">🥇</span></div>
+  <div class="lg-body">
+    <div class="lg-name">카카오T 주차<span class="lg-op"> · 카카오모빌리티</span></div>
+    <div class="lg-barwrap"><div class="lg-bar gold" style="width:94%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 4.71</div>
+    <div class="lg-cnt">463,856</div>
+  </div>
+</div>
+<div class="lg-row self">
+  <div class="lg-rank">2<span class="lg-medal">🥈</span></div>
+  <div class="lg-body">
+    <div class="lg-name">모두의주차장<span class="lg-self-badge">자사</span><span class="lg-op"> · 모두컴퍼니(쏘카)</span></div>
+    <div class="lg-barwrap"><div class="lg-bar self" style="width:88%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 4.40</div>
+    <div class="lg-cnt">4,209</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">3<span class="lg-medal">🥉</span></div>
+  <div class="lg-body">
+    <div class="lg-name">아이파킹<span class="lg-op"> · 파킹클라우드(주)</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:87%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 4.34</div>
+    <div class="lg-cnt">3,269</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">4<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">하이파킹<span class="lg-op"> · 휴맥스모빌리티</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:81%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 4.06</div>
+    <div class="lg-cnt">18</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">5<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">Tmap 주차<span class="lg-op"> · 티맵모빌리티</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:67%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 3.37</div>
+    <div class="lg-cnt">31,526</div>
+  </div>
+</div>
+<div class="lg-row">
+  <div class="lg-rank">6<span class="lg-medal"></span></div>
+  <div class="lg-body">
+    <div class="lg-name">나이스파크<span class="lg-op"> · 나이스파크(주)</span></div>
+    <div class="lg-barwrap"><div class="lg-bar" style="width:40%"></div></div>
+  </div>
+  <div class="lg-side">
+    <div class="lg-score"><span class="lg-star">★</span> 2.00</div>
+    <div class="lg-cnt">53</div>
+  </div>
+</div></div>
+</div>
+</div>
     </div>
   </div>
   <div class="col">
@@ -693,36 +868,30 @@ a:hover { text-decoration: underline; }
   <h3>자사 키워드 맵</h3>
   <span class="sample">표본 6건 · 26Y · 20W</span>
 </div>
-<div class="byline-inline" style="margin:6px 0 10px;">
-  <span class="av">K</span>
-  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">분석 ·</span>
-  <span class="nm">KILLO 기자</span>
-  <span>· CX DESK</span>
-</div>
-<div class="col-deck">조사·접속사 제거 후 2글자 이상 한국어 단어만 추출. 글자 크기 = 빈출 횟수.</div>
+<div class="col-deck">한국어 형태소 분석으로 명사·인접 복합어 추출. 글자 크기 = 빈출 횟수.</div>
 <div class="cloud" aria-label="자사 키워드 맵 키워드 클라우드">
-<span class="kw sev-1 s-xl">환불<span class="cnt">8</span></span>
-<span class="kw sev-1 s-lg">결제<span class="cnt">5</span></span>
-<span class="kw sev-1 s-md">관리<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">예약<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">건물<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">출차<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">리뷰<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">처리<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">기분<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">취소<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">설명<span class="cnt">3</span></span>
-<span class="kw sev-1 s-md">당일<span class="cnt">3</span></span>
-<span class="kw sev-1 s-sm">구매<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">상담<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">등록<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">지도<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">위치<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">여부<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">사례<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">개선<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">반려<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">생각<span class="cnt">2</span></span>
+<span class="kw sev-1 s-xl">결제환불<span class="cnt">3</span></span>
+<span class="kw sev-1 s-lg">상담예약<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">예약건물<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">건물건물<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">건물등록<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">등록결제<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">결제출차<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">출차결제<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">환불알람<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">알람대문짝<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">대문짝상단<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">상단개발자<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">개발자목표<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">목표출차<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">출차환불<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">환불의구심<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">의구심탈퇴<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">탈퇴환불<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">환불짜증<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">짜증시간<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">취소취소<span class="cnt">2</span></span>
+<span class="kw sev-1 s-lg">취소<span class="cnt">2</span></span>
 </div>
 <div class="kw-summary">
   <span><strong>NEG 100%</strong></span>
@@ -742,40 +911,34 @@ a:hover { text-decoration: underline; }
   <h3>타사 키워드 맵</h3>
   <span class="sample">표본 6건 · 26Y · 20W</span>
 </div>
-<div class="byline-inline" style="margin:6px 0 10px;">
-  <span class="av">K</span>
-  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">분석 ·</span>
-  <span class="nm">KILLO 기자</span>
-  <span>· CX DESK</span>
-</div>
-<div class="col-deck">조사·접속사 제거 후 2글자 이상 한국어 단어만 추출. 글자 크기 = 빈출 횟수.</div>
+<div class="col-deck">한국어 형태소 분석으로 명사·인접 복합어 추출. 글자 크기 = 빈출 횟수.</div>
 <div class="cloud" aria-label="타사 키워드 맵 키워드 클라우드">
-<span class="kw sev-1 s-xl">결제<span class="cnt">7</span></span>
-<span class="kw sev-1 s-xl">지역<span class="cnt">6</span></span>
-<span class="kw sev-1 s-xl">종료<span class="cnt">6</span></span>
-<span class="kw sev-1 s-lg">금지<span class="cnt">4</span></span>
-<span class="kw sev-1 s-lg">긴급<span class="cnt">4</span></span>
-<span class="kw sev-1 s-md">거리<span class="cnt">3</span></span>
-<span class="kw sev-1 s-md">바이크<span class="cnt">3</span></span>
-<span class="kw sev-1 s-md">카카오<span class="cnt">3</span></span>
-<span class="kw sev-1 s-sm">이내<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">택시<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">가능<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">지도<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">로딩<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">처리<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">카드<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">고객<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">내역<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">증빙<span class="cnt">2</span></span>
-<span class="kw sev-1 s-sm">짜증<span class="cnt">2</span></span>
-<span class="kw sev-1 s-xs">신재혁<span class="cnt">1</span></span>
-<span class="kw sev-1 s-xs">최악<span class="cnt">1</span></span>
-<span class="kw sev-1 s-xs">경험<span class="cnt">1</span></span>
+<span class="kw sev-1 s-xl">긴급종료<span class="cnt">4</span></span>
+<span class="kw sev-1 s-lg">거리<span class="cnt">3</span></span>
+<span class="kw sev-1 s-md">금지긴급<span class="cnt">2</span></span>
+<span class="kw sev-1 s-md">종료가능<span class="cnt">2</span></span>
+<span class="kw sev-1 s-md">카드결제<span class="cnt">2</span></span>
+<span class="kw sev-1 s-md">카카오결제<span class="cnt">2</span></span>
+<span class="kw sev-1 s-md">결제증빙<span class="cnt">2</span></span>
+<span class="kw sev-1 s-md">금지<span class="cnt">2</span></span>
+<span class="kw sev-1 s-md">긴급<span class="cnt">2</span></span>
+<span class="kw sev-1 s-md">짜증<span class="cnt">2</span></span>
+<span class="kw sev-1 s-sm">경험<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">약속<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">할인<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">검색<span class="cnt">1</span></span>
+<span class="kw sev-3 s-sm">번창<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">닭갈비<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">빨간색<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">나중<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">부분<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">확인<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">제약<span class="cnt">1</span></span>
+<span class="kw sev-1 s-sm">케이스<span class="cnt">1</span></span>
 </div>
 <div class="kw-summary">
-  <span><strong>NEG 100%</strong></span>
-  <span><strong>NEU 0%</strong></span>
+  <span><strong>NEG 97%</strong></span>
+  <span><strong>NEU 3%</strong></span>
   <span><strong>POS 0%</strong></span>
 </div>
     </div>
@@ -802,12 +965,6 @@ a:hover { text-decoration: underline; }
     <div class="col-body voc">
       
 <h3>VOC 브리프</h3>
-<div class="byline-inline" style="margin:6px 0 10px;">
-  <span class="av">K</span>
-  <span style="font-family:'Noto Serif KR',serif;font-style:italic;text-transform:none;letter-spacing:.04em;color:var(--muted);">선정 ·</span>
-  <span class="nm">KILLO 기자</span>
-  <span>· CX DESK</span>
-</div>
 <div class="col-deck">자사 및 경쟁사 리뷰 — 부정·긍정 시그널 큐레이션</div>
 <div class="voc-list">
 <div class="voc-card neg">
@@ -1017,7 +1174,7 @@ a:hover { text-decoration: underline; }
   <div class="src-block">
     <h5>Newsroom</h5>
     <ul class="src-list">
-      <li><span class="kw-label">Editor-in-Chief</span> <strong>KILLO 기자</strong> (CX Desk)</li>
+      <li><span class="kw-label">Newsroom</span> <strong>모두컴퍼니 CX팀</strong></li>
       <li><span class="kw-label">Data Desk</span> 카니 기자 · <span class="kw-label">News Desk</span> 모카 기자</li>
       <li><span class="kw-label">Next Issue</span> 26Y 21W (자동 발행)</li>
       <li><span class="kw-label">Contact</span> cx-newsroom@moducompany.com</li>
