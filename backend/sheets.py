@@ -112,11 +112,23 @@ def _get_worksheet(sheet_name: str):
     try:
         sh = client.open_by_key(spreadsheet_id)
         try:
-            return sh.worksheet(sheet_name)
+            ws = sh.worksheet(sheet_name)
         except Exception:
             ws = sh.add_worksheet(sheet_name, rows=100000, cols=len(HEADERS))
             ws.append_row(HEADERS)
             return ws
+        # 기존 워크시트의 첫 행이 헤더가 아니면 헤더 행 삽입 (사용자가 전체 행 삭제했을 때 대비)
+        try:
+            first = ws.row_values(1)
+        except Exception:
+            first = []
+        if first != HEADERS:
+            try:
+                ws.insert_row(HEADERS, 1, value_input_option="RAW")
+                log.info(f"[Sheets:{sheet_name}] 헤더 행이 없어 자동 삽입")
+            except Exception as e:
+                log.warning(f"[Sheets:{sheet_name}] 헤더 자동 삽입 실패: {e}")
+        return ws
     except Exception as e:
         log.error(f"[Sheets] 워크시트 접근 실패 ({sheet_name}): {e}")
         return None
