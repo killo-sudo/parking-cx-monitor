@@ -1,8 +1,8 @@
 {
   "year": 26,
-  "week_num": 20,
-  "issue_total": 1,
-  "last_report_date": "2026-05-17",
+  "week_num": 21,
+  "issue_total": 2,
+  "last_report_date": "2026-05-24",
   "issues": [
     {
       "year": 26,
@@ -66,6 +66,52 @@
         "reviews": 12,
         "news": 35,
         "per_day": 7.8
+      }
+    },
+    {
+      "year": 26,
+      "week_num": 21,
+      "date": "2026-05-24",
+      "file": "gazette_2026_05_24.html",
+      "stats": {
+        "self_neg_pct": 66.7,
+        "self_neg_n": 2,
+        "self_review_n": 3,
+        "self_top_cat": "결제오류",
+        "self_top_cat_pct": 50.0,
+        "self_top_cat_n": 1,
+        "self_neg_avg_star": 1.0,
+        "gap": null,
+        "self_avg": 2.3333333333333335,
+        "peer_avg": null,
+        "comp_events": 3,
+        "comp_top3": [
+          [
+            "카카오T 주차",
+            1
+          ],
+          [
+            "하이파킹 (투루파킹)",
+            1
+          ],
+          [
+            "아마노코리아",
+            1
+          ]
+        ],
+        "neg_keywords": [
+          "환불",
+          "검색",
+          "시간",
+          "비용",
+          "시스템",
+          "확인",
+          "업뎃"
+        ],
+        "total": 74,
+        "reviews": 6,
+        "news": 67,
+        "per_day": 12.3
       }
     }
   ]
