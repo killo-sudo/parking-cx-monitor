@@ -55,11 +55,7 @@ def fetch_ios_reviews(
     }
 
     try:
-        run = client.actor(actor_id).call(
-            run_input=run_input,
-            timeout_secs=240,   # 4분 타임아웃
-            memory_mbytes=512,  # 비용 절약 — 최소 메모리
-        )
+        run = client.actor(actor_id).call(run_input=run_input)
     except Exception as e:
         log.error(f"Apify actor 호출 실패 [{actor_id}, {app_id}]: {e}")
         return []
