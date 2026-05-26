@@ -2,7 +2,10 @@ name: Daily Crawl
 
 on:
   schedule:
-    - cron: "15 22 * * *"   # KST 07:15 (UTC 22:15 전일) — 정시(00분) GH Actions 피크 회피
+    # GitHub Actions schedule은 best-effort라 자주 누락/지연됨 → 여러 시점에 분산 등록 (dedup 있음)
+    - cron: "15 22 * * *"   # KST 07:15
+    - cron: "45 22 * * *"   # KST 07:45 (백업)
+    - cron: "15 23 * * *"   # KST 08:15 (백업)
   workflow_dispatch:         # 수동 실행 가능
 
 jobs:

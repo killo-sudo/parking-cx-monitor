@@ -192,6 +192,8 @@ sources:
   # [4] 앱스토어 리뷰 수집 (Google Play + iOS App Store)
   # flag_below_rating: 5 = 1~5점 전체 수집 (경쟁사 모니터링용)
   # review_count: Google Play 최근 N개 / max_pages: iOS RSS 페이지 수(1페이지=최대50건)
+  # ※ 한도는 일일 누락 방지용 안전 마진 — dedup이 review_hash로 걸려있어 중복 fetch는 안전
+  #   (스케줄 누락 시 다음날 한 번에 며칠치 보강 가능해야 함)
   # ══════════════════════════════════════════
 
   # 모두의주차장
@@ -201,14 +203,14 @@ sources:
     app_id: "com.parkingshare.mobile"
     service_id: moduparking
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_moduparking_ios
     type: ios_appstore
     app_id: "780174422"
     service_id: moduparking
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # 파킹프렌즈
   - id: reviews_parkingfriends_android
@@ -217,14 +219,14 @@ sources:
     app_id: "com.misconct.parkingfriends"
     service_id: parkingfriends
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_parkingfriends_ios
     type: ios_appstore
     app_id: "1437488741"
     service_id: parkingfriends
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # 카카오T 주차 (주차 관련 리뷰만 필터링)
   - id: reviews_kakaot_android
@@ -233,14 +235,14 @@ sources:
     app_id: "com.kakao.taxi"
     service_id: kakaot_parking
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_kakaot_ios
     type: ios_appstore
     app_id: "981110422"
     service_id: kakaot_parking
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # Tmap 주차 (주차 관련 리뷰만 필터링)
   - id: reviews_tmap_android
@@ -249,14 +251,14 @@ sources:
     app_id: "com.skt.tmap.ku"
     service_id: tmap_parking
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_tmap_ios
     type: ios_appstore
     app_id: "431589174"
     service_id: tmap_parking
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # 아이파킹
   - id: reviews_iparking_android
@@ -265,14 +267,14 @@ sources:
     app_id: "kr.co.iparking.android"
     service_id: iparking
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_iparking_ios
     type: ios_appstore
     app_id: "978597106"
     service_id: iparking
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # 나이스파크
   - id: reviews_nicepark_android
@@ -281,14 +283,14 @@ sources:
     app_id: "kr.co.nicetcm.nice_m"
     service_id: nicepark
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_nicepark_ios
     type: ios_appstore
     app_id: "1556588504"
     service_id: nicepark
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # 하이파킹 (투루파킹)
   - id: reviews_highparking_android
@@ -297,14 +299,14 @@ sources:
     app_id: "kr.co.turu.parking"
     service_id: highparking
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_highparking_ios
     type: ios_appstore
     app_id: "6711335059"
     service_id: highparking
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # 주만사
   - id: reviews_zoomansa_android
@@ -313,14 +315,14 @@ sources:
     app_id: "com.zoomansa.parking"
     service_id: zoomansa
     flag_below_rating: 5
-    review_count: 50
+    review_count: 300
 
   - id: reviews_zoomansa_ios
     type: ios_appstore
     app_id: "1472478299"
     service_id: zoomansa
     flag_below_rating: 5
-    max_pages: 2
+    max_pages: 5
 
   # ══════════════════════════════════════════
   # iOS 앱 ID 찾는 방법 (주석)
