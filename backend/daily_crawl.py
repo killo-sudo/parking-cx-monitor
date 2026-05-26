@@ -1133,6 +1133,8 @@ def run() -> dict:
 
     if is_first_run:
         print("[INFO] 최초 실행 — 최근 1년 데이터 수집 모드")
+        # 백필 모드에서는 리뷰 컷오프 해제 (CRAWL_FROM_DATE 환경변수 무시)
+        os.environ.pop('CRAWL_FROM_DATE', None)
         extended = []
         for src in sources:
             src = dict(src)
@@ -1145,15 +1147,20 @@ def run() -> dict:
             extended.append(src)
         sources = extended
     else:
-        # 증분 모드 — 전날~당일 2일치만 수집 (daily cron 기준)
-        print("[INFO] 증분 수집 모드 — 최근 2일치")
+        # 증분 모드 — 최근 14일 윈도우
+        # 스케줄 누락 보강 마진 확보 + 리뷰/뉴스 일관된 기간 적용
+        print("[INFO] 증분 수집 모드 — 최근 14일치")
+        # 리뷰 컷오프 자동 설정 (env 미설정 시) — _review_cutoff_date()가 이걸 읽음
+        from datetime import date as _date, timedelta as _td
+        if not os.environ.get('CRAWL_FROM_DATE'):
+            os.environ['CRAWL_FROM_DATE'] = (_date.today() - _td(days=14)).strftime('%Y-%m-%d')
         extended = []
         for src in sources:
             src = dict(src)
-            if 'days_back'   in src: src['days_back']   = 2
-            if 'window_days' in src: src['window_days'] = 2
+            if 'days_back'   in src: src['days_back']   = 14
+            if 'window_days' in src: src['window_days'] = 14
             if 'url_template' in src:
-                src['url_template'] = src['url_template'].replace('when:7d', 'when:2d')
+                src['url_template'] = src['url_template'].replace('when:7d', 'when:14d')
             extended.append(src)
         sources = extended
 

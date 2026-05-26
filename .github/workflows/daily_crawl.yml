@@ -7,6 +7,11 @@ on:
     - cron: "45 22 * * *"   # KST 07:45 (백업)
     - cron: "15 23 * * *"   # KST 08:15 (백업)
   workflow_dispatch:         # 수동 실행 가능
+    inputs:
+      full_backfill:
+        description: '1년치 전체 백필 (기본은 14일 증분)'
+        type: boolean
+        default: false
 
 jobs:
   crawl:
@@ -20,6 +25,8 @@ jobs:
       SPREADSHEET_ID:        ${{ secrets.SPREADSHEET_ID }}
       NAVER_CLIENT_ID:       ${{ secrets.NAVER_CLIENT_ID }}
       NAVER_CLIENT_SECRET:   ${{ secrets.NAVER_CLIENT_SECRET }}
+      # full_backfill=true면 FORCE_FULL_CRAWL=1 (스케줄 실행 시엔 빈 값)
+      FORCE_FULL_CRAWL:      ${{ inputs.full_backfill == true && '1' || '' }}
 
     steps:
       - name: Checkout
