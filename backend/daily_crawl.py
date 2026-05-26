@@ -350,7 +350,13 @@ def crawl_appstore(source: dict) -> list[dict]:
 # ──────────────────────────────────────────────
 
 def crawl_ios_appstore(source: dict) -> list[dict]:
-    """Apple App Store 리뷰 수집 (iTunes RSS — 인증 불필요)."""
+    """Apple App Store 리뷰 수집 (iTunes RSS — 인증 불필요).
+
+    Apple iTunes RSS API의 알려진 버그: sortBy=mostRecent가 실제로 최신 리뷰를
+    안 돌려주는 경우가 잦음 (앱별로 수주~수개월 stale 상태로 캐싱됨).
+    → mostRecent와 mostHelpful 두 sort를 모두 호출해서 합집합으로 보강.
+      이렇게 하면 highparking 같은 케이스에서 누락 6개월 → 10일로 감소.
+    """
     app_id     = source.get("app_id", "")
     sid        = source.get("service_id", "")
     flag_below = source.get("flag_below_rating", 3)
@@ -360,27 +366,38 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
 
     max_pages = source.get("max_pages", 1)
     entries: list = []
-    for page in range(1, max_pages + 1):
-        url = f"https://itunes.apple.com/kr/rss/customerreviews/page={page}/id={app_id}/sortBy=mostRecent/json"
-        try:
-            resp = _get(url)
-            if resp.status_code != 200:
+    # 첫 page의 첫 entry는 앱 정보 — sort별로 한 번씩만 제외
+    for sort_by in ("mostRecent", "mostHelpful"):
+        for page in range(1, max_pages + 1):
+            url = (
+                f"https://itunes.apple.com/kr/rss/customerreviews/"
+                f"page={page}/id={app_id}/sortBy={sort_by}/json"
+            )
+            try:
+                resp = _get(url)
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                page_entries = data.get("feed", {}).get("entry", [])
+                if not page_entries:
+                    break
+                # 각 sort의 page=1 첫 entry는 앱 정보 → 스킵
+                if page == 1 and page_entries:
+                    page_entries = page_entries[1:]
+                if not page_entries:
+                    break
+                entries.extend(page_entries)
+            except Exception as e:
+                log.warning(f"iOS 앱스토어 요청 실패 [{app_id}] sort={sort_by} page={page}: {e}")
                 break
-            data = resp.json()
-            page_entries = data.get("feed", {}).get("entry", [])
-            if not page_entries:
-                break
-            entries.extend(page_entries)
-        except Exception as e:
-            log.warning(f"iOS 앱스토어 요청 실패 [{app_id}] page={page}: {e}")
-            break
     if not entries:
         return []
 
-    # 첫 번째 항목은 앱 정보, 나머지가 리뷰
+    # review_hash로 자연 dedup — 같은 리뷰가 sort별로 중복돼도 hash 동일하면 1개로
     cutoff = _review_cutoff_date()
+    seen_hashes: set[str] = set()
     items: list[dict] = []
-    for entry in entries[1:]:
+    for entry in entries:
         try:
             rating_raw = entry.get("im:rating", {})
             if isinstance(rating_raw, dict):
@@ -422,6 +439,9 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
                 continue
 
             review_hash = hashlib.md5((merged_summary + pub_str + author).encode()).hexdigest()[:8]
+            if review_hash in seen_hashes:
+                continue   # 다른 sort에서 이미 본 리뷰
+            seen_hashes.add(review_hash)
             items.append({
                 "service_id":   sid,
                 "published_at": pub_str,
