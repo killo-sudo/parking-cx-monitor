@@ -13,8 +13,17 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-# thewolves/appstore-reviews-scraper — $0.10/1K reviews, 입력: appStoreIds + country
+# thewolves/appstore-reviews-scraper — $0.10/1K reviews, 입력: appIds + country
 _DEFAULT_ACTOR = "thewolves/appstore-reviews-scraper"
+
+
+def _run_field(run: Any, key: str) -> Any:
+    """apify-client 버전 차이 대응 — Run이 dict일 수도 Run 객체일 수도 있음."""
+    if run is None:
+        return None
+    if isinstance(run, dict):
+        return run.get(key)
+    return getattr(run, key, None)
 
 
 def fetch_ios_reviews(
@@ -42,10 +51,11 @@ def fetch_ios_reviews(
     actor_id = os.environ.get("APIFY_IOS_ACTOR", _DEFAULT_ACTOR).strip() or _DEFAULT_ACTOR
     client = ApifyClient(token)
 
-    # thewolves/appstore-reviews-scraper 입력 포맷 (country 소문자 필수)
+    # thewolves/appstore-reviews-scraper 실제 JSON 입력 필드 (콘솔 JSON 탭 확인됨)
     run_input = {
-        "appStoreIds": [str(app_id)],
+        "appIds": [str(app_id)],
         "country": country.lower(),  # "kr"
+        "maxItems": int(max_reviews),
     }
 
     try:
@@ -54,11 +64,14 @@ def fetch_ios_reviews(
         log.error(f"Apify actor 호출 실패 [{actor_id}, {app_id}]: {e}")
         return []
 
-    if not run or run.get("status") != "SUCCEEDED":
-        log.warning(f"Apify run 실패 [{app_id}]: status={run.get('status') if run else 'None'}")
+    # apify-client 버전에 따라 dict 또는 Run 객체 반환 → 둘 다 대응
+    status = _run_field(run, "status")
+    dataset_id = _run_field(run, "defaultDatasetId") or _run_field(run, "default_dataset_id")
+
+    if status != "SUCCEEDED":
+        log.warning(f"Apify run 실패 [{app_id}]: status={status}")
         return []
 
-    dataset_id = run.get("defaultDatasetId")
     if not dataset_id:
         return []
 

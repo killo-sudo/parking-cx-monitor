@@ -13,7 +13,17 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 # neatrat/google-play-store-reviews-scraper — $0.15/1K, 4.8★ 1.1K 사용자
+# 실제 JSON 입력 (콘솔 JSON 탭 확인): appIdOrUrl + uniqueOnly
 _DEFAULT_ACTOR = "neatrat/google-play-store-reviews-scraper"
+
+
+def _run_field(run: Any, key: str) -> Any:
+    """apify-client 버전 차이 대응 — Run이 dict 또는 Run 객체."""
+    if run is None:
+        return None
+    if isinstance(run, dict):
+        return run.get(key)
+    return getattr(run, key, None)
 
 
 def fetch_android_reviews(
@@ -49,10 +59,10 @@ def fetch_android_reviews(
 
     run_input = {
         "appIdOrUrl": url,
-        "sortBy": "Newest",
+        "sortBy": "newest",
         "recentDays": int(recent_days),
         "maxReviews": int(max_reviews),
-        "uniqueReviewsOnly": True,
+        "uniqueOnly": True,
     }
 
     try:
@@ -61,14 +71,13 @@ def fetch_android_reviews(
         log.error(f"Apify Android actor 호출 실패 [{actor_id}, {package_name}]: {e}")
         return []
 
-    if not run or run.get("status") != "SUCCEEDED":
-        log.warning(
-            f"Apify Android run 실패 [{package_name}]: "
-            f"status={run.get('status') if run else 'None'}"
-        )
+    status = _run_field(run, "status")
+    dataset_id = _run_field(run, "defaultDatasetId") or _run_field(run, "default_dataset_id")
+
+    if status != "SUCCEEDED":
+        log.warning(f"Apify Android run 실패 [{package_name}]: status={status}")
         return []
 
-    dataset_id = run.get("defaultDatasetId")
     if not dataset_id:
         return []
 
