@@ -289,58 +289,61 @@ def _is_relevant(title: str, summary: str, svc: dict) -> bool:
 # ──────────────────────────────────────────────
 
 def crawl_appstore(source: dict) -> list[dict]:
+    """Android Google Play 리뷰 — Apify actor 경유.
+
+    google-play-scraper 라이브러리가 GHA runner IP에서 일부 앱에 0건 silent
+    return하는 케이스 발견 → Apify로 전환.
+    """
     if source.get("platform") != "google_play":
         return []
+
+    from android_apify import fetch_android_reviews, normalize_apify_android
+    from datetime import date as _date
 
     app_id      = source.get("app_id", "")
     sid         = source.get("service_id", "")
     flag_below  = source.get("flag_below_rating", 3)
 
-    review_count = source.get("review_count", 200)
-    try:
-        from google_play_scraper import reviews, Sort
-        result, _ = reviews(
-            app_id, lang="ko", country="kr",
-            sort=Sort.NEWEST, count=review_count,
-        )
-    except ImportError:
-        log.warning("google-play-scraper 미설치")
-        return []
-    except Exception as e:
-        log.error(f"Google Play 조회 실패 [{app_id}]: {e}")
-        return []
-
+    # CRAWL_FROM_DATE 기준으로 recent_days 환산 (없으면 14일 기본)
     cutoff = _review_cutoff_date()
+    if cutoff:
+        recent_days = max(1, (_date.today() - cutoff).days)
+    else:
+        recent_days = 14
+
+    max_reviews = source.get("review_count", 300)
+    raw_items = fetch_android_reviews(
+        app_id, recent_days=recent_days, max_reviews=max_reviews
+    )
+    if not raw_items:
+        return []
+
+    seen_hashes: set[str] = set()
     items: list[dict] = []
-    for r in result:
-        score  = r.get("score", 5)
-        if score > flag_below:
+    for raw in raw_items:
+        norm = normalize_apify_android(
+            raw, service_id=sid, package_name=app_id, flag_below=flag_below
+        )
+        if not norm:
             continue
 
-        pub_raw = r.get("at")
-        if not isinstance(pub_raw, datetime) or pub_raw.year < 2020:
-            continue  # 날짜 불명 → 제외
-        if cutoff and pub_raw.date() < cutoff:
-            continue  # 컷오프 이전 작성 → 제외
-        pub_date_str = pub_raw.strftime("%Y-%m-%d")
+        # 컷오프 한 번 더 (actor가 recent_days 무시할 가능성 대비)
+        if cutoff:
+            try:
+                if datetime.strptime(norm["published_at"], "%Y-%m-%d").date() < cutoff:
+                    continue
+            except ValueError:
+                pass
 
-        content = (r.get("content") or "")[:1000]
-
-        # 모빌리티 통합 앱(카카오T/Tmap) — 본문에 주차 키워드 없으면 제외
-        if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(content):
+        # 모빌리티 통합 앱(카카오T/Tmap) — 주차 키워드 없으면 제외
+        if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(norm["summary"]):
             continue
 
-        review_hash = hashlib.md5((content + pub_date_str + r.get('userName', '')).encode()).hexdigest()[:8]
-        items.append({
-            "service_id":   sid,
-            "published_at": pub_date_str,
-            "source_type":  "appstore",
-            "change_type":  "VOC",
-            "title":        f"[Android ★{score}] {r.get('userName', '익명')}",
-            "summary":      content,
-            "url":          f"https://play.google.com/store/apps/details?id={app_id}#r{review_hash}",
-            "sentiment":    "negative" if score <= 2 else "neutral",
-        })
+        h = norm["url"].rsplit("#r", 1)[-1] if "#r" in norm["url"] else norm["summary"][:20]
+        if h in seen_hashes:
+            continue
+        seen_hashes.add(h)
+        items.append(norm)
 
     return items
 
