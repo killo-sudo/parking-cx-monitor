@@ -25,6 +25,7 @@ jobs:
       SPREADSHEET_ID:        ${{ secrets.SPREADSHEET_ID }}
       NAVER_CLIENT_ID:       ${{ secrets.NAVER_CLIENT_ID }}
       NAVER_CLIENT_SECRET:   ${{ secrets.NAVER_CLIENT_SECRET }}
+      APIFY_TOKEN:           ${{ secrets.APIFY_TOKEN }}
       # full_backfill=true면 FORCE_FULL_CRAWL=1 (스케줄 실행 시엔 빈 값)
       FORCE_FULL_CRAWL:      ${{ inputs.full_backfill == true && '1' || '' }}
 

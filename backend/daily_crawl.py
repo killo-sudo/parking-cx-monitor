@@ -350,13 +350,15 @@ def crawl_appstore(source: dict) -> list[dict]:
 # ──────────────────────────────────────────────
 
 def crawl_ios_appstore(source: dict) -> list[dict]:
-    """Apple App Store 리뷰 수집 (iTunes RSS — 인증 불필요).
+    """Apple App Store 리뷰 수집 — Apify actor 경유.
 
-    Apple iTunes RSS API의 알려진 버그: sortBy=mostRecent가 실제로 최신 리뷰를
-    안 돌려주는 경우가 잦음 (앱별로 수주~수개월 stale 상태로 캐싱됨).
-    → mostRecent와 mostHelpful 두 sort를 모두 호출해서 합집합으로 보강.
-      이렇게 하면 highparking 같은 케이스에서 누락 6개월 → 10일로 감소.
+    Apple iTunes RSS API는 2026-05-26경 사실상 deprecated 상태 (entries 빈 응답).
+    amp-api 직접 호출은 서버사이드 토큰만 사용해 브라우저로도 추출 불가.
+    → Apify actor가 토큰 우회/페이지 로딩 처리해주는 걸 사용.
+    APIFY_TOKEN 미설정 시 빈 리스트 반환 (수집 스킵).
     """
+    from ios_apify import fetch_ios_reviews, normalize_apify_item
+
     app_id     = source.get("app_id", "")
     sid        = source.get("service_id", "")
     flag_below = source.get("flag_below_rating", 3)
@@ -364,97 +366,40 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
     if not app_id:
         return []
 
-    max_pages = source.get("max_pages", 1)
-    entries: list = []
-    # 첫 page의 첫 entry는 앱 정보 — sort별로 한 번씩만 제외
-    for sort_by in ("mostRecent", "mostHelpful"):
-        for page in range(1, max_pages + 1):
-            url = (
-                f"https://itunes.apple.com/kr/rss/customerreviews/"
-                f"page={page}/id={app_id}/sortBy={sort_by}/json"
-            )
-            try:
-                resp = _get(url)
-                if resp.status_code != 200:
-                    break
-                data = resp.json()
-                page_entries = data.get("feed", {}).get("entry", [])
-                if not page_entries:
-                    break
-                # 각 sort의 page=1 첫 entry는 앱 정보 → 스킵
-                if page == 1 and page_entries:
-                    page_entries = page_entries[1:]
-                if not page_entries:
-                    break
-                entries.extend(page_entries)
-            except Exception as e:
-                log.warning(f"iOS 앱스토어 요청 실패 [{app_id}] sort={sort_by} page={page}: {e}")
-                break
-    if not entries:
+    # max_pages → max_reviews 환산 (1 page ≈ 50개)
+    max_reviews = source.get("max_reviews") or (source.get("max_pages", 1) * 50)
+
+    raw_items = fetch_ios_reviews(app_id, country="kr", max_reviews=max_reviews)
+    if not raw_items:
         return []
 
-    # review_hash로 자연 dedup — 같은 리뷰가 sort별로 중복돼도 hash 동일하면 1개로
     cutoff = _review_cutoff_date()
     seen_hashes: set[str] = set()
     items: list[dict] = []
-    for entry in entries:
-        try:
-            rating_raw = entry.get("im:rating", {})
-            if isinstance(rating_raw, dict):
-                score = int(rating_raw.get("label", "5"))
-            else:
-                score = 5
 
-            if score > flag_below:
-                continue
-
-            rev_title = entry.get("title", {}).get("label", "").strip()
-            content   = entry.get("content", {}).get("label", "").strip()
-            author    = entry.get("author", {}).get("name", {}).get("label", "익명")
-
-            # iOS 리뷰는 날짜 정보가 'updated' 필드에 있음
-            updated = entry.get("updated", {}).get("label", "")
-            if not updated or updated[:4] < "2020":
-                continue  # 날짜 불명 → 제외
-            pub_str = updated[:10]
-            if cutoff:
-                try:
-                    if datetime.strptime(pub_str, "%Y-%m-%d").date() < cutoff:
-                        continue
-                except ValueError:
-                    pass
-
-            # iOS는 제목·본문이 별도 필드. 본문이 짧으면 제목이 실제 의미일 때가 많음
-            # → "요약" 컬럼에 둘을 합쳐 사용자가 한 컬럼에서 전체 리뷰를 본다
-            if rev_title and content:
-                merged_summary = f"[{rev_title}] {content}"
-            elif rev_title:
-                merged_summary = rev_title
-            else:
-                merged_summary = content
-            merged_summary = merged_summary[:1200]
-
-            # 모빌리티 통합 앱(카카오T/Tmap) — 합쳐진 본문에 주차 키워드 없으면 제외
-            if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(merged_summary):
-                continue
-
-            review_hash = hashlib.md5((merged_summary + pub_str + author).encode()).hexdigest()[:8]
-            if review_hash in seen_hashes:
-                continue   # 다른 sort에서 이미 본 리뷰
-            seen_hashes.add(review_hash)
-            items.append({
-                "service_id":   sid,
-                "published_at": pub_str,
-                "source_type":  "ios_appstore",
-                "change_type":  "VOC",
-                "title":        f"[iOS ★{score}] {author}",
-                "summary":      merged_summary,
-                "url":          f"https://apps.apple.com/kr/app/id{app_id}#r{review_hash}",
-                "sentiment":    "negative" if score <= 2 else "neutral",
-            })
-        except Exception as e:
-            log.debug(f"iOS 리뷰 항목 파싱 오류: {e}")
+    for raw in raw_items:
+        norm = normalize_apify_item(raw, service_id=sid, app_id=app_id, flag_below=flag_below)
+        if not norm:
             continue
+
+        # 날짜 컷오프
+        if cutoff:
+            try:
+                if datetime.strptime(norm["published_at"], "%Y-%m-%d").date() < cutoff:
+                    continue
+            except ValueError:
+                pass
+
+        # 모빌리티 통합 앱(카카오T/Tmap) — 주차 키워드 없으면 제외
+        if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(norm["summary"]):
+            continue
+
+        # review_hash dedup (url의 #r{hash} 부분 활용)
+        h = norm["url"].rsplit("#r", 1)[-1] if "#r" in norm["url"] else norm["published_at"] + norm["summary"][:20]
+        if h in seen_hashes:
+            continue
+        seen_hashes.add(h)
+        items.append(norm)
 
     return items
 
