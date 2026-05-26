@@ -48,7 +48,7 @@ def fetch_android_reviews(
     )
 
     run_input = {
-        "appPackageName": url,
+        "appIdOrUrl": url,
         "sortBy": "Newest",
         "recentDays": int(recent_days),
         "maxReviews": int(max_reviews),

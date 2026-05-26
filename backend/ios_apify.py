@@ -42,10 +42,10 @@ def fetch_ios_reviews(
     actor_id = os.environ.get("APIFY_IOS_ACTOR", _DEFAULT_ACTOR).strip() or _DEFAULT_ACTOR
     client = ApifyClient(token)
 
-    # thewolves/appstore-reviews-scraper 입력 포맷
+    # thewolves/appstore-reviews-scraper 입력 포맷 (country 소문자 필수)
     run_input = {
         "appStoreIds": [str(app_id)],
-        "country": country.upper(),  # "KR"
+        "country": country.lower(),  # "kr"
     }
 
     try:
