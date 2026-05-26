@@ -3,7 +3,6 @@ beautifulsoup4==4.12.3
 feedparser==6.0.11
 pyyaml==6.0.1
 google-play-scraper==1.2.4
-apify-client>=1.7.0
 python-dateutil==2.9.0
 flask>=3.0.0
 gspread>=6.0.0

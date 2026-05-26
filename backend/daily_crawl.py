@@ -289,61 +289,59 @@ def _is_relevant(title: str, summary: str, svc: dict) -> bool:
 # ──────────────────────────────────────────────
 
 def crawl_appstore(source: dict) -> list[dict]:
-    """Android Google Play 리뷰 — Apify actor 경유.
-
-    google-play-scraper 라이브러리가 GHA runner IP에서 일부 앱에 0건 silent
-    return하는 케이스 발견 → Apify로 전환.
-    """
+    """Android Google Play 리뷰 (google-play-scraper)."""
     if source.get("platform") != "google_play":
         return []
-
-    from android_apify import fetch_android_reviews, normalize_apify_android
-    from datetime import date as _date
 
     app_id      = source.get("app_id", "")
     sid         = source.get("service_id", "")
     flag_below  = source.get("flag_below_rating", 3)
 
-    # CRAWL_FROM_DATE 기준으로 recent_days 환산 (없으면 14일 기본)
-    cutoff = _review_cutoff_date()
-    if cutoff:
-        recent_days = max(1, (_date.today() - cutoff).days)
-    else:
-        recent_days = 14
-
-    max_reviews = source.get("review_count", 300)
-    raw_items = fetch_android_reviews(
-        app_id, recent_days=recent_days, max_reviews=max_reviews
-    )
-    if not raw_items:
+    review_count = source.get("review_count", 200)
+    try:
+        from google_play_scraper import reviews, Sort
+        result, _ = reviews(
+            app_id, lang="ko", country="kr",
+            sort=Sort.NEWEST, count=review_count,
+        )
+    except ImportError:
+        log.warning("google-play-scraper 미설치")
+        return []
+    except Exception as e:
+        log.error(f"Google Play 조회 실패 [{app_id}]: {e}")
         return []
 
-    seen_hashes: set[str] = set()
+    cutoff = _review_cutoff_date()
     items: list[dict] = []
-    for raw in raw_items:
-        norm = normalize_apify_android(
-            raw, service_id=sid, package_name=app_id, flag_below=flag_below
-        )
-        if not norm:
+    for r in result:
+        score  = r.get("score", 5)
+        if score > flag_below:
             continue
 
-        # 컷오프 한 번 더 (actor가 recent_days 무시할 가능성 대비)
-        if cutoff:
-            try:
-                if datetime.strptime(norm["published_at"], "%Y-%m-%d").date() < cutoff:
-                    continue
-            except ValueError:
-                pass
+        pub_raw = r.get("at")
+        if not isinstance(pub_raw, datetime) or pub_raw.year < 2020:
+            continue  # 날짜 불명 → 제외
+        if cutoff and pub_raw.date() < cutoff:
+            continue  # 컷오프 이전 작성 → 제외
+        pub_date_str = pub_raw.strftime("%Y-%m-%d")
 
-        # 모빌리티 통합 앱(카카오T/Tmap) — 주차 키워드 없으면 제외
-        if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(norm["summary"]):
+        content = (r.get("content") or "")[:1000]
+
+        # 모빌리티 통합 앱(카카오T/Tmap) — 본문에 주차 키워드 없으면 제외
+        if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(content):
             continue
 
-        h = norm["url"].rsplit("#r", 1)[-1] if "#r" in norm["url"] else norm["summary"][:20]
-        if h in seen_hashes:
-            continue
-        seen_hashes.add(h)
-        items.append(norm)
+        review_hash = hashlib.md5((content + pub_date_str + r.get('userName', '')).encode()).hexdigest()[:8]
+        items.append({
+            "service_id":   sid,
+            "published_at": pub_date_str,
+            "source_type":  "appstore",
+            "change_type":  "VOC",
+            "title":        f"[Android ★{score}] {r.get('userName', '익명')}",
+            "summary":      content,
+            "url":          f"https://play.google.com/store/apps/details?id={app_id}#r{review_hash}",
+            "sentiment":    "negative" if score <= 2 else "neutral",
+        })
 
     return items
 
@@ -353,15 +351,12 @@ def crawl_appstore(source: dict) -> list[dict]:
 # ──────────────────────────────────────────────
 
 def crawl_ios_appstore(source: dict) -> list[dict]:
-    """Apple App Store 리뷰 수집 — Apify actor 경유.
+    """Apple App Store 리뷰 수집 (iTunes RSS, 다중 sort).
 
-    Apple iTunes RSS API는 2026-05-26경 사실상 deprecated 상태 (entries 빈 응답).
-    amp-api 직접 호출은 서버사이드 토큰만 사용해 브라우저로도 추출 불가.
-    → Apify actor가 토큰 우회/페이지 로딩 처리해주는 걸 사용.
-    APIFY_TOKEN 미설정 시 빈 리스트 반환 (수집 스킵).
+    Apple iTunes RSS는 가끔 일시 장애로 entries 빈 응답을 줌 (2026-05-26 케이스).
+    또 sortBy=mostRecent가 stale 캐시되는 알려진 버그가 있어 mostRecent +
+    mostHelpful 두 sort를 합집합으로 호출해 누락 보강.
     """
-    from ios_apify import fetch_ios_reviews, normalize_apify_item
-
     app_id     = source.get("app_id", "")
     sid        = source.get("service_id", "")
     flag_below = source.get("flag_below_rating", 3)
@@ -369,40 +364,91 @@ def crawl_ios_appstore(source: dict) -> list[dict]:
     if not app_id:
         return []
 
-    # max_pages → max_reviews 환산 (1 page ≈ 50개)
-    max_reviews = source.get("max_reviews") or (source.get("max_pages", 1) * 50)
-
-    raw_items = fetch_ios_reviews(app_id, country="kr", max_reviews=max_reviews)
-    if not raw_items:
+    max_pages = source.get("max_pages", 1)
+    entries: list = []
+    for sort_by in ("mostRecent", "mostHelpful"):
+        for page in range(1, max_pages + 1):
+            url = (
+                f"https://itunes.apple.com/kr/rss/customerreviews/"
+                f"page={page}/id={app_id}/sortBy={sort_by}/json"
+            )
+            try:
+                resp = _get(url)
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                page_entries = data.get("feed", {}).get("entry", [])
+                if not page_entries:
+                    break
+                # 각 sort의 page=1 첫 entry는 앱 정보 → 스킵
+                if page == 1 and page_entries:
+                    page_entries = page_entries[1:]
+                if not page_entries:
+                    break
+                entries.extend(page_entries)
+            except Exception as e:
+                log.warning(f"iOS 앱스토어 요청 실패 [{app_id}] sort={sort_by} page={page}: {e}")
+                break
+    if not entries:
         return []
 
     cutoff = _review_cutoff_date()
     seen_hashes: set[str] = set()
     items: list[dict] = []
+    for entry in entries:
+        try:
+            rating_raw = entry.get("im:rating", {})
+            if isinstance(rating_raw, dict):
+                score = int(rating_raw.get("label", "5"))
+            else:
+                score = 5
 
-    for raw in raw_items:
-        norm = normalize_apify_item(raw, service_id=sid, app_id=app_id, flag_below=flag_below)
-        if not norm:
+            if score > flag_below:
+                continue
+
+            rev_title = entry.get("title", {}).get("label", "").strip()
+            content   = entry.get("content", {}).get("label", "").strip()
+            author    = entry.get("author", {}).get("name", {}).get("label", "익명")
+
+            updated = entry.get("updated", {}).get("label", "")
+            if not updated or updated[:4] < "2020":
+                continue
+            pub_str = updated[:10]
+            if cutoff:
+                try:
+                    if datetime.strptime(pub_str, "%Y-%m-%d").date() < cutoff:
+                        continue
+                except ValueError:
+                    pass
+
+            if rev_title and content:
+                merged_summary = f"[{rev_title}] {content}"
+            elif rev_title:
+                merged_summary = rev_title
+            else:
+                merged_summary = content
+            merged_summary = merged_summary[:1200]
+
+            if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(merged_summary):
+                continue
+
+            review_hash = hashlib.md5((merged_summary + pub_str + author).encode()).hexdigest()[:8]
+            if review_hash in seen_hashes:
+                continue
+            seen_hashes.add(review_hash)
+            items.append({
+                "service_id":   sid,
+                "published_at": pub_str,
+                "source_type":  "ios_appstore",
+                "change_type":  "VOC",
+                "title":        f"[iOS ★{score}] {author}",
+                "summary":      merged_summary,
+                "url":          f"https://apps.apple.com/kr/app/id{app_id}#r{review_hash}",
+                "sentiment":    "negative" if score <= 2 else "neutral",
+            })
+        except Exception as e:
+            log.debug(f"iOS 리뷰 항목 파싱 오류: {e}")
             continue
-
-        # 날짜 컷오프
-        if cutoff:
-            try:
-                if datetime.strptime(norm["published_at"], "%Y-%m-%d").date() < cutoff:
-                    continue
-            except ValueError:
-                pass
-
-        # 모빌리티 통합 앱(카카오T/Tmap) — 주차 키워드 없으면 제외
-        if sid in _PARKING_FILTERED_REVIEW_SVCS and not _has_parking_kw(norm["summary"]):
-            continue
-
-        # review_hash dedup (url의 #r{hash} 부분 활용)
-        h = norm["url"].rsplit("#r", 1)[-1] if "#r" in norm["url"] else norm["published_at"] + norm["summary"][:20]
-        if h in seen_hashes:
-            continue
-        seen_hashes.add(h)
-        items.append(norm)
 
     return items
 
@@ -488,22 +534,60 @@ def _fetch_gplay_info(app_id: str) -> tuple:
 
 
 def _fetch_ios_info(app_id: str) -> tuple:
+    """iOS 앱 메타데이터 — iTunes Search API 우선, 실패/0건 시 JSON-LD fallback.
+
+    JSON-LD는 apps.apple.com SEO용 schema.org 데이터라 Apple이 죽이기 어려움.
+    rating / num_ratings는 항상 받을 수 있어 평점 변동 모니터링은 안정적.
+    """
+    # 1) iTunes Search API (기존, 빠름)
     try:
         url  = f"https://itunes.apple.com/lookup?id={app_id}&country=kr"
         resp = _get(url)
         data = resp.json()
-        if data.get("resultCount", 0) == 0:
-            return None, None, None, None
-        r = data["results"][0]
-        return (
-            round(r.get("averageUserRating") or 0, 2),
-            r.get("userRatingCount") or 0,
-            r.get("version") or "",
-            (r.get("releaseNotes") or "")[:500],
-        )
+        if data.get("resultCount", 0) > 0:
+            r = data["results"][0]
+            rating = round(r.get("averageUserRating") or 0, 2)
+            num    = r.get("userRatingCount") or 0
+            if rating > 0 or num > 0:
+                return (
+                    rating, num,
+                    r.get("version") or "",
+                    (r.get("releaseNotes") or "")[:500],
+                )
     except Exception as e:
-        log.warning(f"iOS 앱 정보 실패 [{app_id}]: {e}")
-        return None, None, None, None
+        log.warning(f"iTunes lookup 실패 [{app_id}]: {e} — JSON-LD fallback 시도")
+
+    # 2) JSON-LD fallback (apps.apple.com SEO 메타 — 절대 안 막힘)
+    try:
+        from bs4 import BeautifulSoup as _BS
+        import json as _json
+        page_url = f"https://apps.apple.com/kr/app/id{app_id}"
+        resp = requests.get(page_url, timeout=15, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept-Language": "ko-KR,ko;q=0.9",
+        })
+        soup = _BS(resp.text, "html.parser")
+        rating, num, version = None, None, ""
+        for s in soup.find_all("script", type="application/ld+json"):
+            try:
+                d = _json.loads(s.string or "{}")
+                if isinstance(d, dict) and "aggregateRating" in d:
+                    agg = d["aggregateRating"]
+                    rating = round(float(agg.get("ratingValue", 0)), 2)
+                    num    = int(agg.get("reviewCount", 0))
+                    break
+            except Exception:
+                continue
+        m = re.search(r'"versionDisplay":"([^"]+)"', resp.text)
+        if m:
+            version = m.group(1)
+        if rating is not None and num is not None:
+            log.info(f"iOS 메타 [{app_id}] JSON-LD: ★{rating} / {num}건")
+            return rating, num, version, ""
+    except Exception as e:
+        log.warning(f"JSON-LD 메타 추출 실패 [{app_id}]: {e}")
+
+    return None, None, None, None
 
 
 # ──────────────────────────────────────────────
