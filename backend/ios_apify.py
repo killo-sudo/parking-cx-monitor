@@ -13,20 +13,20 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-# Apify Store에서 골라서 ACTOR_ID 환경변수로 오버라이드 가능
-# 기본값: 보편적으로 사용되는 epctex actor
-_DEFAULT_ACTOR = "epctex/app-store-reviews-scraper"
+# thewolves/appstore-reviews-scraper — $0.10/1K reviews, 입력: appStoreIds + country
+_DEFAULT_ACTOR = "thewolves/appstore-reviews-scraper"
 
 
 def fetch_ios_reviews(
     app_id: str,
-    country: str = "kr",
+    country: str = "KR",
     max_reviews: int = 200,
 ) -> list[dict[str, Any]]:
     """Apify actor를 호출해 단일 앱의 iOS 리뷰 fetch.
 
     반환값: actor가 돌려준 raw item 리스트 (필드 매핑은 호출자가 처리).
     APIFY_TOKEN 미설정 / 호출 실패 시 빈 리스트.
+    actor가 maxReviews를 무시할 수 있으니 호출자가 필요시 후처리 잘라야 함.
     """
     token = os.environ.get("APIFY_TOKEN", "").strip()
     if not token:
@@ -42,16 +42,10 @@ def fetch_ios_reviews(
     actor_id = os.environ.get("APIFY_IOS_ACTOR", _DEFAULT_ACTOR).strip() or _DEFAULT_ACTOR
     client = ApifyClient(token)
 
-    # 대부분의 App Store reviews actor는 다음 입력 포맷을 지원
-    # (startUrls 또는 appIds 둘 중 하나). epctex 계열은 startUrls 사용.
+    # thewolves/appstore-reviews-scraper 입력 포맷
     run_input = {
-        "startUrls": [
-            {"url": f"https://apps.apple.com/{country}/app/id{app_id}"}
-        ],
-        "maxReviews": max_reviews,
-        "country": country,
-        "sort": "MOST_RECENT",
-        "proxy": {"useApifyProxy": True},
+        "appStoreIds": [str(app_id)],
+        "country": country.upper(),  # "KR"
     }
 
     try:
