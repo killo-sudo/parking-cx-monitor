@@ -43,12 +43,19 @@ jobs:
             cp data/app_info.json docs/app_info.json
           fi
 
+      - name: Generate weekly gazette
+        # get_period()가 항상 "최근 완료된 전주"라 매일 실행해도 안전 (week_num dedup)
+        run: python backend/weekly_report.py
+
       - name: Commit updated data files
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f docs/data.json
           git add -f docs/app_info.json 2>/dev/null || true
+          git add -f docs/gazette_latest.html 2>/dev/null || true
+          git add -f docs/gazette_*.html 2>/dev/null || true
+          git add -f docs/gazette_meta.json 2>/dev/null || true
           git add data/ 2>/dev/null || true
           echo "=== git status ==="
           git status --short
