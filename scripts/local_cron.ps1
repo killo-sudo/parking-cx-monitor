@@ -57,7 +57,7 @@ if (Test-Path $credsPath) {
 # 3) git pull (latest code/data)
 try {
     Log "git pull..."
-    $pullOut = & git pull --rebase origin main 2>&1 | Out-String
+    $pullOut = & git pull --rebase --autostash origin main 2>&1 | Out-String
     Log $pullOut
 } catch {
     Log "[ERROR git pull] $_"
