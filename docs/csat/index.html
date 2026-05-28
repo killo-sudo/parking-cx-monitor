@@ -52,6 +52,11 @@ body {
   padding: 4px 10px; font-size: 11px; color: #777; cursor: pointer;
 }
 .topbar #logout:hover { background: #fafafa; }
+.topbar #theme-toggle {
+  background: none; border: 1px solid #ddd; border-radius: 6px;
+  padding: 4px 9px; font-size: 13px; cursor: pointer; line-height: 1;
+}
+.topbar #theme-toggle:hover { background: #fafafa; }
 
 .body { display: flex; flex: 1; overflow: hidden; }
 
@@ -159,6 +164,34 @@ body {
   .topbar { padding: 12px 16px; }
   .topbar .title { font-size: 15px; }
 }
+
+/* ── 다크모드 (body.dark) ───────────────── */
+body.dark { background: #14141c; color: #d6d6e0; }
+body.dark .topbar { background: #1e1e2a; border-bottom-color: #34343f; box-shadow: none; }
+body.dark .topbar .title { color: #f0f0f6; }
+body.dark .topbar .subtitle { color: #9a9aa8; }
+body.dark .topbar .back { color: #b4b4c0; border-color: #3a3a48; }
+body.dark .topbar .back:hover { background: #2a2a38; }
+body.dark .topbar-right { color: #9a9aa8; }
+body.dark .topbar #logout,
+body.dark .topbar #theme-toggle { border-color: #3a3a48; color: #b4b4c0; }
+body.dark .topbar #logout:hover,
+body.dark .topbar #theme-toggle:hover { background: #2a2a38; }
+body.dark .sidebar { background: #1e1e2a; border-right-color: #34343f; }
+body.dark .sidebar-header { color: #8a8a96; }
+body.dark .year-group { border-bottom-color: #2a2a36; }
+body.dark .year-header { color: #e6e6ee; }
+body.dark .year-header:hover { background: #26263340; }
+body.dark .year-header .y-count { background: #2e2e3c; color: #a6a6b4; }
+body.dark .month-item { color: #c0c0cc; }
+body.dark .month-item:hover { background: #26263350; }
+body.dark .month-item.active { background: #1c2a45; color: #7aa7f0; border-left-color: #3b82f6; }
+body.dark .tabs { background: #1e1e2a; border-bottom-color: #34343f; }
+body.dark .tab { color: #9a9aa8; }
+body.dark .tab:hover { background: #2a2a38; color: #e0e0e8; }
+body.dark .tab.active { background: #14141c; color: #f0f0f6; border-color: #34343f; }
+body.dark .iframe-wrap, body.dark .report-frame { background: #14141c; }
+body.dark .empty-content .ec-title { color: #b4b4c0; }
 </style>
 </head>
 <body>
@@ -184,6 +217,7 @@ body {
     </div>
     <div class="topbar-right">
       <span id="auth-user"></span>
+      <button id="theme-toggle" title="다크모드 전환">🌙</button>
       <button id="logout">로그아웃</button>
     </div>
   </div>
@@ -270,6 +304,28 @@ function onGisCallback(response) {
 document.getElementById('logout').addEventListener('click', function () {
   localStorage.removeItem(JWT_KEY); location.reload();
 });
+
+/* ───────── 다크모드 ───────── */
+var THEME_KEY = 'pg_theme';
+function currentTheme() {
+  var t = localStorage.getItem(THEME_KEY);
+  if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  return t;
+}
+function applyTheme(t) {
+  document.body.classList.toggle('dark', t === 'dark');
+  var btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = (t === 'dark') ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  var t = (currentTheme() === 'dark') ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, t);
+  applyTheme(t);
+  // iframe(리포트)도 새 테마로 다시 로드 (같은 출처 → localStorage 재read)
+  if (typeof CURRENT !== 'undefined' && CURRENT) loadTab(CURRENT_TAB);
+}
+applyTheme(currentTheme());
+document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
 /* ───────── 리포트 데이터 ───────── */
 var REPORTS = [];     // 전체 리포트 목록
