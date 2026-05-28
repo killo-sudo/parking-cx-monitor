@@ -1237,6 +1237,13 @@ def run() -> dict:
         src_id   = src.get("id", "?")
         src_type = src.get("type", "")
 
+        # 모두의주차장 앱 리뷰는 AppFollow API(scripts/refresh_app_reviews.py)로
+        # 월 1회 완전 수집한다. 자체 크롤(iTunes RSS·google-play-scraper)은 누락이
+        # 많아 data.json을 오염/되돌리므로 daily 크롤에서는 제외.
+        if src.get("service_id") == "moduparking" and src_type in ("appstore", "ios_appstore"):
+            log.info(f"[skip] {src_id} — modu 앱 리뷰는 AppFollow로 월 1회 수집")
+            continue
+
         try:
             if src_type == "rss":
                 items = crawl_rss(src, services)

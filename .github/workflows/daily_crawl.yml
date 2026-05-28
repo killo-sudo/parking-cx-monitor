@@ -26,7 +26,6 @@ jobs:
       NAVER_CLIENT_ID:       ${{ secrets.NAVER_CLIENT_ID }}
       NAVER_CLIENT_SECRET:   ${{ secrets.NAVER_CLIENT_SECRET }}
       APIFY_TOKEN:           ${{ secrets.APIFY_TOKEN }}
-      APPFOLLOW_API_TOKEN:   ${{ secrets.APPFOLLOW_API_TOKEN }}
       # full_backfill=true면 FORCE_FULL_CRAWL=1 (스케줄 실행 시엔 빈 값)
       FORCE_FULL_CRAWL:      ${{ inputs.full_backfill == true && '1' || '' }}
 
@@ -45,11 +44,6 @@ jobs:
 
       - name: Run crawler
         run: python backend/daily_crawl.py
-
-      # 자체 크롤은 모두의주차장 앱 리뷰를 누락하므로(iTunes RSS 지연·GP IP 차단),
-      # AppFollow 완전판으로 덮어써 data.json의 modu 리뷰를 항상 완전하게 유지.
-      - name: Refresh app reviews (AppFollow 완전 수집)
-        run: python scripts/refresh_app_reviews.py --months 2
 
       - name: Update docs/app_info.json
         run: |
