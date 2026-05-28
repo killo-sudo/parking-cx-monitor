@@ -22,6 +22,11 @@ on:
         required: false
         type: boolean
         default: false
+      backfill:
+        description: '백필: 시트의 모든 월 처리 (month/year 무시, 최신 월만 슬랙)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   csat-report:
@@ -67,7 +72,11 @@ jobs:
 
       - name: Run CSAT report generation
         run: |
-          ARGS="--month ${{ steps.target.outputs.month }} --year ${{ steps.target.outputs.year }}"
+          if [ "${{ github.event.inputs.backfill }}" = "true" ]; then
+            ARGS="--backfill"
+          else
+            ARGS="--month ${{ steps.target.outputs.month }} --year ${{ steps.target.outputs.year }}"
+          fi
           if [ "${{ github.event.inputs.skip_slack }}" = "true" ]; then
             ARGS="$ARGS --skip-slack"
           fi

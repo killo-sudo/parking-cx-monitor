@@ -22,7 +22,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-from csat_processor import process_csat
+from csat_processor import get_available_months, process_csat
 from csat_report_gen import generate_all
 from csat_slack import post_to_slack
 
@@ -122,7 +122,35 @@ def main() -> None:
     p.add_argument("--year", type=int)
     p.add_argument("--skip-slack", action="store_true")
     p.add_argument("--confluence", default=os.environ.get("CONFLUENCE_URL", ""))
+    p.add_argument("--backfill", action="store_true",
+                   help="시트의 회신일에 데이터가 있는 모든 월 처리 "
+                        "(month/year 무시, 최신 월만 슬랙 발송)")
     args = p.parse_args()
+
+    if args.backfill:
+        targets = get_available_months()
+        if not targets:
+            log.error("시트에서 회신월을 찾을 수 없음")
+            sys.exit(2)
+        log.info("백필 대상: %s", targets)
+        # 이용자 귀책 보호 + Claude 호출량 고려: 슬랙은 가장 최신 월에만 발송
+        latest = targets[-1]
+        any_fail = False
+        for (y, m) in targets:
+            skip_slack = args.skip_slack or (y, m) != latest
+            log.info("--- 처리 시작: %d년 %d월 (skip_slack=%s) ---",
+                     y, m, skip_slack)
+            try:
+                rc = run(m, y, skip_slack=skip_slack,
+                         confluence_url=args.confluence)
+                if rc != 0:
+                    log.warning("%d년 %d월 rc=%d", y, m, rc)
+                    if rc == 1:
+                        any_fail = True
+            except Exception as e:
+                log.exception("%d년 %d월 처리 실패: %s", y, m, e)
+                any_fail = True
+        sys.exit(1 if any_fail else 0)
 
     if args.month and args.year:
         m, y = args.month, args.year

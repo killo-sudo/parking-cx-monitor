@@ -85,6 +85,37 @@ def load_sheet_rows(spreadsheet_id: str, gid: str) -> list[list[Any]]:
     return target.get_all_values()
 
 
+def get_available_months(
+    spreadsheet_id: str | None = None,
+    gid: str | None = None,
+) -> list[tuple[int, int]]:
+    """AE열(설문지 회신일)에 데이터가 있는 모든 (year, month)를 반환.
+
+    백필 모드에서 어떤 월을 처리할지 결정하는 용도.
+    반환은 오름차순 ((2026, 2), (2026, 3), ...).
+    """
+    spreadsheet_id = (
+        spreadsheet_id
+        or os.environ.get("CSAT_SPREADSHEET_ID")
+        or DEFAULT_SPREADSHEET_ID
+    )
+    gid = gid or os.environ.get("CSAT_SOURCE_GID") or DEFAULT_SOURCE_GID
+
+    rows = load_sheet_rows(spreadsheet_id, gid)
+    hdr_row, _ = parse_header(rows)
+    if hdr_row < 0:
+        return []
+    data_rows = rows[hdr_row + 1 :]
+    months: set[tuple[int, int]] = set()
+    for r in data_rows:
+        if DATE_COL_IDX >= len(r):
+            continue
+        d = extract_date(r[DATE_COL_IDX])
+        if d:
+            months.add((d.year, d.month))
+    return sorted(months)
+
+
 def parse_header(rows: list[list[Any]]) -> tuple[int, list[str]]:
     """상위 5행 중 비어있지 않은 첫 행을 헤더로 사용."""
     for r in range(min(5, len(rows))):
