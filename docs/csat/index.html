@@ -369,6 +369,9 @@ document.getElementById('tabs').addEventListener('click', function (e) {
 function loadTab(tab) {
   if (!CURRENT) return;
   var src = CURRENT[tab];
+  // 캐시 무력화: 리포트 HTML이 갱신돼도 옛 버전이 캐시에서 나오지 않도록
+  var sep = src.indexOf('?') >= 0 ? '&' : '?';
+  src = src + sep + 't=' + Date.now();
   var wrap = document.getElementById('iframe-wrap');
   wrap.innerHTML = '<iframe class="report-frame" src="' + src + '"></iframe>';
 }
