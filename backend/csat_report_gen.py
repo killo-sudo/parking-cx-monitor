@@ -417,23 +417,57 @@ _CSAT_GROUP_DESC = {
 }
 
 
-def _item_label_html(it: dict) -> str:
-    """항목표 라벨: '품질1' 약어 대신 실제 설문 질문을 함께 표시.
-
-    full_name 형식: '품질1. 상담원은 ... 했습니까?' → 태그(굵게) + 질문(작게).
-    """
-    full = (it.get("full_name") or "").strip()
-    short = it.get("short_name", "")
-    tag, question = short, ""
+def _csat_question(full: str) -> str:
+    """full_name('품질1. 질문...')에서 질문 본문만 추출. 접두어 없으면 원문."""
+    full = (full or "").strip()
     dot = full.find(". ")
-    if 0 < dot < 8:
-        tag, question = full[:dot], full[dot + 2:]
-    elif full:
-        question = full
+    return full[dot + 2:] if 0 < dot < 8 else full
+
+
+def group_item_sat(item_sat: list[dict]) -> list[dict]:
+    """동일 질문(문항 텍스트 일치)을 한 행으로 통합.
+
+    CSAT 설문은 품질/전문성/복합 세 유형으로 분기되는데 일부 문항이
+    유형만 다르게 중복 출제됨(예: '품질1'='전문성1'). 같은 질문은
+    응답을 합산(pos·tot)하여 단일 행으로 표시한다. 등장 순서 유지.
+    """
+    from collections import OrderedDict
+    groups: "OrderedDict[str, dict]" = OrderedDict()
+    for it in item_sat:
+        q = _csat_question(it.get("full_name", "")) or it.get("short_name", "")
+        g = groups.setdefault(q, {"tags": [], "question": q, "pos": 0, "tot": 0})
+        g["tags"].append(it.get("short_name", ""))
+        g["pos"] += it.get("pos", 0)
+        g["tot"] += it.get("tot", 0)
+    out = []
+    for g in groups.values():
+        tot = g["tot"]
+        out.append({
+            "tags": "·".join(g["tags"]),
+            "question": g["question"],
+            "pos": g["pos"],
+            "tot": tot,
+            "rate": round(g["pos"] / tot * 100, 1) if tot else 0.0,
+            "dup": len(g["tags"]) > 1,
+        })
+    return out
+
+
+def _item_label_html(it: dict) -> str:
+    """항목표 라벨: 약어(통합 시 '품질1·전문성1') + 실제 설문 질문 표시."""
+    tag = it.get("tags") or it.get("short_name", "")
+    question = it.get("question")
+    if question is None:
+        question = _csat_question(it.get("full_name", ""))
+    dup_badge = (
+        ' <span style="font-size:9px;background:#eef2ff;color:#3b5bdb;'
+        'padding:1px 6px;border-radius:8px;vertical-align:middle">통합</span>'
+        if it.get("dup") else ""
+    )
     if not question:
-        return escape(tag or short)
+        return escape(tag)
     return (
-        f'<strong style="color:#2c3e50">{escape(tag)}</strong>'
+        f'<strong style="color:#2c3e50">{escape(tag)}</strong>{dup_badge}'
         f'<div style="font-size:11px;color:#777;margin-top:2px;font-weight:400">'
         f'{escape(question)}</div>'
     )
@@ -597,7 +631,7 @@ def render_page2(data: dict, llm: dict) -> str:
     ) + "</div>"
 
     item_rows = []
-    for it in data["item_sat"]:
+    for it in group_item_sat(data["item_sat"]):
         cls, grade = _sat_grade(it["rate"])
         item_rows.append([
             _item_label_html(it),
@@ -652,7 +686,8 @@ def render_page2(data: dict, llm: dict) -> str:
 <p style="font-size:11px;color:#777;margin-bottom:6px;line-height:1.6">
 설문은 응답자가 받은 문항 세트에 따라 세 유형으로 나뉩니다 —
 <b>품질</b> 응대 품질(태도·공감·설명) · <b>전문성</b> 지식·문제해결·신뢰 · <b>복합</b> 종합 경험(절차·대안·만족).
-'<b>응답</b>'은 (만족 응답 수 / 해당 문항에 답한 전체 응답 수)이며, 만족률은 그 비율입니다.</p>
+'<b>응답</b>'은 (만족 응답 수 / 해당 문항에 답한 전체 응답 수)이며, 만족률은 그 비율입니다.
+같은 질문이 여러 유형에 중복 출제된 경우 <b>통합</b> 배지와 함께 한 행으로 합산했습니다.</p>
 <p style="font-size:11px;color:#999;margin-bottom:10px">🟢 80%↑ 양호 &nbsp;|&nbsp; 🔵 70%↑ 보통 &nbsp;|&nbsp; 🟠 60%↑ 주의 &nbsp;|&nbsp; 🔴 60%↓ 위험</p>
 {item_table}
 </div>
