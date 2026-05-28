@@ -409,6 +409,36 @@ def _comp_card_html(c: dict) -> str:
 </div>"""
 
 
+# CSAT 설문 유형(컬럼 접두어) → 사람이 읽는 설명
+_CSAT_GROUP_DESC = {
+    "품질": "응대 품질 (태도·공감·설명)",
+    "전문성": "전문성 (지식·문제해결·신뢰)",
+    "복합": "종합 경험 (절차·대안·만족)",
+}
+
+
+def _item_label_html(it: dict) -> str:
+    """항목표 라벨: '품질1' 약어 대신 실제 설문 질문을 함께 표시.
+
+    full_name 형식: '품질1. 상담원은 ... 했습니까?' → 태그(굵게) + 질문(작게).
+    """
+    full = (it.get("full_name") or "").strip()
+    short = it.get("short_name", "")
+    tag, question = short, ""
+    dot = full.find(". ")
+    if 0 < dot < 8:
+        tag, question = full[:dot], full[dot + 2:]
+    elif full:
+        question = full
+    if not question:
+        return escape(tag or short)
+    return (
+        f'<strong style="color:#2c3e50">{escape(tag)}</strong>'
+        f'<div style="font-size:11px;color:#777;margin-top:2px;font-weight:400">'
+        f'{escape(question)}</div>'
+    )
+
+
 def _ai_card_html(a: dict) -> str:
     return f"""<div class="ai">
 <div class="ai-title">{a['icon']} {escape(a['title'])}</div>
@@ -570,12 +600,14 @@ def render_page2(data: dict, llm: dict) -> str:
     for it in data["item_sat"]:
         cls, grade = _sat_grade(it["rate"])
         item_rows.append([
-            escape(it["short_name"]),
+            _item_label_html(it),
             f'<span class="{cls}">{it["rate"]}%</span>',
             f'{it["pos"]}/{it["tot"]}',
             grade,
         ])
-    item_table = _table_html(["항목", "만족률", "응답", "등급"], item_rows)
+    item_table = _table_html(
+        ["설문 항목 (실제 질문)", "만족률", "응답", "등급"], item_rows
+    )
 
     voc_cards = []
     voc_analyses = {a["index"]: a for a in llm["voc_analyses"]}
@@ -617,6 +649,10 @@ def render_page2(data: dict, llm: dict) -> str:
 </div>
 <div class="sec">
 <div class="sec-title">📊 항목별 만족도 분석</div>
+<p style="font-size:11px;color:#777;margin-bottom:6px;line-height:1.6">
+설문은 응답자가 받은 문항 세트에 따라 세 유형으로 나뉩니다 —
+<b>품질</b> 응대 품질(태도·공감·설명) · <b>전문성</b> 지식·문제해결·신뢰 · <b>복합</b> 종합 경험(절차·대안·만족).
+'<b>응답</b>'은 (만족 응답 수 / 해당 문항에 답한 전체 응답 수)이며, 만족률은 그 비율입니다.</p>
 <p style="font-size:11px;color:#999;margin-bottom:10px">🟢 80%↑ 양호 &nbsp;|&nbsp; 🔵 70%↑ 보통 &nbsp;|&nbsp; 🟠 60%↑ 주의 &nbsp;|&nbsp; 🔴 60%↓ 위험</p>
 {item_table}
 </div>
