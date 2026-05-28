@@ -39,6 +39,11 @@ DIS_SUBJ_FALLBACK_IDX = 33  # AH열: 불만족 주체 (폴백)
 
 SAT_WORDS = {"매우만족", "만족", "5", "4"}
 
+
+def _normalize(s: str) -> str:
+    """공백 제거 normalize — 시트 표기 '매우 만족' vs 코드 '매우만족' 차이 흡수."""
+    return "".join(str(s).split())
+
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets.readonly",
     "https://www.googleapis.com/auth/drive.readonly",
@@ -128,6 +133,11 @@ def extract_date(cell: Any) -> date | None:
         "%Y. %m. %d.",
         "%m/%d/%Y",
         "%Y%m%d",
+        # 월 단위 표기 (시트의 AE열 '설문지 회신일' 표준 형식) — day=1로 처리됨
+        "%Y-%m",
+        "%Y/%m",
+        "%Y. %m",
+        "%Y. %m.",
     ]
     for f in fmts:
         try:
@@ -178,7 +188,10 @@ def get_af(row: list[Any], af_idx: int) -> int:
 def detect_csat_cols(
     hdr: list[str], rows: list[list[Any]], excl: list[int]
 ) -> list[dict[str, Any]]:
-    """CSAT 항목 자동 감지 — 만족척도(5/4/3/2/1 또는 매우만족~매우불만족)."""
+    """CSAT 항목 자동 감지 — 만족척도(5/4/3/2/1 또는 매우만족~매우불만족).
+
+    시트 표기 '매우 만족' (공백 포함) 도 _normalize로 매칭함.
+    """
     levels = {"매우만족", "만족", "보통", "불만족", "매우불만족",
               "5", "4", "3", "2", "1"}
     result = []
@@ -203,7 +216,7 @@ def detect_csat_cols(
                     continue
             except ValueError:
                 pass
-            if raw in levels:
+            if _normalize(raw) in levels:
                 match += 1
         if total >= 3 and match / total >= 0.5:
             result.append({"idx": c, "name": name})
@@ -427,7 +440,7 @@ def process_csat(
                     continue
             except ValueError:
                 pass
-            if val in SAT_WORDS:
+            if _normalize(val) in SAT_WORDS:
                 pos += 1
         csat_res_tot += tot
         csat_sat_tot += pos
@@ -451,6 +464,20 @@ def process_csat(
     )
 
     # ── 1차 해결 ──
+    # 시트 실제 값: '한번에 해결' / '여러 차례에 걸쳐서 해결' / '해결 못함'
+    # '여러 차례'는 1차에 해결 못한 케이스라 실패로 분류
+    def classify_res1st(v: str) -> str:
+        n_v = _normalize(v)
+        if not n_v:
+            return "empty"
+        if n_v in ("예", "Y", "1") or ("한번에" in n_v and "해결" in n_v):
+            return "ok"
+        if (n_v in ("아니오", "N", "0", "미해결")
+                or "못함" in n_v or "안됨" in n_v
+                or "여러차례" in n_v or "여러번" in n_v):
+            return "fail"
+        return "other"
+
     res1st_ok, res1st_fail, res1st_tot = 0, 0, 0
     for r in a_rows:
         if res1st_idx < 0 or res1st_idx >= len(r):
@@ -459,9 +486,10 @@ def process_csat(
         if not v:
             continue
         res1st_tot += 1
-        if v in ("예", "Y", "해결", "1"):
+        cls = classify_res1st(v)
+        if cls == "ok":
             res1st_ok += 1
-        elif v in ("아니오", "N", "미해결", "0"):
+        elif cls == "fail":
             res1st_fail += 1
     res1st_rate = round(res1st_ok / n * 100, 1) if n > 0 else 0.0
 
@@ -518,7 +546,7 @@ def process_csat(
                         continue
                 except ValueError:
                     pass
-                if val in SAT_WORDS:
+                if _normalize(val) in SAT_WORDS:
                     w_csat_pos += 1
         w_csat_denom = wn * len(csat_cols)
         w_csat_rate = round(w_csat_pos / w_csat_denom * 100, 1) if w_csat_denom > 0 else 0.0
@@ -526,7 +554,7 @@ def process_csat(
         w_res1st_ok = sum(
             1 for r in w_rows
             if res1st_idx >= 0 and res1st_idx < len(r)
-            and str(r[res1st_idx] or "").strip() in ("예", "Y", "해결", "1")
+            and classify_res1st(str(r[res1st_idx] or "").strip()) == "ok"
         )
         w_af_pos = sum(1 for r in w_rows if get_af(r, af_idx) > 0)
         w_af_neg = sum(1 for r in w_rows if get_af(r, af_idx) < 0)
@@ -584,7 +612,7 @@ def process_csat(
     for r in a_rows:
         v_res = cell(r, res1st_idx)
         unresolved_text = cell(r, unre_idx)
-        if v_res in ("아니오", "N", "미해결", "0") or unresolved_text:
+        if classify_res1st(v_res) == "fail" or unresolved_text:
             unre_rows.append({
                 "date_md": fmt_md(extract_date(r[date_idx] if date_idx < len(r) else "")),
                 "lot": cell(r, lot_idx),
@@ -605,7 +633,7 @@ def process_csat(
         wish = cell(r, wish_idx)
         unre_text = cell(r, unre_idx)
         if not (af < 0
-                or v_res in ("아니오", "N", "미해결", "0")
+                or classify_res1st(v_res) == "fail"
                 or wish
                 or unre_text):
             continue
