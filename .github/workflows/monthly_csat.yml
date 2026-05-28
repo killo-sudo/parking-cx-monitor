@@ -42,6 +42,7 @@ jobs:
       ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
       CONFLUENCE_URL:            ${{ secrets.CSAT_CONFLUENCE_URL }}
       CSAT_MODEL:                claude-sonnet-4-6
+      APPFOLLOW_API_TOKEN:       ${{ secrets.APPFOLLOW_API_TOKEN }}
 
     steps:
       - name: Checkout
@@ -70,6 +71,9 @@ jobs:
           echo "year=$Y" >> "$GITHUB_OUTPUT"
           echo "Target: $Y년 $M월"
 
+      - name: Refresh app reviews (AppFollow 완전 수집)
+        run: python scripts/refresh_app_reviews.py --months 2
+
       - name: Run CSAT report generation
         run: |
           if [ "${{ github.event.inputs.backfill }}" = "true" ]; then
@@ -89,6 +93,7 @@ jobs:
           git add -f docs/csat/*.html 2>/dev/null || true
           git add -f docs/csat/*.json 2>/dev/null || true
           git add -f docs/csat/*.txt 2>/dev/null || true
+          git add -f docs/data.json 2>/dev/null || true
           echo "=== staged ==="
           git diff --cached --stat
           if ! git diff --cached --quiet; then

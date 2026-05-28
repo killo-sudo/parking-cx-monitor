@@ -3895,24 +3895,24 @@
     }
   ],
   "app_reviews": {
-    "count": 23,
-    "avg_rating": 2.87,
+    "count": 24,
+    "avg_rating": 2.79,
     "platform": {
-      "Android": 13,
-      "iOS": 10
+      "iOS": 10,
+      "Android": 14
     },
     "star_dist": {
-      "1": 11,
+      "1": 12,
       "2": 0,
       "3": 1,
       "4": 3,
       "5": 8
     },
     "sentiment": {
-      "negative": 11,
-      "neutral": 12,
+      "negative": 13,
+      "neutral": 11,
       "positive": 0
     },
-    "neg_pct": 47.8
+    "neg_pct": 54.2
   }
 }
