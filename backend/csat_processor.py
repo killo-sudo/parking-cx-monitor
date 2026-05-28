@@ -285,10 +285,14 @@ def process_csat(
     gid: str | None = None,
 ) -> dict[str, Any]:
     """특정 월 CSAT 데이터를 구조화 dict로 반환."""
-    spreadsheet_id = spreadsheet_id or os.environ.get(
-        "CSAT_SPREADSHEET_ID", DEFAULT_SPREADSHEET_ID
+    # env가 빈 문자열인 경우에도 DEFAULT로 fallback 되도록 명시 처리
+    spreadsheet_id = (
+        spreadsheet_id
+        or os.environ.get("CSAT_SPREADSHEET_ID")
+        or DEFAULT_SPREADSHEET_ID
     )
-    gid = gid or os.environ.get("CSAT_SOURCE_GID", DEFAULT_SOURCE_GID)
+    gid = gid or os.environ.get("CSAT_SOURCE_GID") or DEFAULT_SOURCE_GID
+    log.info("대상 시트: %s (gid=%s)", spreadsheet_id, gid)
 
     log.info("CSAT 처리 시작: %d년 %d월", year, month)
     all_rows = load_sheet_rows(spreadsheet_id, gid)
