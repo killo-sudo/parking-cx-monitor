@@ -409,14 +409,6 @@ def _comp_card_html(c: dict) -> str:
 </div>"""
 
 
-# CSAT 설문 유형(컬럼 접두어) → 사람이 읽는 설명
-_CSAT_GROUP_DESC = {
-    "품질": "응대 품질 (태도·공감·설명)",
-    "전문성": "전문성 (지식·문제해결·신뢰)",
-    "복합": "종합 경험 (절차·대안·만족)",
-}
-
-
 def _csat_question(full: str) -> str:
     """full_name('품질1. 질문...')에서 질문 본문만 추출. 접두어 없으면 원문."""
     full = (full or "").strip()
@@ -454,23 +446,19 @@ def group_item_sat(item_sat: list[dict]) -> list[dict]:
 
 
 def _item_label_html(it: dict) -> str:
-    """항목표 라벨: 약어(통합 시 '품질1·전문성1') + 실제 설문 질문 표시."""
-    tag = it.get("tags") or it.get("short_name", "")
+    """항목표 라벨: 실제 설문 질문만 표시(품질1·전문성2 등 약어 미표시).
+
+    중복 출제된 동일 질문은 작은 '통합' 배지로만 표시.
+    """
     question = it.get("question")
     if question is None:
-        question = _csat_question(it.get("full_name", ""))
+        question = _csat_question(it.get("full_name", "")) or it.get("short_name", "")
     dup_badge = (
         ' <span style="font-size:9px;background:#eef2ff;color:#3b5bdb;'
         'padding:1px 6px;border-radius:8px;vertical-align:middle">통합</span>'
         if it.get("dup") else ""
     )
-    if not question:
-        return escape(tag)
-    return (
-        f'<strong style="color:#2c3e50">{escape(tag)}</strong>{dup_badge}'
-        f'<div style="font-size:11px;color:#777;margin-top:2px;font-weight:400">'
-        f'{escape(question)}</div>'
-    )
+    return f'<span style="color:#333">{escape(question)}</span>{dup_badge}'
 
 
 def _ai_card_html(a: dict) -> str:
@@ -684,10 +672,9 @@ def render_page2(data: dict, llm: dict) -> str:
 <div class="sec">
 <div class="sec-title">📊 항목별 만족도 분석</div>
 <p style="font-size:11px;color:#777;margin-bottom:6px;line-height:1.6">
-설문은 응답자가 받은 문항 세트에 따라 세 유형으로 나뉩니다 —
-<b>품질</b> 응대 품질(태도·공감·설명) · <b>전문성</b> 지식·문제해결·신뢰 · <b>복합</b> 종합 경험(절차·대안·만족).
-'<b>응답</b>'은 (만족 응답 수 / 해당 문항에 답한 전체 응답 수)이며, 만족률은 그 비율입니다.
-같은 질문이 여러 유형에 중복 출제된 경우 <b>통합</b> 배지와 함께 한 행으로 합산했습니다.</p>
+각 행은 실제 설문 질문입니다. 응답자는 문항 세트(3종) 중 하나에 답하므로 질문별 응답 수가 다릅니다.
+'<b>응답</b>'은 (만족 응답 수 / 해당 질문에 답한 전체 응답 수)이며, 만족률은 그 비율입니다.
+같은 질문이 중복 출제된 경우 <b>통합</b> 배지와 함께 한 행으로 합산했습니다.</p>
 <p style="font-size:11px;color:#999;margin-bottom:10px">🟢 80%↑ 양호 &nbsp;|&nbsp; 🔵 70%↑ 보통 &nbsp;|&nbsp; 🟠 60%↑ 주의 &nbsp;|&nbsp; 🔴 60%↓ 위험</p>
 {item_table}
 </div>
