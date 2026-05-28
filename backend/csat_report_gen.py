@@ -624,11 +624,11 @@ def render_page2(data: dict, llm: dict) -> str:
         item_rows.append([
             _item_label_html(it),
             f'<span class="{cls}">{it["rate"]}%</span>',
-            f'{it["pos"]}/{it["tot"]}',
+            f'{it["tot"]}건',
             grade,
         ])
     item_table = _table_html(
-        ["설문 항목 (실제 질문)", "만족률", "응답", "등급"], item_rows
+        ["설문 항목 (실제 질문)", "만족률", "응답 수", "등급"], item_rows
     )
 
     voc_cards = []
@@ -673,7 +673,7 @@ def render_page2(data: dict, llm: dict) -> str:
 <div class="sec-title">📊 항목별 만족도 분석</div>
 <p style="font-size:11px;color:#777;margin-bottom:6px;line-height:1.6">
 각 행은 실제 설문 질문입니다. 응답자는 문항 세트(3종) 중 하나에 답하므로 질문별 응답 수가 다릅니다.
-'<b>응답</b>'은 (만족 응답 수 / 해당 질문에 답한 전체 응답 수)이며, 만족률은 그 비율입니다.
+'<b>응답 수</b>'는 해당 질문에 답한 전체 인원이며, <b>만족률</b>은 그중 만족(매우만족 포함)의 비율입니다.
 같은 질문이 중복 출제된 경우 <b>통합</b> 배지와 함께 한 행으로 합산했습니다.</p>
 <p style="font-size:11px;color:#999;margin-bottom:10px">🟢 80%↑ 양호 &nbsp;|&nbsp; 🔵 70%↑ 보통 &nbsp;|&nbsp; 🟠 60%↑ 주의 &nbsp;|&nbsp; 🔴 60%↓ 위험</p>
 {item_table}
