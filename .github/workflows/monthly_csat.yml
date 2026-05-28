@@ -1,0 +1,91 @@
+name: Monthly CSAT Report
+
+on:
+  schedule:
+    # 매월 1일 KST 10:00 = UTC 01:00
+    # GitHub Actions schedule은 best-effort라 백업 시점 추가
+    - cron: "0 1 1 * *"    # KST 10:00
+    - cron: "30 1 1 * *"   # KST 10:30 (백업)
+    - cron: "0 2 1 * *"    # KST 11:00 (백업)
+  workflow_dispatch:
+    inputs:
+      month:
+        description: '대상 월 (1-12, 비우면 전월)'
+        required: false
+        type: string
+      year:
+        description: '대상 연도 (비우면 전월 기준)'
+        required: false
+        type: string
+      skip_slack:
+        description: 'Slack 발송 건너뜀'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  csat-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    env:
+      GOOGLE_CREDENTIALS:        ${{ secrets.GOOGLE_CREDENTIALS }}
+      CSAT_SPREADSHEET_ID:       ${{ secrets.CSAT_SPREADSHEET_ID }}
+      CSAT_SLACK_WEBHOOK_URL:    ${{ secrets.CSAT_SLACK_WEBHOOK_URL }}
+      ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+      CONFLUENCE_URL:            ${{ secrets.CSAT_CONFLUENCE_URL }}
+      CSAT_MODEL:                claude-sonnet-4-6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Resolve target month
+        id: target
+        run: |
+          M="${{ github.event.inputs.month }}"
+          Y="${{ github.event.inputs.year }}"
+          if [ -z "$M" ] || [ -z "$Y" ]; then
+            # 전월 계산 (KST 기준)
+            Y=$(TZ=Asia/Seoul date -d "$(TZ=Asia/Seoul date +%Y-%m-01) -1 day" +%Y)
+            M=$(TZ=Asia/Seoul date -d "$(TZ=Asia/Seoul date +%Y-%m-01) -1 day" +%-m)
+          fi
+          echo "month=$M" >> "$GITHUB_OUTPUT"
+          echo "year=$Y" >> "$GITHUB_OUTPUT"
+          echo "Target: $Y년 $M월"
+
+      - name: Run CSAT report generation
+        run: |
+          ARGS="--month ${{ steps.target.outputs.month }} --year ${{ steps.target.outputs.year }}"
+          if [ "${{ github.event.inputs.skip_slack }}" = "true" ]; then
+            ARGS="$ARGS --skip-slack"
+          fi
+          python backend/csat_main.py $ARGS
+
+      - name: Commit generated reports
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f docs/csat/*.html 2>/dev/null || true
+          git add -f docs/csat/*.json 2>/dev/null || true
+          git add -f docs/csat/*.txt 2>/dev/null || true
+          echo "=== staged ==="
+          git diff --cached --stat
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: monthly CSAT report ${{ steps.target.outputs.year }}-${{ steps.target.outputs.month }} [skip ci]"
+            git pull --rebase --autostash origin main
+            git push
+          else
+            echo "Nothing to commit"
+          fi

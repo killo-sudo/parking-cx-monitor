@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>모두의주차장 CSAT 리포트</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; }
+body {
+  font-family: 'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+  background: #f5f6fa; color: #333;
+}
+
+/* ── 인증 오버레이 ──────────────────── */
+#auth-overlay {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.45); z-index: 9999;
+}
+#auth-card {
+  background: #fff; border-radius: 16px; padding: 40px 36px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.18);
+  text-align: center; min-width: 320px; max-width: 380px;
+}
+#auth-logo { font-size: 18px; font-weight: 800; color: #1a1a2e; margin-bottom: 8px; }
+#auth-tagline { font-size: 12px; color: #888; margin-bottom: 24px; }
+#auth-gsi-btn { display: flex; justify-content: center; margin-bottom: 14px; }
+#auth-msg { font-size: 12px; color: #ef4444; min-height: 18px; margin-bottom: 8px; }
+#auth-hint { font-size: 11px; color: #999; }
+
+/* ── 메인 레이아웃 ──────────────────── */
+#main { display: none; height: 100vh; flex-direction: column; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 22px; background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,.03);
+  flex-shrink: 0;
+}
+.topbar-left { display: flex; align-items: center; gap: 14px; }
+.topbar .back {
+  font-size: 12px; color: #777; text-decoration: none;
+  padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 6px;
+}
+.topbar .back:hover { background: #fafafa; }
+.topbar .title { font-size: 17px; font-weight: 800; color: #1a1a2e; }
+.topbar .subtitle { font-size: 11px; color: #999; }
+.topbar-right { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #777; }
+.topbar #logout {
+  background: none; border: 1px solid #ddd; border-radius: 6px;
+  padding: 4px 10px; font-size: 11px; color: #777; cursor: pointer;
+}
+.topbar #logout:hover { background: #fafafa; }
+
+.body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── 좌측 사이드바 (년/월) ─────────── */
+.sidebar {
+  width: 240px; flex-shrink: 0;
+  background: #fff; border-right: 1px solid #e5e7eb;
+  overflow-y: auto;
+}
+.sidebar-header {
+  font-size: 11px; font-weight: 700; color: #999; letter-spacing: 1px;
+  padding: 16px 18px 8px;
+}
+.year-group { border-bottom: 1px solid #f3f4f6; }
+.year-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 18px; cursor: pointer; user-select: none;
+  font-size: 13px; font-weight: 700; color: #1a1a2e;
+  transition: background .12s;
+}
+.year-header:hover { background: #f9fafb; }
+.year-header .y-count {
+  font-size: 10px; color: #999; font-weight: 500;
+  background: #f3f4f6; padding: 2px 8px; border-radius: 10px;
+}
+.year-header .y-toggle {
+  display: inline-block; width: 10px; font-size: 10px; color: #999;
+  transition: transform .15s;
+}
+.year-group.collapsed .y-toggle { transform: rotate(-90deg); }
+.year-group.collapsed .month-list { display: none; }
+.month-list { padding: 4px 0 8px; }
+.month-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 18px 8px 32px; cursor: pointer;
+  font-size: 13px; color: #555;
+  border-left: 3px solid transparent;
+  transition: background .12s;
+}
+.month-item:hover { background: #f9fafb; }
+.month-item.active {
+  background: #eff6ff; color: #1d4ed8;
+  font-weight: 700; border-left-color: #2563eb;
+}
+.month-item .m-meta { font-size: 10px; color: #aaa; }
+.month-item.active .m-meta { color: #60a5fa; }
+
+.empty-sidebar {
+  padding: 30px 18px; font-size: 12px; color: #aaa;
+  text-align: center; line-height: 1.6;
+}
+
+/* ── 우측 컨텐츠 (탭 + iframe) ──────── */
+.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.tabs {
+  display: flex; gap: 4px; padding: 14px 22px 0;
+  background: #fff; border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+.tab {
+  padding: 10px 18px; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: #777;
+  border: 1px solid transparent; border-bottom: none;
+  border-top-left-radius: 8px; border-top-right-radius: 8px;
+  background: transparent; transition: background .12s;
+  margin-bottom: -1px;
+}
+.tab:hover { background: #f9fafb; color: #333; }
+.tab.active {
+  background: #f5f6fa; color: #1a1a2e;
+  border-color: #e5e7eb;
+}
+.tab-meta {
+  margin-left: auto; padding: 10px 0; font-size: 11px; color: #999;
+  display: flex; align-items: center; gap: 12px;
+}
+.tab-meta a {
+  color: #2563eb; text-decoration: none; font-weight: 600;
+  padding: 4px 10px; border: 1px solid #dbeafe; border-radius: 6px;
+}
+.tab-meta a:hover { background: #eff6ff; }
+
+.iframe-wrap {
+  flex: 1; overflow: hidden; background: #f5f6fa;
+  position: relative;
+}
+.report-frame {
+  width: 100%; height: 100%; border: none; background: #f5f6fa;
+}
+
+.empty-content {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; color: #aaa; font-size: 14px; text-align: center; padding: 40px;
+}
+.empty-content .ec-icon { font-size: 48px; margin-bottom: 16px; opacity: .4; }
+.empty-content .ec-title { font-size: 16px; font-weight: 700; color: #777; margin-bottom: 8px; }
+.empty-content .ec-sub { font-size: 12px; line-height: 1.8; }
+
+/* ── 반응형 ───────────────────────── */
+@media (max-width: 768px) {
+  .sidebar { width: 180px; }
+  .tabs { padding: 12px 14px 0; }
+  .tab { padding: 8px 12px; font-size: 12px; }
+  .topbar { padding: 12px 16px; }
+  .topbar .title { font-size: 15px; }
+}
+</style>
+</head>
+<body>
+
+<div id="auth-overlay">
+  <div id="auth-card">
+    <div id="auth-logo">모두의주차장 CSAT 리포트</div>
+    <div id="auth-tagline">거점운영팀 · 월간 만족도 분석</div>
+    <div id="auth-gsi-btn"></div>
+    <div id="auth-msg"></div>
+    <div id="auth-hint">@socar.kr 계정으로만 접근 가능합니다</div>
+  </div>
+</div>
+
+<div id="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="../index.html" class="back">← GAZETTE</a>
+      <div>
+        <div class="title">📊 CSAT 월간 리포트</div>
+        <div class="subtitle">모두의주차장 거점운영팀 · 매월 1일 자동 발행</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="auth-user"></span>
+      <button id="logout">로그아웃</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <aside class="sidebar">
+      <div class="sidebar-header">📅 발행 이력</div>
+      <div id="year-tree"></div>
+    </aside>
+
+    <main class="content">
+      <div class="tabs" id="tabs">
+        <div class="tab active" data-tab="page1">📊 서비스 불만 분석</div>
+        <div class="tab" data-tab="page2">📞 응대품질 분석</div>
+        <div class="tab-meta">
+          <span id="tab-month-label"></span>
+          <a id="slack-link" href="#" target="_blank" style="display:none">📋 Slack 메시지</a>
+        </div>
+      </div>
+      <div class="iframe-wrap" id="iframe-wrap">
+        <div class="empty-content" id="empty-content">
+          <div class="ec-icon">📊</div>
+          <div class="ec-title">리포트를 선택하세요</div>
+          <div class="ec-sub">좌측에서 년/월을 클릭하면<br>해당 월의 리포트가 표시됩니다.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* ───────── 인증 (parking-cx-monitor 동일 패턴) ───────── */
+var CLIENT_ID = '495055817211-o0m1u8d2aglluhng1kr6fvua95u8emqp.apps.googleusercontent.com';
+var JWT_KEY = 'pg_jwt';
+var JWT_TTL = 6 * 60 * 60 * 1000;
+var ALLOWED_DOMAIN = 'socar.kr';
+
+function getStoredJwt() {
+  try {
+    var item = JSON.parse(localStorage.getItem(JWT_KEY) || 'null');
+    if (!item) return null;
+    if (Date.now() > item.exp) { localStorage.removeItem(JWT_KEY); return null; }
+    return item.token;
+  } catch (_) { return null; }
+}
+function storeJwt(token) {
+  localStorage.setItem(JWT_KEY, JSON.stringify({ token: token, exp: Date.now() + JWT_TTL }));
+}
+function decodeJwt(token) {
+  try {
+    var payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload));
+  } catch (_) { return null; }
+}
+function showAuth() { document.getElementById('auth-overlay').style.display = 'flex'; document.getElementById('main').style.display = 'none'; }
+function hideAuth() { document.getElementById('auth-overlay').style.display = 'none'; document.getElementById('main').style.display = 'flex'; }
+function setAuthError(msg) { document.getElementById('auth-msg').textContent = msg; }
+function setUserLabel(email) {
+  var user = email.split('@')[0] || email;
+  document.getElementById('auth-user').textContent = user + '@socar.kr';
+}
+function initGis() {
+  if (typeof google === 'undefined' || !google.accounts) { setTimeout(initGis, 200); return; }
+  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onGisCallback, auto_select: false });
+  google.accounts.id.renderButton(document.getElementById('auth-gsi-btn'), {
+    type: 'standard', theme: 'outline', size: 'large',
+    text: 'signin_with', logo_alignment: 'left', locale: 'ko'
+  });
+}
+function onGisCallback(response) {
+  var payload = decodeJwt(response.credential);
+  if (!payload || !payload.email) { setAuthError('인증 정보를 읽을 수 없습니다.'); return; }
+  var domain = payload.email.split('@')[1];
+  if (domain !== ALLOWED_DOMAIN) {
+    setAuthError('@socar.kr 계정만 접근 가능합니다. (' + payload.email + ')');
+    google.accounts.id.revoke(payload.email, function () {});
+    return;
+  }
+  storeJwt(response.credential);
+  setUserLabel(payload.email);
+  hideAuth();
+  loadReports();
+}
+document.getElementById('logout').addEventListener('click', function () {
+  localStorage.removeItem(JWT_KEY); location.reload();
+});
+
+/* ───────── 리포트 데이터 ───────── */
+var REPORTS = [];     // 전체 리포트 목록
+var CURRENT = null;   // 현재 선택된 리포트
+var CURRENT_TAB = 'page1';
+
+async function loadReports() {
+  try {
+    var res = await fetch('./csat_meta.json?t=' + Date.now());
+    if (!res.ok) throw new Error('csat_meta.json 로드 실패');
+    var meta = await res.json();
+    REPORTS = (meta.reports || []).slice();
+    renderYearTree();
+    // 최신 리포트 자동 선택
+    if (REPORTS.length) selectReport(REPORTS[0]);
+  } catch (e) {
+    document.getElementById('year-tree').innerHTML =
+      '<div class="empty-sidebar">아직 발행된<br>리포트가 없습니다.<br><br>매월 1일 오전 10시에<br>자동 생성됩니다.</div>';
+  }
+}
+
+/* ───────── 사이드바 (년 → 월 트리) ───────── */
+function renderYearTree() {
+  var byYear = {};
+  REPORTS.forEach(function (r) {
+    if (!byYear[r.year]) byYear[r.year] = [];
+    byYear[r.year].push(r);
+  });
+  var years = Object.keys(byYear).sort(function (a, b) { return b - a; });
+  var html = years.map(function (y, i) {
+    var months = byYear[y].slice().sort(function (a, b) { return b.month - a.month; });
+    var monthsHtml = months.map(function (r) {
+      var key = r.year + '-' + r.month;
+      var dateStr = (r.generated_at || '').slice(0, 10);
+      return '<div class="month-item" data-key="' + key + '" onclick="onMonthClick(' + r.year + ',' + r.month + ')">' +
+               '<span>' + r.month + '월</span>' +
+               '<span class="m-meta">' + dateStr + '</span>' +
+             '</div>';
+    }).join('');
+    var collapsed = i > 0 ? ' collapsed' : '';
+    return '<div class="year-group' + collapsed + '" data-year="' + y + '">' +
+             '<div class="year-header" onclick="toggleYear(' + y + ')">' +
+               '<span><span class="y-toggle">▼</span> ' + y + '년</span>' +
+               '<span class="y-count">' + months.length + '</span>' +
+             '</div>' +
+             '<div class="month-list">' + monthsHtml + '</div>' +
+           '</div>';
+  }).join('');
+  document.getElementById('year-tree').innerHTML = html;
+}
+
+function toggleYear(year) {
+  var el = document.querySelector('.year-group[data-year="' + year + '"]');
+  if (el) el.classList.toggle('collapsed');
+}
+
+function onMonthClick(year, month) {
+  var r = REPORTS.find(function (x) { return x.year === year && x.month === month; });
+  if (r) selectReport(r);
+}
+
+function selectReport(r) {
+  CURRENT = r;
+  // 사이드바 active 표시
+  document.querySelectorAll('.month-item').forEach(function (el) {
+    el.classList.toggle('active', el.dataset.key === (r.year + '-' + r.month));
+  });
+  // 해당 년 펼침
+  var yearEl = document.querySelector('.year-group[data-year="' + r.year + '"]');
+  if (yearEl) yearEl.classList.remove('collapsed');
+
+  // 탭 메타 업데이트
+  document.getElementById('tab-month-label').textContent = r.label;
+  var slackLink = document.getElementById('slack-link');
+  if (r.slack_text) {
+    slackLink.href = r.slack_text;
+    slackLink.style.display = 'inline-block';
+  } else {
+    slackLink.style.display = 'none';
+  }
+
+  loadTab(CURRENT_TAB);
+}
+
+/* ───────── 탭 ───────── */
+document.getElementById('tabs').addEventListener('click', function (e) {
+  if (!e.target.classList.contains('tab')) return;
+  var tab = e.target.dataset.tab;
+  if (!tab) return;
+  CURRENT_TAB = tab;
+  document.querySelectorAll('.tab').forEach(function (el) {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  if (CURRENT) loadTab(tab);
+});
+
+function loadTab(tab) {
+  if (!CURRENT) return;
+  var src = CURRENT[tab];
+  var wrap = document.getElementById('iframe-wrap');
+  wrap.innerHTML = '<iframe class="report-frame" src="' + src + '"></iframe>';
+}
+
+/* ───────── 부트 ───────── */
+(function bootstrap() {
+  var stored = getStoredJwt();
+  if (stored) {
+    var p = decodeJwt(stored);
+    if (p && p.email) setUserLabel(p.email);
+    hideAuth();
+    loadReports();
+  } else {
+    showAuth();
+    initGis();
+  }
+})();
+</script>
+</body>
+</html>
