@@ -304,6 +304,33 @@ def process_csat(
         raise RuntimeError("헤더 행 감지 실패")
     data_rows = all_rows[hdr_row + 1 :]
 
+    # ── 디버그: 헤더 + 핵심 컬럼 샘플 ──
+    log.info("[디버그] 헤더 행: %d, 전체 %d열", hdr_row, len(hdr))
+    log.info("[디버그] 헤더 전체: %s",
+             " | ".join(f"{col_letter(i)}={h!r}" for i, h in enumerate(hdr[:40])))
+    if data_rows:
+        # O열(status, idx 14), AE열(date, idx 30) 샘플
+        log.info("[디버그] A열(발송일자) 샘플5: %s",
+                 [r[SEND_DATE_COL_IDX] if SEND_DATE_COL_IDX < len(r) else "" for r in data_rows[:5]])
+        log.info("[디버그] O열(응답확인 idx=14) 샘플10: %s",
+                 [r[STATUS_COL_IDX] if STATUS_COL_IDX < len(r) else "" for r in data_rows[:10]])
+        log.info("[디버그] AE열(회신일 idx=30) 샘플10: %s",
+                 [r[DATE_COL_IDX] if DATE_COL_IDX < len(r) else "" for r in data_rows[:10]])
+        # O열 unique 값 집계 (전체)
+        status_counts: dict[str, int] = {}
+        for r in data_rows:
+            v = str(r[STATUS_COL_IDX]).strip() if STATUS_COL_IDX < len(r) else ""
+            status_counts[v] = status_counts.get(v, 0) + 1
+        top_statuses = sorted(status_counts.items(), key=lambda x: -x[1])[:10]
+        log.info("[디버그] O열 distinct 값 Top10: %s", top_statuses)
+        # AE열의 4월 데이터 카운트
+        ae_apr_count = sum(
+            1 for r in data_rows
+            if DATE_COL_IDX < len(r)
+            and is_same_month(extract_date(r[DATE_COL_IDX]), month, year)
+        )
+        log.info("[디버그] AE열 기준 %d월 데이터: %d건", month, ae_apr_count)
+
     # ── 컬럼 인덱스 ──
     send_idx = SEND_DATE_COL_IDX
     date_idx = DATE_COL_IDX
