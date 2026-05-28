@@ -3893,5 +3893,26 @@
       "sub": "환불",
       "wish": "기계식 주차장 이용에 대한 구체적인 가이드와 환불 절차에 대한 명확한 근거가 없음"
     }
-  ]
+  ],
+  "app_reviews": {
+    "count": 23,
+    "avg_rating": 2.87,
+    "platform": {
+      "Android": 13,
+      "iOS": 10
+    },
+    "star_dist": {
+      "1": 11,
+      "2": 0,
+      "3": 1,
+      "4": 3,
+      "5": 8
+    },
+    "sentiment": {
+      "negative": 11,
+      "neutral": 12,
+      "positive": 0
+    },
+    "neg_pct": 47.8
+  }
 }

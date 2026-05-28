@@ -2930,5 +2930,26 @@
       "sub": "결제",
       "wish": "자동연장 헤제한 적이 없는데 헤제가 되고 주차비용 10만원 나왔다. 오늘까지 15만 원 될것 같습니다."
     }
-  ]
+  ],
+  "app_reviews": {
+    "count": 20,
+    "avg_rating": 1.8,
+    "platform": {
+      "iOS": 4,
+      "Android": 16
+    },
+    "star_dist": {
+      "1": 16,
+      "2": 0,
+      "3": 0,
+      "4": 0,
+      "5": 4
+    },
+    "sentiment": {
+      "negative": 16,
+      "neutral": 4,
+      "positive": 0
+    },
+    "neg_pct": 80.0
+  }
 }

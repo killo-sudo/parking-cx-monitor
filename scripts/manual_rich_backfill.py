@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -49,6 +50,56 @@ from csat_report_gen import (  # noqa: E402
 )
 
 DOCS_CSAT = REPO_ROOT / "docs" / "csat"
+GAZETTE_DATA = REPO_ROOT / "docs" / "data.json"  # 앱 리뷰 크롤 데이터
+_REVIEW_TITLE_RE = re.compile(r"\[(iOS|Android)\s*★\s*(\d)\]")
+
+
+def load_app_reviews(year: int, month: int) -> dict | None:
+    """docs/data.json(GAZETTE 크롤)에서 해당 월 모두의주차장 앱 리뷰 통계 산출.
+
+    title 형식 '[iOS ★1] 작성자' / '[Android ★5] 작성자'에서 플랫폼·별점 파싱,
+    본문은 summary, 월 필터는 published_at(YYYY-MM). 리뷰 없으면 None.
+    page1 하단 섹션의 통계 카드·별점 분포에 사용(테마/인용은 llm.json).
+    """
+    if not GAZETTE_DATA.exists():
+        return None
+    try:
+        items = json.loads(GAZETTE_DATA.read_text(encoding="utf-8")).get("items", [])
+    except Exception:
+        return None
+    ym = f"{year}-{month:02d}"
+    revs = [
+        it for it in items
+        if it.get("name_ko") == "모두의주차장"
+        and it.get("source_type") in ("appstore", "ios_appstore")
+        and (it.get("published_at") or "").startswith(ym)
+    ]
+    if not revs:
+        return None
+
+    platform: dict[str, int] = {}
+    star_dist = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    stars: list[int] = []
+    senti = {"negative": 0, "neutral": 0, "positive": 0}
+    for it in revs:
+        m = _REVIEW_TITLE_RE.search(it.get("title", "") or "")
+        if m:
+            platform[m.group(1)] = platform.get(m.group(1), 0) + 1
+            s = int(m.group(2))
+            star_dist[s] = star_dist.get(s, 0) + 1
+            stars.append(s)
+        sv = it.get("sentiment")
+        if sv in senti:
+            senti[sv] += 1
+    count = len(revs)
+    return {
+        "count": count,
+        "avg_rating": round(sum(stars) / len(stars), 2) if stars else None,
+        "platform": platform,
+        "star_dist": star_dist,
+        "sentiment": senti,
+        "neg_pct": round(senti["negative"] / count * 100, 1) if count else 0.0,
+    }
 
 
 def patch_rates(data: dict) -> dict:
@@ -88,6 +139,9 @@ def run(month: int, year: int, llm_path: Path | None = None) -> int:
     # 1) data.json 만족률 보정 (옛 공식 → 새 공식)
     data = patch_rates(data)
 
+    # 1-2) 앱 리뷰 통계 주입 (page1 하단 섹션용, 테마/인용은 llm.json)
+    data["app_reviews"] = load_app_reviews(year, month)
+
     # 2) HTML 렌더링
     p1 = render_page1(data, llm)
     p2 = render_page2(data, llm)
@@ -108,6 +162,14 @@ def run(month: int, year: int, llm_path: Path | None = None) -> int:
     print(f"  - {prefix}_slack.txt")
     print(f"  - {prefix}_data.json (rate 보정)")
     print(f"  - CSAT(보정후): {data['kpi_basic']['csat_rate']}%")
+    ar = data.get("app_reviews")
+    if ar:
+        themes = len(llm.get("app_review_themes", []))
+        print(f"  - 앱 리뷰: {ar['count']}건, 평균 ★{ar['avg_rating']}, "
+              f"부정 {ar['neg_pct']}% / 테마 {themes}개"
+              + ("" if themes else "  ⚠ llm.json에 app_review_themes 없음"))
+    else:
+        print("  - 앱 리뷰: 해당 월 데이터 없음(섹션 생략)")
     return 0
 
 

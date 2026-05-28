@@ -3594,5 +3594,26 @@
       "sub": "주차권 이용",
       "wish": "상담원 전화연결이 있으면 좋겠음"
     }
-  ]
+  ],
+  "app_reviews": {
+    "count": 13,
+    "avg_rating": 2.77,
+    "platform": {
+      "iOS": 4,
+      "Android": 9
+    },
+    "star_dist": {
+      "1": 7,
+      "2": 0,
+      "3": 0,
+      "4": 1,
+      "5": 5
+    },
+    "sentiment": {
+      "negative": 7,
+      "neutral": 6,
+      "positive": 0
+    },
+    "neg_pct": 53.8
+  }
 }

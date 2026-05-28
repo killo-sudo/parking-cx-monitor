@@ -485,6 +485,59 @@ def _wrap_html(title: str, subtitle: str, body: str) -> str:
 </div></body></html>"""
 
 
+def _app_review_section_html(app: dict | None, llm: dict) -> str:
+    """page1 하단 '앱 리뷰 분석' 섹션. app 데이터 없으면 빈 문자열 반환.
+
+    app = {count, avg_rating, platform{iOS,Android}, star_dist{1..5},
+           sentiment{negative,neutral}, neg_pct}
+    llm = app_review_summary(str), app_review_themes(list), app_review_csat_link(str)
+    """
+    if not app or not app.get("count"):
+        return ""
+    plat = app.get("platform", {})
+    plat_str = " · ".join(f"{p} {c}" for p, c in plat.items()) or "-"
+    sd = app.get("star_dist", {})
+    star_str = " · ".join(
+        f"★{s} {sd.get(str(s), sd.get(s, 0))}건"
+        for s in (5, 4, 3, 2, 1)
+        if (sd.get(str(s), sd.get(s, 0)))
+    ) or "-"
+    neg = app.get("sentiment", {}).get("negative", 0)
+
+    kpi = (
+        '<div class="kpi-row">'
+        + _kpi_card_html("📱", "앱 리뷰 수", f"{app['count']}건", "스토어 직접 수집")
+        + _kpi_card_html("⭐", "평균 별점", f"{app.get('avg_rating', '-')}", "5점 만점")
+        + _kpi_card_html("📲", "플랫폼", plat_str, "iOS · Android")
+        + _kpi_card_html("😞", "부정 리뷰 비율", f"{app.get('neg_pct', '-')}%", f"부정 {neg}건")
+        + "</div>"
+    )
+    summary = llm.get("app_review_summary", "")
+    summary_html = (
+        f'<p style="font-size:13px;color:#555;line-height:1.7;margin:0 0 14px">'
+        f'{escape(summary)}</p>' if summary else ""
+    )
+    star_html = (
+        f'<p style="font-size:12px;color:#777;margin:0 0 16px">'
+        f'<b>별점 분포</b> &nbsp; {escape(star_str)}</p>'
+    )
+    themes = llm.get("app_review_themes", [])
+    themes_html = (
+        '<div class="comp-row">' + "".join(_comp_card_html(c) for c in themes) + "</div>"
+        if themes else ""
+    )
+    csat_link = llm.get("app_review_csat_link", "")
+    csat_html = (
+        f'<div class="ai" style="margin-top:14px;background:#f0f7ff;border:1px solid #d0e3ff">'
+        f'<div class="ai-title">🔗 CSAT 교차 시사점</div>'
+        f'<div class="ai-body">{escape(csat_link)}</div></div>' if csat_link else ""
+    )
+    return f"""<div class="sec">
+<div class="sec-title">📱 앱 리뷰 분석 (App Store · Google Play 직접 수집)</div>
+{summary_html}{kpi}{star_html}{themes_html}{csat_html}
+</div>"""
+
+
 # ── Page 1: 서비스 불만 분석 ────────────────────
 def render_page1(data: dict, llm: dict) -> str:
     k = data["kpi_basic"]
@@ -542,6 +595,7 @@ def render_page1(data: dict, llm: dict) -> str:
 
     ai_html = '<div class="ai-row">' + "".join(_ai_card_html(a) for a in llm["ai_suggestions_page1"]) + "</div>"
     summary_html = "".join(_act_html(s["level"], s["text"]) for s in llm["summary_page1"])
+    app_review_html = _app_review_section_html(data.get("app_reviews"), llm)
 
     body = f"""
 {kpi_html}
@@ -573,6 +627,7 @@ def render_page1(data: dict, llm: dict) -> str:
 <div class="sec-title">📋 핵심 요약 및 우선순위 개선사항</div>
 {summary_html}
 </div>
+{app_review_html}
 """
     return _wrap_html(
         "📊 서비스 불만 분석 리포트",
