@@ -47,7 +47,12 @@ SCOPES = [
 
 # ── 헬퍼 ─────────────────────────────────────────
 def _load_credentials() -> Credentials:
-    raw = os.environ.get("GOOGLE_CREDENTIALS")
+    raw = os.environ.get("GOOGLE_CREDENTIALS", "")
+    # GitHub Secret 값에 UTF-8 BOM이 섞여있는 경우 제거 (sheets.py와 동일 패턴)
+    raw_bytes = raw.encode("utf-8")
+    if raw_bytes.startswith(b"\xef\xbb\xbf"):
+        raw = raw_bytes[3:].decode("utf-8")
+    raw = raw.strip()
     if raw:
         info = json.loads(raw)
     else:
@@ -56,7 +61,7 @@ def _load_credentials() -> Credentials:
             raise RuntimeError(
                 "GOOGLE_CREDENTIALS env or google_credentials.json required"
             )
-        info = json.loads(local.read_text(encoding="utf-8"))
+        info = json.loads(local.read_text(encoding="utf-8-sig"))
     return Credentials.from_service_account_info(info, scopes=SCOPES)
 
 
