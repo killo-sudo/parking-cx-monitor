@@ -382,9 +382,29 @@ def _voc_card_html(
 </div>"""
 
 
-def _kpi_card_html(icon: str, label: str, value: str, sub: str = "") -> str:
+def _kpi_card_html(icon: str, label: str, value: str, sub: str = "",
+                   value_size: str = "") -> str:
     sub_html = f'<div class="sub">{escape(sub)}</div>' if sub else ""
-    return f"""<div class="kpi"><div class="icon">{icon}</div><div class="label">{escape(label)}</div><div class="value">{escape(value)}</div>{sub_html}</div>"""
+    vstyle = f' style="font-size:{value_size}"' if value_size else ""
+    return f"""<div class="kpi"><div class="icon">{icon}</div><div class="label">{escape(label)}</div><div class="value"{vstyle}>{escape(value)}</div>{sub_html}</div>"""
+
+
+def _kpi_row_html(cards: list) -> str:
+    """KPI 카드들을 한 행으로 렌더. 행 안의 값 글씨 크기를 '가장 긴 값' 기준으로
+    통일해 카드 간 균형 유지. cards = [(icon, label, value, sub), ...] (sub 생략 가능).
+    """
+    maxlen = max((len(str(c[2])) for c in cards), default=0)
+    if maxlen >= 12:
+        vsize = "18px"
+    elif maxlen >= 8:
+        vsize = "22px"
+    else:
+        vsize = "28px"
+    inner = "".join(
+        _kpi_card_html(c[0], c[1], c[2], c[3] if len(c) > 3 else "", vsize)
+        for c in cards
+    )
+    return '<div class="kpi-row">' + inner + "</div>"
 
 
 def _table_html(headers: list[str], rows: list[list[str]]) -> str:
@@ -504,14 +524,12 @@ def _app_review_section_html(app: dict | None, llm: dict) -> str:
     ) or "-"
     neg = app.get("sentiment", {}).get("negative", 0)
 
-    kpi = (
-        '<div class="kpi-row">'
-        + _kpi_card_html("📱", "앱 리뷰 수", f"{app['count']}건", "스토어 직접 수집")
-        + _kpi_card_html("⭐", "평균 별점", f"{app.get('avg_rating', '-')}", "5점 만점")
-        + _kpi_card_html("📲", "플랫폼", plat_str, "iOS · Android")
-        + _kpi_card_html("😞", "부정 리뷰 비율", f"{app.get('neg_pct', '-')}%", f"부정 {neg}건")
-        + "</div>"
-    )
+    kpi = _kpi_row_html([
+        ("📱", "앱 리뷰 수", f"{app['count']}건", "스토어 직접 수집"),
+        ("⭐", "평균 별점", f"{app.get('avg_rating', '-')}", "5점 만점"),
+        ("📲", "플랫폼", plat_str, "iOS · Android"),
+        ("😞", "부정 리뷰 비율", f"{app.get('neg_pct', '-')}%", f"부정 {neg}건"),
+    ])
     summary = llm.get("app_review_summary", "")
     summary_html = (
         f'<p style="font-size:13px;color:#555;line-height:1.7;margin:0 0 14px">'
@@ -543,14 +561,12 @@ def render_page1(data: dict, llm: dict) -> str:
     k = data["kpi_basic"]
     top_sub = data["sub_category"][0] if data["sub_category"] else {"name": "-", "count": 0}
 
-    kpi_html = (
-        '<div class="kpi-row">'
-        + _kpi_card_html("📋", "총 발송 건수", f"{k['sent']}건", f"분석 대상(완료): {k['n']}건")
-        + _kpi_card_html("🔥", "최다 불만 유형", top_sub["name"], f"{top_sub['count']}건")
-        + _kpi_card_html("💰", "환불 관련 비율", f"{k['refund_rate']}%", "소분류 기준")
-        + _kpi_card_html("⏳", "미해결 건수", f"{k['res1st_fail']}건", "1차 해결 실패")
-        + "</div>"
-    )
+    kpi_html = _kpi_row_html([
+        ("📋", "총 발송 건수", f"{k['sent']}건", f"분석 대상(완료): {k['n']}건"),
+        ("🔥", "최다 불만 유형", top_sub["name"], f"{top_sub['count']}건"),
+        ("💰", "환불 관련 비율", f"{k['refund_rate']}%", "소분류 기준"),
+        ("⏳", "미해결 건수", f"{k['res1st_fail']}건", "1차 해결 실패"),
+    ])
 
     cat_rows = [
         [escape(c["name"]), f"{c['count']}건", f"{c['pct']}%",
@@ -640,14 +656,12 @@ def render_page1(data: dict, llm: dict) -> str:
 def render_page2(data: dict, llm: dict) -> str:
     k = data["kpi_basic"]
 
-    kpi_html = (
-        '<div class="kpi-row">'
-        + _kpi_card_html("📋", "완료(분석대상) 건수", f"{k['n']}건")
-        + _kpi_card_html("📝", "CSAT 응답 건수", f"{k['csat_respondent_count']}건")
-        + _kpi_card_html("😊", "만족+매우만족 비율", f"{k['csat_rate']}%")
-        + _kpi_card_html("✅", "1차 해결률", f"{k['res1st_rate']}%")
-        + "</div>"
-    )
+    kpi_html = _kpi_row_html([
+        ("📋", "완료(분석대상) 건수", f"{k['n']}건"),
+        ("📝", "CSAT 응답 건수", f"{k['csat_respondent_count']}건"),
+        ("😊", "만족+매우만족 비율", f"{k['csat_rate']}%"),
+        ("✅", "1차 해결률", f"{k['res1st_rate']}%"),
+    ])
 
     cat_rows = [
         [escape(c["name"]), f"{c['count']}건", f"{c['pct']}%",
