@@ -1,0 +1,19 @@
+{
+  "reports": [
+    {
+      "year": 2026,
+      "month": 4,
+      "label": "2026년 4월",
+      "page1": "2026-04_page1.html",
+      "page2": "2026-04_page2.html",
+      "slack_text": "2026-04_slack.txt",
+      "generated_at": "2026-05-28T01:17:36",
+      "slack_posted": false
+    }
+  ],
+  "latest": {
+    "year": 2026,
+    "month": 4
+  },
+  "updated_at": "2026-05-28T01:17:36"
+}
