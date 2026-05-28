@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><title>📞 고객센터 응대품질 분석 리포트</title>
+<style>
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;margin:0;padding:20px;background:#f5f6fa;color:#333}
+.wrap{max-width:1100px;margin:0 auto}
+.title{text-align:center;font-size:26px;font-weight:800;color:#1a1a2e;margin-bottom:6px}
+.subtitle{text-align:center;font-size:13px;color:#888;margin-bottom:28px}
+.kpi-row{display:flex;gap:14px;margin-bottom:28px;flex-wrap:wrap}
+.kpi{flex:1;min-width:180px;background:#fff;border-radius:14px;padding:22px 16px;box-shadow:0 2px 10px rgba(0,0,0,.07);text-align:center;border-top:4px solid #4a90d9}
+.kpi:nth-child(1){border-top-color:#4a90d9}
+.kpi:nth-child(2){border-top-color:#e74c3c}
+.kpi:nth-child(3){border-top-color:#f39c12}
+.kpi:nth-child(4){border-top-color:#27ae60}
+.kpi .icon{font-size:26px;margin-bottom:4px}
+.kpi .label{font-size:12px;color:#999;margin-bottom:6px}
+.kpi .value{font-size:28px;font-weight:800;color:#1a1a2e}
+.kpi .sub{font-size:11px;color:#aaa;margin-top:4px}
+.sec{background:#fff;border-radius:14px;padding:24px 28px;margin-bottom:22px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.sec-title{font-size:17px;font-weight:700;color:#1a1a2e;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #f0f0f0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#2c3e50;color:#fff;padding:10px 12px;text-align:center;font-weight:600}
+thead th:first-child{border-radius:6px 0 0 0}
+thead th:last-child{border-radius:0 6px 0 0}
+tbody td{padding:9px 12px;border-bottom:1px solid #f0f0f0;text-align:center}
+tbody tr:nth-child(even){background:#f9fafb}
+tbody tr:hover{background:#eef3ff}
+.td-left{text-align:left}
+.voc-row{display:flex;gap:14px;flex-wrap:wrap}
+.voc{flex:1;min-width:260px;background:#fffef5;border-left:4px solid #f39c12;border-radius:10px;padding:16px}
+.voc .meta{font-size:11px;color:#999;margin-bottom:8px}
+.voc .tag{display:inline-block;background:#fff3cd;color:#856404;padding:2px 8px;border-radius:10px;font-size:10px;margin-left:4px}
+.voc .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px}
+.voc .badge-user{background:#f3f4f6;color:#6b7280}
+.voc .badge-platform{background:#fdecea;color:#c62828}
+.voc .badge-venue{background:#fff3e0;color:#e65100}
+.voc .badge-unclear{background:#f3e8ff;color:#7e22ce}
+.voc .body{font-size:13px;color:#555;font-style:italic;line-height:1.7}
+.voc .note{font-size:11px;color:#999;margin-top:8px;font-style:normal}
+.ai-row{display:flex;gap:14px;flex-wrap:wrap}
+.ai{flex:1;min-width:260px;border-radius:12px;padding:18px;border:1px solid #d0e3ff}
+.ai:nth-child(1){background:#f0f7ff}
+.ai:nth-child(2){background:#f0fff4;border-color:#c6f6d5}
+.ai:nth-child(3){background:#fffbeb;border-color:#fde68a}
+.ai .ai-title{font-size:13px;font-weight:700;color:#2c5282;margin-bottom:6px}
+.ai .ai-body{font-size:13px;color:#444;line-height:1.7}
+.act{display:flex;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f5f5f5}
+.act-icon{font-size:17px;margin-right:10px;flex-shrink:0}
+.act-text{font-size:13px;color:#333;line-height:1.6}
+.sev-h{background:#fdecea;color:#c0392b;font-weight:700;border-radius:4px;padding:2px 8px;font-size:12px}
+.sev-m{background:#fff3e0;color:#e67e22;font-weight:700;border-radius:4px;padding:2px 8px;font-size:12px}
+.sev-l{background:#e8f5e9;color:#27ae60;font-weight:700;border-radius:4px;padding:2px 8px;font-size:12px}
+.sat-g{background:#e8f5e9;color:#2e7d32;font-weight:700;padding:4px 10px;border-radius:4px}
+.sat-n{background:#e3f2fd;color:#1565c0;font-weight:700;padding:4px 10px;border-radius:4px}
+.sat-w{background:#fff3e0;color:#e65100;font-weight:700;padding:4px 10px;border-radius:4px}
+.sat-d{background:#fdecea;color:#c62828;font-weight:700;padding:4px 10px;border-radius:4px}
+.comp-row{display:flex;gap:14px;flex-wrap:wrap}
+.comp{flex:1;min-width:200px;background:#fff;border-radius:10px;padding:18px;border-left:4px solid #ccc}
+.footer{text-align:center;padding:22px;font-size:11px;color:#aaa;border-top:1px solid #eee;margin-top:30px}
+</style>
+</head><body>
+<div class="wrap">
+<div class="title">📞 고객센터 응대품질 분석 리포트</div>
+<div class="subtitle">모두의주차장 CSAT 분석 · 2026-05-28</div>
+
+<div class="kpi-row"><div class="kpi"><div class="icon">📋</div><div class="label">완료(분석대상) 건수</div><div class="value">236건</div></div><div class="kpi"><div class="icon">📝</div><div class="label">CSAT 응답 건수</div><div class="value">236건</div></div><div class="kpi"><div class="icon">😊</div><div class="label">만족+매우만족 비율</div><div class="value">22.3%</div></div><div class="kpi"><div class="icon">✅</div><div class="label">1차 해결률</div><div class="value">61.9%</div></div></div>
+<div class="sec">
+<div class="sec-title">📌 문의 유형 분류 현황 (대분류)</div>
+<table><thead><tr><th>분류</th><th>건수</th><th>비율</th><th>AF만족</th><th>AF불만</th></tr></thead><tbody><tr><td class="td-left">제휴 주차장</td><td>125건</td><td>53.0%</td><td>13</td><td>37</td></tr><tr><td class="td-left">월정기권</td><td>64건</td><td>27.1%</td><td>9</td><td>17</td></tr><tr><td class="td-left">공유 주차장</td><td>41건</td><td>17.4%</td><td>3</td><td>22</td></tr><tr><td class="td-left">기타</td><td>6건</td><td>2.5%</td><td>1</td><td>1</td></tr></tbody></table>
+</div>
+<div class="sec">
+<div class="sec-title">🔍 미해결 사유 분석</div>
+<table><thead><tr><th>사유 분류</th><th>건수</th><th>비율</th></tr></thead><tbody><tr><td class="td-left">기타</td><td>67건</td><td>71.3%</td></tr><tr><td class="td-left">규정/절차 불만</td><td>9건</td><td>9.6%</td></tr><tr><td class="td-left">현장/업체 문제</td><td>7건</td><td>7.4%</td></tr><tr><td class="td-left">시스템/앱 문제</td><td>5건</td><td>5.3%</td></tr><tr><td class="td-left">소통/맥락 파악 부족</td><td>4건</td><td>4.3%</td></tr><tr><td class="td-left">상담 자동종료/응답지연</td><td>1건</td><td>1.1%</td></tr><tr><td class="td-left">환불 처리 불만</td><td>1건</td><td>1.1%</td></tr><tr><td class="td-left"><span style="font-weight:700">합계</span></td><td><span style="font-weight:700">94건</span></td><td><span style="font-weight:700">100%</span></td></tr></tbody></table>
+</div>
+<div class="sec">
+<div class="sec-title">⚠️ 주요 응대품질 이슈 현황</div>
+<div class="comp-row"><div class="comp" style="border-left-color:#e74c3c">
+<div style="font-weight:700;color:#e74c3c;margin-bottom:6px">💬 상담 응대 지연 </div>
+<div style="font-size:13px;color:#555;line-height:1.8">응답 지연 관련 불만.</div>
+</div><div class="comp" style="border-left-color:#f39c12">
+<div style="font-weight:700;color:#f39c12;margin-bottom:6px">⏱️ 채팅 자동종료 </div>
+<div style="font-size:13px;color:#555;line-height:1.8">자동종료로 인한 중단.</div>
+</div><div class="comp" style="border-left-color:#8e44ad">
+<div style="font-weight:700;color:#8e44ad;margin-bottom:6px">🤖 기계적/매뉴얼 응대 </div>
+<div style="font-size:13px;color:#555;line-height:1.8">맥락 파악 부족.</div>
+</div><div class="comp" style="border-left-color:#3498db">
+<div style="font-weight:700;color:#3498db;margin-bottom:6px">💰 환불 안내 불일치 </div>
+<div style="font-size:13px;color:#555;line-height:1.8">환불 정책 안내 차이.</div>
+</div></div>
+</div>
+<div class="sec">
+<div class="sec-title">📊 항목별 만족도 분석</div>
+<p style="font-size:11px;color:#999;margin-bottom:10px">🟢 80%↑ 양호 &nbsp;|&nbsp; 🔵 70%↑ 보통 &nbsp;|&nbsp; 🟠 60%↑ 주의 &nbsp;|&nbsp; 🔴 60%↓ 위험</p>
+<table><thead><tr><th>항목</th><th>만족률</th><th>응답</th><th>등급</th></tr></thead><tbody><tr><td class="td-left">품질1</td><td><span class="sat-d">17.4%</span></td><td>41/236</td><td>위험</td></tr><tr><td class="td-left">품질2</td><td><span class="sat-d">16.9%</span></td><td>40/236</td><td>위험</td></tr><tr><td class="td-left">품질3</td><td><span class="sat-d">16.9%</span></td><td>40/236</td><td>위험</td></tr><tr><td class="td-left">품질4</td><td><span class="sat-d">16.9%</span></td><td>40/236</td><td>위험</td></tr><tr><td class="td-left">전문성1</td><td><span class="sat-d">39.0%</span></td><td>92/236</td><td>위험</td></tr><tr><td class="td-left">전문성2</td><td><span class="sat-d">37.3%</span></td><td>88/236</td><td>위험</td></tr><tr><td class="td-left">전문성3</td><td><span class="sat-d">34.7%</span></td><td>82/236</td><td>위험</td></tr><tr><td class="td-left">전문성4</td><td><span class="sat-d">34.3%</span></td><td>81/236</td><td>위험</td></tr><tr><td class="td-left">복합1</td><td><span class="sat-d">13.6%</span></td><td>32/236</td><td>위험</td></tr><tr><td class="td-left">복합2</td><td><span class="sat-d">14.0%</span></td><td>33/236</td><td>위험</td></tr><tr><td class="td-left">복합3</td><td><span class="sat-d">13.6%</span></td><td>32/236</td><td>위험</td></tr><tr><td class="td-left">복합4</td><td><span class="sat-d">13.1%</span></td><td>31/236</td><td>위험</td></tr></tbody></table>
+</div>
+<div class="sec">
+<div class="sec-title">🗣️ 주요 불만 VOC</div>
+<div class="voc-row"><div class="voc">
+<div class="meta">📅 3/1 <span class="tag">결제 문의</span> <span class="badge badge-unclear">귀책 불명확</span></div>
+<div class="body">&quot;위치설정이좀더정확하고쉬었으면&quot;</div>
+<div class="note">근거: (LLM 미사용 — 추가 확인 필요)</div>
+</div><div class="voc">
+<div class="meta">📅 3/1 <span class="tag">환불 요청</span> <span class="badge badge-unclear">귀책 불명확</span></div>
+<div class="body">&quot;상담원 유선연결&quot;</div>
+<div class="note">근거: (LLM 미사용 — 추가 확인 필요)</div>
+</div><div class="voc">
+<div class="meta">📅 3/1 <span class="tag">이용 방법</span> <span class="badge badge-unclear">귀책 불명확</span></div>
+<div class="body">&quot;경차주차여부 표시해 주었으면 참고하기 편리할거 같음&quot;</div>
+<div class="note">근거: (LLM 미사용 — 추가 확인 필요)</div>
+</div></div>
+</div>
+<div class="sec">
+<div class="sec-title">🚨 주요 불만 이슈 Top 5 (소분류)</div>
+<table><thead><tr><th>카테고리</th><th>건수</th><th>심각도</th><th>AF만족</th><th>AF불만</th></tr></thead><tbody><tr><td class="td-left">환불</td><td>77건</td><td><span class="sev-h">높음</span></td><td>8</td><td>27</td></tr><tr><td class="td-left">주차권 이용</td><td>68건</td><td><span class="sev-h">높음</span></td><td>7</td><td>14</td></tr><tr><td class="td-left">이용</td><td>37건</td><td><span class="sev-h">높음</span></td><td>6</td><td>11</td></tr><tr><td class="td-left">이용 방법</td><td>19건</td><td><span class="sev-h">높음</span></td><td>1</td><td>7</td></tr><tr><td class="td-left">환불 요청</td><td>18건</td><td><span class="sev-h">높음</span></td><td>1</td><td>12</td></tr></tbody></table>
+</div>
+<div class="sec">
+<div class="sec-title">🤖 AI 개선 제안</div>
+<div class="ai-row"><div class="ai">
+<div class="ai-title">💡 🤖 AI 제안 1</div>
+<div class="ai-body">응답 시간 단축 SLA 도입.</div>
+</div><div class="ai">
+<div class="ai-title">🎯 🤖 AI 제안 2</div>
+<div class="ai-body">채팅 자동종료 시간 확대.</div>
+</div><div class="ai">
+<div class="ai-title">🔧 🤖 AI 제안 3</div>
+<div class="ai-body">환불 정책 상담원 재교육.</div>
+</div></div>
+</div>
+<div class="sec">
+<div class="sec-title">📋 핵심 요약 및 즉시 개선 액션</div>
+<div class="act"><span class="act-icon">🔴</span><span class="act-text">응대품질 최하위 항목 긴급 개선</span></div><div class="act"><span class="act-icon">🟡</span><span class="act-text">상담원 교육 강화</span></div><div class="act"><span class="act-icon">🟢</span><span class="act-text">CSAT 응답률 제고</span></div><div class="act"><span class="act-icon">🔵</span><span class="act-text">AI 응대 시스템 검토</span></div>
+</div>
+
+<div class="footer">Generated by 모두의주차장 CSAT 자동 리포트 시스템 🤖</div>
+</div></body></html>
