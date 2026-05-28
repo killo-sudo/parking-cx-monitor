@@ -700,10 +700,10 @@ def render_page2(data: dict, llm: dict) -> str:
     k = data["kpi_basic"]
 
     kpi_html = _kpi_row_html([
-        ("📋", "완료(분석대상) 건수", f"{k['n']}건"),
-        ("📝", "CSAT 응답 건수", f"{k['csat_respondent_count']}건"),
+        ("📋", "회신(분석대상) 건수", f"{k['n']}건", f"응답률 {k['response_rate']}%"),
         ("😊", "만족+매우만족 비율", f"{k['csat_rate']}%"),
         ("✅", "1차 해결률", f"{k['res1st_rate']}%"),
+        ("😞", "부정 평가 비율", f"{k['af_neg_pct']}%", f"부정 {k['af_neg']}건"),
     ])
 
     cat_rows = [
