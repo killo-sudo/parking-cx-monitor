@@ -21,7 +21,12 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from anthropic import Anthropic
+# anthropic는 LLM 분석에만 필요. 렌더링·슬랙 빌드는 패키지 없이도 동작해야
+# 하므로(예: scripts/manual_rich_backfill.py 환경) 임포트를 lazy로 처리.
+try:
+    from anthropic import Anthropic  # type: ignore
+except ImportError:  # pragma: no cover
+    Anthropic = None  # type: ignore[assignment]
 
 log = logging.getLogger(__name__)
 
@@ -125,6 +130,9 @@ def llm_analyze(data: dict[str, Any]) -> dict[str, Any]:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         log.warning("ANTHROPIC_API_KEY 미설정 — 룰베이스 폴백 사용")
+        return _fallback_analysis(data)
+    if Anthropic is None:
+        log.warning("anthropic 패키지 미설치 — 룰베이스 폴백 사용")
         return _fallback_analysis(data)
 
     client = Anthropic(api_key=api_key)

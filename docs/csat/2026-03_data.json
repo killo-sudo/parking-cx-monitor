@@ -20,8 +20,8 @@
     "csat_response_total": 944,
     "csat_respondent_count": 236,
     "csat_sat_total": 632,
-    "csat_denom": 2832,
-    "csat_rate": 22.3,
+    "csat_denom": 944,
+    "csat_rate": 66.9,
     "res1st_tot": 236,
     "res1st_ok": 146,
     "res1st_fail": 90,
@@ -104,84 +104,84 @@
       "full_name": "품질1. 상담원은 고객님의 문의 내용을 정확하게 파악했습니까?",
       "pos": 41,
       "tot": 55,
-      "rate": 17.4
+      "rate": 74.5
     },
     {
       "short_name": "품질2",
       "full_name": "품질2. 고객님의 입장에서 공감하며 대화하려 노력했습니까?",
       "pos": 40,
       "tot": 55,
-      "rate": 16.9
+      "rate": 72.7
     },
     {
       "short_name": "품질3",
       "full_name": "품질3. 상담원이 제시한 해결책이 실질적인 도움이 되었습니까?",
       "pos": 40,
       "tot": 55,
-      "rate": 16.9
+      "rate": 72.7
     },
     {
       "short_name": "품질4",
       "full_name": "품질4. 상담 내용에 대해 이해하기 쉽게 설명해 주었습니까?",
       "pos": 40,
       "tot": 55,
-      "rate": 16.9
+      "rate": 72.7
     },
     {
       "short_name": "전문성1",
       "full_name": "전문성1. 상담원은 고객님의 문의 내용을 정확하게 파악했습니까?",
       "pos": 92,
       "tot": 132,
-      "rate": 39.0
+      "rate": 69.7
     },
     {
       "short_name": "전문성2",
       "full_name": "전문성2. 상담원은 해당 업무에 대해 충분한 지식을 갖추고 있었습니까?",
       "pos": 88,
       "tot": 132,
-      "rate": 37.3
+      "rate": 66.7
     },
     {
       "short_name": "전문성3",
       "full_name": "전문성3. 상담 이후 서비스 이용에 대한 불편함이 해소되었습니까?",
       "pos": 82,
       "tot": 132,
-      "rate": 34.7
+      "rate": 62.1
     },
     {
       "short_name": "전문성4",
       "full_name": "전문성4. 이번 상담을 통해 우리 서비스에 대한 신뢰도가 높아졌습니까?",
       "pos": 81,
       "tot": 132,
-      "rate": 34.3
+      "rate": 61.4
     },
     {
       "short_name": "복합1",
       "full_name": "복합1. 서비스 이용 절차는 간편하다고 느끼셨습니까?",
       "pos": 32,
       "tot": 49,
-      "rate": 13.6
+      "rate": 65.3
     },
     {
       "short_name": "복합2",
       "full_name": "복합2. 상담원이 제시한 대안은 고객님의 상황을 충분히 고려한 것이었습니까?",
       "pos": 33,
       "tot": 49,
-      "rate": 14.0
+      "rate": 67.3
     },
     {
       "short_name": "복합3",
       "full_name": "복합3. 이번 상담을 통해 우리 서비스에 대한 신뢰도가 높아졌습니까?",
       "pos": 32,
       "tot": 49,
-      "rate": 13.6
+      "rate": 65.3
     },
     {
       "short_name": "복합4",
       "full_name": "복합4. 전체 서비스 경험에 만족하십니까?",
       "pos": 31,
       "tot": 49,
-      "rate": 13.1
+      "rate": 63.3
     }
   ],
   "category_dist": [
