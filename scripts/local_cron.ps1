@@ -74,6 +74,15 @@ try {
     Log "[ERROR crawler] $_"
 }
 
+# 4-2) Refresh app reviews from AppFollow (자체 크롤은 modu 앱 리뷰 누락 → 완전판으로 덮어씀)
+try {
+    Log "Refreshing app reviews from AppFollow..."
+    $afOut = & python scripts\refresh_app_reviews.py --months 2 2>&1 | Out-String
+    Log $afOut
+} catch {
+    Log "[ERROR appfollow refresh] $_"
+}
+
 # 5) Commit + push changes
 try {
     Log "Checking for changes..."
