@@ -561,7 +561,7 @@ def render_page2(data: dict, llm: dict) -> str:
         item_rows.append([
             escape(it["short_name"]),
             f'<span class="{cls}">{it["rate"]}%</span>',
-            f'{it["pos"]}/{k["n"]}',
+            f'{it["pos"]}/{it["tot"]}',
             grade,
         ])
     item_table = _table_html(["항목", "만족률", "응답", "등급"], item_rows)

@@ -475,15 +475,17 @@ def process_csat(
                 pos += 1
         csat_res_tot += tot
         csat_sat_tot += pos
+        # 항목별 만족률: 해당 항목 응답자 기준 (pos/tot)
         item_stats.append({
             "short_name": short_csat_name(col["name"]),
             "full_name": col["name"],
             "pos": pos,
             "tot": tot,
-            "rate": round(pos / n * 100, 1) if n > 0 else 0.0,
+            "rate": round(pos / tot * 100, 1) if tot > 0 else 0.0,
         })
 
-    csat_denom = n * len(csat_cols)
+    # 전체 만족률: 응답 건수 기준 (실제 답한 칸 중 만족 비율)
+    csat_denom = csat_res_tot
     csat_rate = round(csat_sat_tot / csat_denom * 100, 1) if csat_denom > 0 else 0.0
 
     csat_respondent_count = sum(
@@ -563,6 +565,7 @@ def process_csat(
         ]
         wn = len(w_rows)
         w_csat_pos = 0
+        w_csat_resp = 0  # 주간 실제 응답 건수 합 (응답 건수 기준 분모)
         for col in csat_cols:
             for r in w_rows:
                 if col["idx"] >= len(r):
@@ -570,6 +573,7 @@ def process_csat(
                 val = str(r[col["idx"]] or "").strip()
                 if not val:
                     continue
+                w_csat_resp += 1
                 try:
                     num = float(val)
                     if num >= 4:
@@ -579,8 +583,7 @@ def process_csat(
                     pass
                 if _normalize(val) in SAT_WORDS:
                     w_csat_pos += 1
-        w_csat_denom = wn * len(csat_cols)
-        w_csat_rate = round(w_csat_pos / w_csat_denom * 100, 1) if w_csat_denom > 0 else 0.0
+        w_csat_rate = round(w_csat_pos / w_csat_resp * 100, 1) if w_csat_resp > 0 else 0.0
 
         w_res1st_ok = sum(
             1 for r in w_rows
