@@ -429,7 +429,7 @@ def render_page1(data: dict, llm: dict) -> str:
 
     kpi_html = (
         '<div class="kpi-row">'
-        + _kpi_card_html("📋", "총 접수 건수", f"{k['sent']}건", f"분석 대상(완료): {k['n']}건")
+        + _kpi_card_html("📋", "총 발송 건수", f"{k['sent']}건", f"분석 대상(완료): {k['n']}건")
         + _kpi_card_html("🔥", "최다 불만 유형", top_sub["name"], f"{top_sub['count']}건")
         + _kpi_card_html("💰", "환불 관련 비율", f"{k['refund_rate']}%", "소분류 기준")
         + _kpi_card_html("⏳", "미해결 건수", f"{k['res1st_fail']}건", "1차 해결 실패")
