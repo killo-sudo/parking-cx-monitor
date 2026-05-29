@@ -240,18 +240,8 @@ html, body {
 #content-title-text { font-size: 17px; font-weight: 800; color: var(--text-1); font-family: var(--f-serif); }
 #content-subtitle { font-size: 11px; color: var(--text-3); font-family: var(--f-mono); }
 
-/* feed filter */
+/* feed filter (검색만) */
 #feed-filter { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
-#filter-chips { display: flex; gap: 5px; align-items: center; overflow-x: auto; }
-#filter-chips::-webkit-scrollbar { display: none; }
-.filter-chip {
-  padding: 3px 13px; font-size: 12px; font-weight: 600; font-family: var(--f-sans);
-  border: 1px solid var(--border-2); background: var(--surface); color: var(--text-2);
-  cursor: pointer; white-space: nowrap; border-radius: 20px; transition: all var(--transition);
-}
-.filter-chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
-.filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
 #filter-kw-group {
   display: flex; align-items: center; margin-left: auto;
   background: var(--surface); border: 1px solid var(--border-2);

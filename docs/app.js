@@ -32,7 +32,6 @@ let SERVICES   = []
 let SVC_BY_ID  = {}
 let EDITION    = null
 let _articles  = []
-let ACTIVE_CAT = ''
 let ACTIVE_WEEK = ''   // 'YYYY-WW' 선택 주차, '' = 전체
 let FEED_KW    = ''
 
@@ -170,14 +169,6 @@ function buildWeekNav () {
 // 피드 필터 (카테고리 칩 + 키워드)
 // ──────────────────────────────────────────────
 function setupFeedFilter () {
-  document.querySelectorAll('#filter-chips .filter-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      document.querySelectorAll('#filter-chips .filter-chip').forEach(c => c.classList.remove('active'))
-      chip.classList.add('active')
-      ACTIVE_CAT = chip.dataset.cat || ''
-      renderFeed()
-    })
-  })
   const kwInput = $('filter-kw-input')
   const kwClear = $('filter-kw-clear')
   let _t = null
@@ -196,7 +187,6 @@ function setupFeedFilter () {
 function renderFeed () {
   let arts = _articles.slice()
   if (ACTIVE_WEEK) arts = arts.filter(a => _weekKeyOf(a) === ACTIVE_WEEK)
-  if (ACTIVE_CAT) arts = arts.filter(a => (a.category || '기타') === ACTIVE_CAT)
   if (FEED_KW) {
     const kws = FEED_KW.split(/\s+/).filter(Boolean)
     arts = arts.filter(a => {
@@ -220,7 +210,7 @@ function renderFeed () {
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
-        <p>${(ACTIVE_CAT || FEED_KW) ? '조건에 맞는 기사가 없습니다.' : '이 주차에 종합된 기사가 없습니다.'}</p>
+        <p>${FEED_KW ? '조건에 맞는 기사가 없습니다.' : '이 주차에 종합된 기사가 없습니다.'}</p>
       </div>`
     return
   }
