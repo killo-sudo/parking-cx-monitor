@@ -1,0 +1,26 @@
+# gcloud run deploy --source 업로드 제외 (빌드 컨텍스트 최소화)
+.git
+.github
+.venv
+node_modules
+cloudrun/node_modules
+__pycache__
+*.pyc
+*.pyo
+*.log
+logs/
+monitor.db
+data/cache.db
+backend-dist/
+dist/
+dist-installer/
+build-resources/
+src/
+*.zip
+.env
+google_credentials.json
+# 정적 사이트(docs)와 cloudrun/, Dockerfile, backend/(불필요시 제외 가능)는 업로드 필요
+# backend는 Cloud Run 이미지에 안 쓰므로 제외
+backend/
+gas/
+scripts/
