@@ -5,10 +5,12 @@
 
 ## 파이프라인 위치
 ```
-07:15 KST  GitHub Actions(daily_crawl.py) → docs/data.json 갱신·커밋   [기존]
-08:30 KST  이 루틴 → docs/data.json 읽기 → 종합 → docs/curated.json 커밋·푸시
-페이지      curated.json을 메인 기사 피드로 렌더 (web-api.js getCuratedEdition)
+매일 07:15 KST   GitHub Actions(daily_crawl.py) → docs/data.json 갱신·커밋   [기존]
+매주 월 09:00 KST 이 루틴 → docs/data.json 읽기 → 종합 → docs/curated.json 커밋·푸시
+페이지            curated.json을 메인 기사 피드로 렌더 (web-api.js getCuratedEdition)
 ```
+> 실행 주기: **매주 월요일 09:00 KST**(cron `0 0 * * 1` UTC). 크롤은 매일 돌지만 큐레이션은 주 1회.
+> 14일 창은 주간(7일) 간격과 겹치므로 직전 주 누락분까지 포착되고, dedup으로 중복은 방지된다.
 
 ## 매일 실행 절차
 1. repo clone/pull (main 최신).
@@ -29,7 +31,7 @@
 > **보관 범위**: 누적이 너무 커지면(예: 1년 초과) 오래된 주차를 `docs/curated_archive/{year}.json`으로 분리하는 것을 후속 과제로 둔다. 당분간 단일 파일 유지.
 
 > **Slack 발송**: 없음 (페이지만 갱신). 향후 필요 시 채널을 지정해 추가한다.
-> **실행 시각**: 매일 08:30 KST (크롤 07:15 이후).
+> **실행 시각**: 매주 월요일 09:00 KST (cron `0 0 * * 1`). routine id `trig_01JmYY5BziU1nwfFt7Qegbjk`.
 
 ## curated.json 스키마
 ```json
