@@ -27,6 +27,20 @@ import logging
 log = logging.getLogger(__name__)
 
 
+# ── API 인증 게이트 (fail-closed) ──────────────────────
+# /api/* 는 X-API-Token 헤더가 환경변수 API_TOKEN과 일치해야만 호출 가능.
+# API_TOKEN 미설정 시 모든 /api 차단 → 인증 없는 크롤러 원격실행/데이터 조회 방지.
+# (정적 파일 라우트 '/', '/<path>'는 영향 없음)
+_API_TOKEN = os.environ.get('API_TOKEN', '').strip()
+
+
+@app.before_request
+def _require_api_token():
+    if request.path.startswith('/api/'):
+        if not _API_TOKEN or request.headers.get('X-API-Token') != _API_TOKEN:
+            return jsonify({'error': 'unauthorized'}), 403
+
+
 def _merge_data(sheets_rows: list, db_rows: list, limit: int = 300) -> list:
     """Sheets 데이터와 SQLite 데이터를 URL 키 기준으로 병합·중복제거."""
     seen: set = set()
