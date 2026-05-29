@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>THE PARKING GAZETTE</title>
-  <link rel="stylesheet" href="style.css?v=20260520a">
+  <link rel="stylesheet" href="style.css?v=20260529a">
   <script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
@@ -12,7 +12,7 @@
 <div id="auth-overlay">
   <div id="auth-card">
     <div id="auth-logo">THE PARKING GAZETTE</div>
-    <div id="auth-tagline">모두의주차장 CX운영파트 · 경쟁사 모니터링</div>
+    <div id="auth-tagline">모두의주차장 CX운영파트 · 주차산업 종합 일보</div>
     <div id="auth-gsi-btn"></div>
     <div id="auth-msg"></div>
     <div id="auth-hint">@socar.kr 계정으로만 접근 가능합니다</div>
@@ -31,78 +31,49 @@
 <div id="app">
 
   <header id="header">
-    <div id="masthead-top-rule"></div>
     <div id="masthead-name">THE PARKING GAZETTE</div>
-    <div id="masthead-tagline">국내 주차 플랫폼 CX 정보 종합 모니터 — 모두의주차장 CX운영파트</div>
+    <div id="masthead-tagline">국내 주차 플랫폼 12개사 종합 일보 — 매일 아침 AI가 읽고 종합한 주차산업 동향 · 모두의주차장 CX운영파트</div>
     <div id="masthead-bar">
-      <div id="masthead-vol">Vol. 1 · 주차 서비스 동향 일보</div>
+      <div id="masthead-vol">데일리 에디션</div>
+      <span id="edition-date">—</span>
       <span id="last-updated">마지막 수집: —</span>
-      <span id="crawl-schedule">매일 07:00 자동 수집</span>
-      <a id="csat-link" href="csat/" style="font-size:11px;color:#777;text-decoration:none;border:1px solid #ddd;border-radius:4px;padding:2px 8px;margin-left:4px">📊 CSAT 리포트</a>
+      <a id="csat-link" href="csat/">📊 CSAT 리포트</a>
       <span id="auth-user"></span>
       <button id="theme-toggle" title="라이트/다크 전환">🌙</button>
     </div>
   </header>
 
-  <!-- ── 인텔리전스 바 ──────────────────────── -->
-  <div id="intel-bar">
-    <div class="intel-panel" id="panel-trending">
-      <div class="intel-panel-label">급상승 키워드</div>
-      <div id="trending-list"><span class="intel-loading">로딩 중...</span></div>
-    </div>
-    <div class="intel-divider"></div>
-    <div class="intel-panel" id="panel-rival">
-      <div class="intel-panel-label">경쟁사 동향 <span class="intel-sub">7일</span></div>
-      <div id="rival-list"><span class="intel-loading">로딩 중...</span></div>
-    </div>
-  </div>
-
-  <nav id="sidebar">
-    <div id="sidebar-label">INDEX</div>
-    <div id="service-list"></div>
-  </nav>
-
-  <div id="filter-bar">
-    <span id="filter-label">카테고리</span>
-    <div id="filter-chips">
-      <button class="filter-chip active" data-type="">전체</button>
-      <button class="filter-chip" data-type="VOC">VOC</button>
-      <button class="filter-chip" data-type="정책">정책</button>
-      <button class="filter-chip" data-type="기술">기술</button>
-      <button class="filter-chip" data-type="사업확장">사업확장</button>
-      <button class="filter-chip" data-type="제휴">제휴</button>
-      <button class="filter-chip" data-type="기타">기타</button>
-    </div>
-    <div id="filter-search-group">
-      <div id="filter-date-group">
-        <input type="date" id="filter-date-from" title="시작일">
-        <span class="filter-date-sep">~</span>
-        <input type="date" id="filter-date-to" title="종료일">
-        <button id="filter-date-clear">날짜초기화</button>
-      </div>
-      <div id="filter-kw-group">
-        <input type="text" id="filter-kw-input" placeholder="제목·본문 검색..." autocomplete="off" maxlength="50">
-        <button id="filter-kw-clear" title="검색어 초기화">✕</button>
-      </div>
-    </div>
-  </div>
-
   <div id="body">
+    <nav id="week-nav">
+      <div id="week-nav-label">발행 주차</div>
+      <div id="week-nav-list"></div>
+    </nav>
+
     <main id="content">
       <div id="content-header">
         <div id="content-title">
-          <div class="svc-color-bar" id="svc-color-bar"></div>
-          <span id="content-title-text">서비스를 선택하세요</span>
+          <span id="content-title-text">오늘의 종합</span>
+          <span id="content-subtitle"></span>
         </div>
-        <div id="content-subtitle"></div>
+        <div id="feed-filter">
+          <div id="filter-chips">
+            <button class="filter-chip active" data-cat="">전체</button>
+            <button class="filter-chip" data-cat="정책">정책</button>
+            <button class="filter-chip" data-cat="기술">기술</button>
+            <button class="filter-chip" data-cat="사업확장">사업확장</button>
+            <button class="filter-chip" data-cat="제휴">제휴</button>
+            <button class="filter-chip" data-cat="VOC">VOC</button>
+            <button class="filter-chip" data-cat="기타">기타</button>
+          </div>
+          <div id="filter-kw-group">
+            <input type="text" id="filter-kw-input" placeholder="기사 검색..." autocomplete="off" maxlength="50">
+            <button id="filter-kw-clear" title="검색어 초기화">✕</button>
+          </div>
+        </div>
       </div>
-      <div id="timeline">
+      <div id="article-feed">
         <div class="empty-state">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M3 3h2l.4 2M7 13h10l4-8H5.4"/>
-            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-          </svg>
-          <p>좌측에서 서비스를 선택하면<br>변경사항 타임라인이 표시됩니다.</p>
+          <div class="spinner"></div>
         </div>
       </div>
     </main>
@@ -110,7 +81,7 @@
     <aside id="right-panel">
       <div id="reviews-section">
         <div id="reviews-header">
-          <span id="reviews-title">앱 리뷰</span>
+          <span id="reviews-title">타사 앱 리뷰</span>
           <span id="reviews-count"></span>
         </div>
         <div id="reviews-filters">
@@ -133,8 +104,7 @@
   </div>
 
   <div id="appstats-section">
-    <div id="appstats-label">앱 지표 비교 <span id="appstats-sub">— 운영사별 평점 꺾은선 · 리뷰 수 · 앱 버전</span></div>
-    <div id="appstats-chart"></div>
+    <div id="appstats-label">운영사별 현재 별점 <span id="appstats-sub">— Android/iOS 평점 · 누적 리뷰 수</span></div>
     <div id="appstats-list">
       <div class="appstats-empty">앱 정보를 수집 중입니다.</div>
     </div>
@@ -142,7 +112,7 @@
 
 </div>
 
-<script src="web-api.js?v=20260520a"></script>
-<script src="app.js?v=20260520a"></script>
+<script src="web-api.js?v=20260529a"></script>
+<script src="app.js?v=20260529a"></script>
 </body>
 </html>

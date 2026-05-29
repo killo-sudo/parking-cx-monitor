@@ -1,7 +1,7 @@
 /**
- * 대시보드 렌더러 로직
- * 흐름: 스플래시 → 상태 확인 → 대시보드 표시
- * 데이터 수집은 GitHub Actions 크론(매일 KST 04:00)이 담당.
+ * THE PARKING GAZETTE — 데일리 에디션 렌더러
+ * 흐름: 인증 → curated.json(매일 아침 Claude 루틴이 종합) 로드 → 기사 피드 렌더
+ * 우측: 타사 앱 리뷰 / 하단: 운영사별 현재 별점
  */
 
 // ──────────────────────────────────────────────
@@ -22,31 +22,21 @@ const SVC_COLORS = {
   sk_shielders:    '#3A2A10',
 }
 
-// 서비스 카테고리 그룹 (sidebar 분류용)
-const SVC_GROUPS = [
-  {
-    label: '내부',
-    ids: ['moduparking'],
-  },
-  {
-    label: '경쟁사',
-    ids: ['kakaot_parking', 'tmap_parking', 'iparking', 'nicepark', 'highparking', 'parkingfriends', 'zoomansa', 'amano_korea', 'kmpark', 'parkingcloud', 'sk_shielders'],
-  },
-]
+// 리뷰 브랜드 정렬 순서 (경쟁사)
+const RIVAL_ORDER = ['kakaot_parking', 'tmap_parking', 'iparking', 'nicepark', 'highparking', 'parkingfriends', 'zoomansa', 'amano_korea', 'kmpark', 'parkingcloud', 'sk_shielders']
 
 // ──────────────────────────────────────────────
 // 상태
 // ──────────────────────────────────────────────
-let SERVICES      = []
-let STATUS        = {}
-let ACTIVE_SVC    = null
-let ACTIVE_FILTER = null
-let FILTER_DATE_FROM = ''
-let FILTER_DATE_TO   = ''
-let FILTER_KW        = ''
-// CRAWLING 플래그 제거 — 수동 수집 기능 없음
+let SERVICES   = []
+let SVC_BY_ID  = {}
+let EDITION    = null
+let _articles  = []
+let ACTIVE_CAT = ''
+let ACTIVE_WEEK = ''   // 'YYYY-WW' 선택 주차, '' = 전체
+let FEED_KW    = ''
 
-let _allReviews    = []
+let _allReviews     = []
 let REVIEW_PLATFORM = ''
 let REVIEW_BRAND    = ''
 
@@ -55,439 +45,286 @@ let REVIEW_BRAND    = ''
 // ──────────────────────────────────────────────
 const $ = id => document.getElementById(id)
 
-const splash        = $('splash')
-const splashMsg     = $('splash-msg')
-const splashLog     = $('splash-log')
-const svcList       = $('service-list')
-const timeline      = $('timeline')
-const contentTitle  = $('content-title-text')
-const colorBar      = $('svc-color-bar')
-const subtitle      = $('content-subtitle')
-const lastUpdated   = $('last-updated')
-const reviewsBody   = $('reviews-body')
-const appstatsList  = $('appstats-list')
-const appstatsChart = $('appstats-chart')
-const filterChips   = document.querySelectorAll('.filter-chip')
+const splash       = $('splash')
+const splashMsg    = $('splash-msg')
+const splashLog    = $('splash-log')
+const feedEl       = $('article-feed')
+const subtitle     = $('content-subtitle')
+const editionDate  = $('edition-date')
+const lastUpdated  = $('last-updated')
+const reviewsBody  = $('reviews-body')
+const appstatsList = $('appstats-list')
 
 // ──────────────────────────────────────────────
 // 스플래시
 // ──────────────────────────────────────────────
-
-function showSplash (msg) {
-  splashMsg.textContent = msg
-  splash.classList.remove('hidden')
-}
-
-function appendSplashLog (line) {
-  splashLog.textContent += line
-  splashLog.scrollTop = splashLog.scrollHeight
-}
-
-function hideSplash () {
-  splash.classList.add('hidden')
-}
+function showSplash (msg) { splashMsg.textContent = msg; splash.classList.remove('hidden') }
+function appendSplashLog (line) { splashLog.textContent += line; splashLog.scrollTop = splashLog.scrollHeight }
+function hideSplash () { splash.classList.add('hidden') }
 
 // ──────────────────────────────────────────────
 // 초기화 흐름
 // ──────────────────────────────────────────────
-
 async function init () {
   showSplash('데이터 확인 중...')
-  setupFilterChips()
+  setupFeedFilter()
+  setupReviewFilters()
 
   try {
-    STATUS = await window.api.getStatus()
+    SERVICES = await window.api.getServices()
+    SVC_BY_ID = Object.fromEntries(SERVICES.map(s => [s.id, s]))
+  } catch (_) { SERVICES = []; SVC_BY_ID = {} }
 
-    const svcData = await window.api.getServices()
-    SERVICES = svcData
-
-    renderServiceList()
-    setupReviewFilters()
-    await renderReviews()
-    await renderAppStats()
-    await renderIntelBar()
-    updateLastUpdated()
-
-    hideSplash()
-
-    // 기본: 전체 타임라인 표시
-    await selectService('__all__')
-
+  try {
+    EDITION = await window.api.getCuratedEdition()
+    _articles = EDITION.articles || []
+    updateEditionMeta()
+    buildWeekNav()
+    renderFeed()
   } catch (err) {
-    appendSplashLog(`\n[경고] ${err.message}`)
-    splashMsg.textContent = '오프라인 모드 — 캐시 데이터로 표시'
-    await sleep(1500)
-    hideSplash()
-    try {
-      const svcData = await window.api.getServices()
-      SERVICES = svcData
-      renderServiceList()
-      await renderReviews()
-      await selectService('__all__')
-    } catch (_) {}
+    feedEl.innerHTML = `<div class="empty-state"><p>${esc(err.message)}</p></div>`
   }
+
+  try { await renderReviews() } catch (_) {}
+  try { await renderAppStats() } catch (_) {}
+  updateLastUpdated()
+  hideSplash()
 }
 
 // ──────────────────────────────────────────────
-// 서비스 사이드바 렌더링
+// 에디션 메타
 // ──────────────────────────────────────────────
+function updateEditionMeta () {
+  if (!EDITION) return
+  if (editionDate) editionDate.textContent = EDITION.edition_date ? `${EDITION.edition_date} 종합` : ''
+  const n = _articles.length
+  const win = EDITION.source_window ? ` · 수집창 ${EDITION.source_window}` : ''
+  const dropped = (EDITION.dropped && (EDITION.dropped.noise || EDITION.dropped.duplicates))
+    ? ` · 노이즈 ${EDITION.dropped.noise || 0}건·중복 ${EDITION.dropped.duplicates || 0}건 제외`
+    : ''
+  if (subtitle) subtitle.textContent = `${n}개 종합 기사${win}${dropped}`
+}
 
-function renderServiceList () {
-  svcList.innerHTML = ''
-  const newMap    = STATUS.per_service_new || {}
-  const svcById   = Object.fromEntries(SERVICES.map(s => [s.id, s]))
+// ──────────────────────────────────────────────
+// 주차 네비게이션 (연도 → 주차)
+// ──────────────────────────────────────────────
+function _weekKeyOf (a) {
+  const w = _isoWeek(a.published_at)
+  return w ? `${w.year}-${String(w.week).padStart(2, '0')}` : ''
+}
 
-  // 전체 보기
-  const allItem = document.createElement('div')
-  allItem.className = 'svc-item'
-  allItem.dataset.id = '__all__'
-  allItem.innerHTML = `
-    <div class="svc-dot"></div>
-    <div class="svc-name">전체 보기</div>
-    <div class="svc-badge"></div>
-  `
-  allItem.addEventListener('click', () => selectService('__all__'))
-  svcList.appendChild(allItem)
+function buildWeekNav () {
+  const navList = $('week-nav-list')
+  if (!navList) return
 
-  // 카테고리 그룹 — 순서: SVC_GROUPS 우선, 나머지는 기타로
-  const assignedIds = new Set(SVC_GROUPS.flatMap(g => g.ids))
-  const extraIds    = SERVICES.map(s => s.id).filter(id => !assignedIds.has(id))
-  const groups      = extraIds.length > 0
-    ? [...SVC_GROUPS, { label: '기타', ids: extraIds }]
-    : SVC_GROUPS
+  // 주차별 집계
+  const byWeek = {}
+  _articles.forEach(a => {
+    const k = _weekKeyOf(a)
+    if (!k) return
+    if (!byWeek[k]) {
+      const w = _isoWeek(a.published_at)
+      byWeek[k] = { key: k, year: w.year, week: w.week, range: _weekRange(a.published_at), count: 0 }
+    }
+    byWeek[k].count++
+  })
+  const weeks = Object.values(byWeek).sort((a, b) => b.key.localeCompare(a.key))
 
-  groups.forEach(group => {
-    const groupSvcs = group.ids.map(id => svcById[id]).filter(Boolean)
-    if (groupSvcs.length === 0) return
+  // 기본 선택 = 최신 주차
+  if (!ACTIVE_WEEK && weeks.length) ACTIVE_WEEK = weeks[0].key
 
-    // 그룹 헤더
-    const header = document.createElement('div')
-    header.className = 'svc-group-header'
-    header.textContent = group.label
-    svcList.appendChild(header)
+  // 연도 그룹 렌더
+  const byYear = {}
+  weeks.forEach(w => { (byYear[w.year] = byYear[w.year] || []).push(w) })
+  const years = Object.keys(byYear).sort((a, b) => b - a)
 
-    groupSvcs.forEach(svc => {
-      // Sheets 기반 카운트 우선, 없으면 SQLite per_service_new
-      const newCnt = (svc.count != null ? svc.count : 0) || newMap[svc.id] || 0
+  const allItem = `<div class="week-item ${ACTIVE_WEEK === '' ? 'active' : ''}" data-week="">
+      <span class="week-name">전체 보기</span>
+      <span class="week-cnt">${_articles.length}</span>
+    </div>`
 
-      const entry = document.createElement('div')
-      entry.className = 'svc-entry'
+  const yearsHtml = years.map(y => {
+    const items = byYear[y].map(w =>
+      `<div class="week-item ${ACTIVE_WEEK === w.key ? 'active' : ''}" data-week="${w.key}">
+        <span class="week-name">${w.week}주차</span>
+        <span class="week-range">${w.range}</span>
+        <span class="week-cnt">${w.count}</span>
+      </div>`
+    ).join('')
+    return `<div class="week-year-group"><div class="week-year">${y}년</div>${items}</div>`
+  }).join('')
 
-      const item = document.createElement('div')
-      item.className = 'svc-item'
-      item.dataset.id = svc.id
-      item.innerHTML = `
-        <div class="svc-dot ${newCnt > 0 ? 'has-new' : ''}"></div>
-        <div class="svc-name">${svc.name_ko}</div>
-        <div class="svc-badge ${newCnt > 0 ? 'visible' : ''}">${newCnt}</div>
-      `
-      item.addEventListener('click', () => selectService(svc.id))
-      entry.appendChild(item)
+  navList.innerHTML = allItem + yearsHtml
 
-      const op = document.createElement('div')
-      op.className = 'svc-operator'
-      op.textContent = svc.operator
-      entry.appendChild(op)
-
-      svcList.appendChild(entry)
+  navList.querySelectorAll('.week-item').forEach(el => {
+    el.addEventListener('click', () => {
+      ACTIVE_WEEK = el.dataset.week || ''
+      navList.querySelectorAll('.week-item').forEach(x => x.classList.remove('active'))
+      el.classList.add('active')
+      renderFeed()
     })
   })
 }
 
 // ──────────────────────────────────────────────
-// 서비스 선택 → 타임라인 로드
+// 피드 필터 (카테고리 칩 + 키워드)
 // ──────────────────────────────────────────────
-
-// ──────────────────────────────────────────────
-// 카테고리 필터 칩 세팅
-// ──────────────────────────────────────────────
-
-function setupFilterChips () {
-  filterChips.forEach(chip => {
-    chip.addEventListener('click', async () => {
-      filterChips.forEach(c => c.classList.remove('active'))
+function setupFeedFilter () {
+  document.querySelectorAll('#filter-chips .filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#filter-chips .filter-chip').forEach(c => c.classList.remove('active'))
       chip.classList.add('active')
-      ACTIVE_FILTER = chip.dataset.type || null
-      await reloadTimeline()
+      ACTIVE_CAT = chip.dataset.cat || ''
+      renderFeed()
     })
   })
-
-  // 날짜 필터
-  const dateFrom  = $('filter-date-from')
-  const dateTo    = $('filter-date-to')
-  const dateClear = $('filter-date-clear')
-  const kwInput   = $('filter-kw-input')
-  const kwClear   = $('filter-kw-clear')
-
-  if (dateFrom) dateFrom.addEventListener('change', async () => {
-    FILTER_DATE_FROM = dateFrom.value
-    await reloadTimeline()
-  })
-  if (dateTo) dateTo.addEventListener('change', async () => {
-    FILTER_DATE_TO = dateTo.value
-    await reloadTimeline()
-  })
-  if (dateClear) dateClear.addEventListener('click', async () => {
-    FILTER_DATE_FROM = ''; FILTER_DATE_TO = ''
-    if (dateFrom) dateFrom.value = ''
-    if (dateTo)   dateTo.value   = ''
-    await reloadTimeline()
-  })
-
-  // 키워드 검색 (300ms 디바운스)
-  let _kwTimer = null
+  const kwInput = $('filter-kw-input')
+  const kwClear = $('filter-kw-clear')
+  let _t = null
   if (kwInput) kwInput.addEventListener('input', () => {
-    clearTimeout(_kwTimer)
-    _kwTimer = setTimeout(async () => {
-      FILTER_KW = kwInput.value.trim()
-      await reloadTimeline()
-    }, 300)
+    clearTimeout(_t)
+    _t = setTimeout(() => { FEED_KW = kwInput.value.trim().toLowerCase(); renderFeed() }, 250)
   })
-  if (kwClear) kwClear.addEventListener('click', async () => {
-    FILTER_KW = ''
-    if (kwInput) kwInput.value = ''
-    await reloadTimeline()
+  if (kwClear) kwClear.addEventListener('click', () => {
+    FEED_KW = ''; if (kwInput) kwInput.value = ''; renderFeed()
   })
-}
-
-async function reloadTimeline () {
-  if (!ACTIVE_SVC) return
-  await selectService(ACTIVE_SVC)
-}
-
-async function selectService (svcId) {
-  ACTIVE_SVC = svcId
-
-  document.querySelectorAll('.svc-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.id === svcId)
-  })
-
-  if (svcId === '__all__') {
-    contentTitle.textContent = '전체 서비스 타임라인'
-    colorBar.style.background = 'var(--ink)'
-    const filterNote = ACTIVE_FILTER ? ` · 필터: ${ACTIVE_FILTER}` : ''
-    subtitle.textContent = `${SERVICES.length}개 주차 플랫폼 VOC · 뉴스 · 앱 업데이트 · 홈페이지 변경 종합${filterNote}`
-    timeline.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>'
-    try {
-      const changes = await window.api.getAllChanges(ACTIVE_FILTER || null)
-      renderTimeline(changes, null)
-    } catch (err) {
-      timeline.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`
-    }
-    return
-  }
-
-  const svc   = SERVICES.find(s => s.id === svcId)
-  const color = SVC_COLORS[svcId] || 'var(--ink)'
-
-  contentTitle.textContent = svc ? svc.name_ko : svcId
-  colorBar.style.background = color
-  const filterNote = ACTIVE_FILTER ? ` · 필터: ${ACTIVE_FILTER}` : ''
-  subtitle.textContent = svc ? `${svc.operator} — 최근 6개월 변경사항 · VOC · 앱 동향${filterNote}` : ''
-
-  timeline.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>'
-  try {
-    let changes = await window.api.getChanges(svcId)
-    if (ACTIVE_FILTER) {
-      changes = changes.filter(c => c.change_type === ACTIVE_FILTER)
-    }
-    renderTimeline(changes, svc)
-  } catch (err) {
-    timeline.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`
-  }
 }
 
 // ──────────────────────────────────────────────
-// 타임라인 카드 렌더링
+// 기사 피드 렌더링
 // ──────────────────────────────────────────────
-
-const _REVIEW_TYPES = new Set(['appstore', 'ios_appstore'])
-
-function renderTimeline (changes, svc) {
-  // ── 앱 리뷰 제외 (우측 패널에서 별도 표시) ──
-  changes = changes.filter(c => !_REVIEW_TYPES.has(c.source_type))
-
-  // ── 날짜 범위 필터 ──
-  if (FILTER_DATE_FROM) {
-    changes = changes.filter(c => (c.published_at || '') >= FILTER_DATE_FROM)
-  }
-  if (FILTER_DATE_TO) {
-    changes = changes.filter(c => (c.published_at || '') <= FILTER_DATE_TO)
-  }
-
-  // ── 키워드 검색 필터 ──
-  if (FILTER_KW) {
-    const kws = FILTER_KW.toLowerCase().split(/\s+/).filter(Boolean)
-    changes = changes.filter(c => {
-      const hay = ((c.title || '') + ' ' + (c.summary || '')).toLowerCase()
+function renderFeed () {
+  let arts = _articles.slice()
+  if (ACTIVE_WEEK) arts = arts.filter(a => _weekKeyOf(a) === ACTIVE_WEEK)
+  if (ACTIVE_CAT) arts = arts.filter(a => (a.category || '기타') === ACTIVE_CAT)
+  if (FEED_KW) {
+    const kws = FEED_KW.split(/\s+/).filter(Boolean)
+    arts = arts.filter(a => {
+      const hay = `${a.headline || ''} ${a.deck || ''} ${a.body || ''} ${a.cx_note || ''}`.toLowerCase()
       return kws.every(k => hay.includes(k))
     })
   }
 
-  if (!changes || changes.length === 0) {
-    const msg = (FILTER_DATE_FROM || FILTER_DATE_TO || FILTER_KW)
-      ? '검색 조건에 맞는 결과가 없습니다.'
-      : '수집된 변경사항이 없습니다.'
-    timeline.innerHTML = `
+  // 선택 주차를 제목/부제에 반영
+  const titleEl = $('content-title-text')
+  if (ACTIVE_WEEK) {
+    const w = _isoWeek(arts[0] ? arts[0].published_at : null) || _parseWeekKey(ACTIVE_WEEK)
+    if (titleEl) titleEl.textContent = w ? `${w.year}년 ${w.week}주차` : '주차별 종합'
+  } else if (titleEl) {
+    titleEl.textContent = '전체 종합'
+  }
+
+  if (arts.length === 0) {
+    feedEl.innerHTML = `
       <div class="empty-state">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
-        <p>${msg}</p>
+        <p>${(ACTIVE_CAT || FEED_KW) ? '조건에 맞는 기사가 없습니다.' : '이 주차에 종합된 기사가 없습니다.'}</p>
       </div>`
     return
   }
 
-  const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
-
-  // 같은 날 제목 단어 20% 이상 겹치면 대표 1건만 표시 (조사 제거 + 장문토큰 앞5자 정규화)
-  // 중복 그룹 내 우선순위: 네이버 뷰어 URL > 본문 긴 것 > 나머지
-  const _STOP = new Set(['이','가','을','를','의','에','에서','으로','로','과','와','도','은','는','그','이','저','것','수','등','및','또','더','각','한','된','할','될','하는','있는','없는','위한','통한','대한','관련','함께','모든','이번','해당','국내','서울','지난'])
-  const _JOSA = ['에서','으로','이라','이며','이고','하고','부터','까지','에게','보다','처럼','만큼','과','와','의','에','도','만','로','서','고','며','나']
-  function _stripJosa (w) {
-    for (const j of _JOSA) {
-      if (w.endsWith(j) && w.length - j.length >= 2) return w.slice(0, w.length - j.length)
-    }
-    return w
+  // 전체 보기: 주차별 헤더로 구분 / 특정 주차: 평면 목록
+  if (!ACTIVE_WEEK) {
+    const groups = {}
+    arts.forEach(a => {
+      const k = _weekKeyOf(a) || '0000-00'
+      ;(groups[k] = groups[k] || []).push(a)
+    })
+    const keys = Object.keys(groups).sort((a, b) => b.localeCompare(a))
+    feedEl.innerHTML = keys.map(k => {
+      const items = groups[k]
+      const w = _isoWeek(items[0].published_at)
+      const hdr = w
+        ? `<div class="gz-week-header"><span class="gz-week-num">${w.year}년 ${w.week}주차</span><span class="gz-week-range">${_weekRange(items[0].published_at)} · ${items.length}건</span></div>`
+        : ''
+      return hdr + items.map(renderArticleCard).join('')
+    }).join('')
+  } else {
+    feedEl.innerHTML = arts.map(renderArticleCard).join('')
   }
-  function _words (title) {
-    return new Set(
-      (title || '').split(/[\s\-·,·…]+/)
-        .map(w => { const s = _stripJosa(w); return s.length >= 7 ? s.slice(0, 5) : s })
-        .filter(w => w.length > 1 && !_STOP.has(w))
-    )
-  }
-  function _similar (wa, wb) {
-    if (wa.size === 0 || wb.size === 0) return false
-    let inter = 0
-    wa.forEach(w => { if (wb.has(w)) inter++ })
-    return inter / (wa.size + wb.size - inter) >= 0.2
-  }
-  function _dedupPriority (c) {
-    const url = c.url || ''
-    const bodyLen = (c.summary || '').length
-    if (url.includes('n.news.naver.com')) return 0
-    if (bodyLen > 200) return 1
-    return 2
-  }
-  // 네이버 뷰어 URL 우선으로 정렬 후 중복 제거
-  changes.sort((a, b) => _dedupPriority(a) - _dedupPriority(b))
-  const _seenItems = []
-  changes = changes.filter(c => {
-    const day = (c.published_at || '').slice(0, 10)
-    const ws  = _words(c.title)
-    const dupIdx = _seenItems.findIndex(s => s.day === day && _similar(ws, s.ws))
-    if (dupIdx !== -1) {
-      // 현재 아이템이 더 좋은 소스면 교체
-      if (_dedupPriority(c) < _dedupPriority(_seenItems[dupIdx].c)) {
-        _seenItems[dupIdx] = { day, ws, c }
-      }
-      return false
-    }
-    _seenItems.push({ day, ws, c })
-    return true
-  })
-  // 교체된 대표 아이템으로 재구성
-  changes = _seenItems.map(s => s.c)
-
-  timeline.innerHTML = changes.map(c => {
-    const isNew   = new Date(c.collected_at) > cutoff24h
-    const typeKl  = `type-${c.change_type || '기타'}`
-    const srcLbl  = srcLabel(c.source_type, c.title || '')
-
-    const svcBadge = (!svc && c.name_ko)
-      ? `<span class="card-svc-badge">${esc(c.name_ko)}</span>`
-      : ''
-
-    const starsEl = renderStars(c.title || '')
-
-    const urlLink = c.url
-      ? `<a class="card-url-link" href="${esc(c.url)}" target="_blank">↗ 원문</a>`
-      : ''
-
-    const hasSummary = c.summary &&
-                       c.summary.trim().length > 30 &&
-                       c.summary.trim().slice(0, 30) !== (c.title || '').trim().slice(0, 30)
-
-    const expandBody = hasSummary
-      ? `<div class="card-summary">${esc(c.summary)}</div>`
-      : `<div class="card-summary-empty">크롤링된 본문이 없습니다.</div>`
-
-    const expandSection = `
-      <div class="card-expand">
-        ${expandBody}
-        ${c.url ? `<a class="card-goto-btn" href="${esc(c.url)}" target="_blank">↗ 원문 바로가기</a>` : ''}
-      </div>`
-
-    return `
-      <div class="change-card ${isNew ? 'is-new' : ''}"
-           data-type="${esc(c.change_type || '기타')}"
-           data-expandable="true">
-        <div class="card-meta">
-          <span class="card-date">${_fmtCardDate(c.published_at || '')}</span>
-          ${svcBadge}
-          <span class="type-badge ${typeKl}">${c.change_type || '기타'}</span>
-          <span class="source-badge">${srcLbl}</span>
-          ${starsEl}
-          ${urlLink}
-        </div>
-        <div class="card-title">
-          ${esc(c.title || '')}
-          <span class="card-expand-icon">▾</span>
-        </div>
-        ${expandSection}
-      </div>`
-  }).join('')
 }
 
-// 카드 클릭 → 본문 펼치기/접기
-timeline.addEventListener('click', e => {
-  if (e.target.closest('a')) return
-  const card = e.target.closest('.change-card[data-expandable]')
-  if (!card) return
-  card.dataset.expanded = card.dataset.expanded === 'true' ? 'false' : 'true'
-})
+function _parseWeekKey (key) {
+  const m = (key || '').match(/^(\d{4})-(\d{2})$/)
+  return m ? { year: +m[1], week: +m[2] } : null
+}
+
+function renderArticleCard (a) {
+  const cat   = a.category || '기타'
+  const svcEls = (a.service_ids || []).map(sid => {
+    const svc = SVC_BY_ID[sid]
+    const nm  = svc ? svc.name_ko : sid
+    const col = SVC_COLORS[sid] || 'var(--text-3)'
+    return `<span class="gz-svc" style="--svc:${col}">${esc(nm)}</span>`
+  }).join('')
+
+  const impEl = a.importance === 'high'
+    ? `<span class="gz-imp imp-high">핵심</span>`
+    : (a.importance === 'mid' ? `<span class="gz-imp imp-mid">주목</span>` : '')
+
+  const bodyHtml = (a.body || '').split(/\n\n+/).map(p => `<p>${esc(p.trim())}</p>`).join('')
+
+  const cxHtml = a.cx_note
+    ? `<div class="gz-cxnote">
+         <div class="gz-cxnote-label">🅼 모두의주차장 관점</div>
+         <div class="gz-cxnote-text">${esc(a.cx_note)}</div>
+       </div>`
+    : ''
+
+  const srcChips = (a.sources || []).map(s =>
+    `<a class="gz-src" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.outlet || '원문')}</a>`
+  ).join('')
+  const srcExtra = (a.source_count && a.source_count > (a.sources || []).length)
+    ? `<span class="gz-src-more">+${a.source_count - (a.sources || []).length}건</span>` : ''
+
+  return `
+    <article class="gz-article" data-cat="${esc(cat)}">
+      <div class="gz-meta">
+        <span class="gz-cat type-${esc(cat)}">${esc(cat)}</span>
+        ${impEl}
+        <span class="gz-date">${_fmtDate(a.published_at || '')}</span>
+        ${svcEls}
+        <span class="gz-srccount">출처 ${a.source_count || (a.sources || []).length}건</span>
+      </div>
+      <h2 class="gz-headline">${esc(a.headline || '')}</h2>
+      ${a.deck ? `<p class="gz-deck">${esc(a.deck)}</p>` : ''}
+      <div class="gz-body">${bodyHtml}</div>
+      ${cxHtml}
+      ${srcChips ? `<div class="gz-sources"><span class="gz-sources-label">출처</span>${srcChips}${srcExtra}</div>` : ''}
+    </article>`
+}
 
 // ──────────────────────────────────────────────
-// 앱 리뷰 패널 — 플랫폼·브랜드 필터 + 시간순 스트림
+// 타사 앱 리뷰 패널
 // ──────────────────────────────────────────────
-
 function setupReviewFilters () {
   const platRow  = $('review-filter-platform')
   const brandRow = $('review-filter-brand')
-
-  if (platRow) {
-    platRow.addEventListener('click', e => {
-      const chip = e.target.closest('.review-filter-chip[data-platform]')
-      if (!chip) return
-      platRow.querySelectorAll('.review-filter-chip').forEach(c => c.classList.remove('active'))
-      chip.classList.add('active')
-      REVIEW_PLATFORM = chip.dataset.platform || ''
-      _renderReviewCards()
-    })
-  }
-
-  if (brandRow) {
-    brandRow.addEventListener('click', e => {
-      const chip = e.target.closest('.review-filter-chip[data-brand]')
-      if (!chip) return
-      brandRow.querySelectorAll('.review-filter-chip').forEach(c => c.classList.remove('active'))
-      chip.classList.add('active')
-      REVIEW_BRAND = chip.dataset.brand || ''
-      _renderReviewCards()
-    })
-  }
+  if (platRow) platRow.addEventListener('click', e => {
+    const chip = e.target.closest('.review-filter-chip[data-platform]')
+    if (!chip) return
+    platRow.querySelectorAll('.review-filter-chip').forEach(c => c.classList.remove('active'))
+    chip.classList.add('active')
+    REVIEW_PLATFORM = chip.dataset.platform || ''
+    _renderReviewCards()
+  })
+  if (brandRow) brandRow.addEventListener('click', e => {
+    const chip = e.target.closest('.review-filter-chip[data-brand]')
+    if (!chip) return
+    brandRow.querySelectorAll('.review-filter-chip').forEach(c => c.classList.remove('active'))
+    chip.classList.add('active')
+    REVIEW_BRAND = chip.dataset.brand || ''
+    _renderReviewCards()
+  })
 }
 
 function _renderReviewBrandChips (brandIds) {
   const brandRow = $('review-filter-brand')
   if (!brandRow) return
-  const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
   const chips = brandIds.map(sid => {
-    const name  = (svcById[sid] && svcById[sid].name_ko) || sid
+    const name = (SVC_BY_ID[sid] && SVC_BY_ID[sid].name_ko) || sid
     return `<button class="review-filter-chip" data-brand="${esc(sid)}">${esc(name)}</button>`
   }).join('')
   brandRow.innerHTML = `<button class="review-filter-chip active" data-brand="">전체</button>${chips}`
@@ -495,56 +332,34 @@ function _renderReviewBrandChips (brandIds) {
 
 function _renderReviewCards () {
   if (!reviewsBody) return
-
   let filtered = _allReviews
-
   if (REVIEW_PLATFORM === 'ios') {
-    filtered = filtered.filter(r =>
-      r.source_type === 'ios_appstore' || (r.title || '').startsWith('[iOS'))
+    filtered = filtered.filter(r => r.source_type === 'ios_appstore' || (r.title || '').startsWith('[iOS'))
   } else if (REVIEW_PLATFORM === 'android') {
-    filtered = filtered.filter(r =>
-      r.source_type === 'appstore' && !(r.title || '').startsWith('[iOS'))
+    filtered = filtered.filter(r => r.source_type === 'appstore' && !(r.title || '').startsWith('[iOS'))
   }
-
-  if (REVIEW_BRAND) {
-    filtered = filtered.filter(r => r.service_id === REVIEW_BRAND)
-  }
-
-  filtered = filtered.slice().sort((a, b) => {
-    const ms = r => { try { const d = new Date(r.published_at || ''); return isNaN(d) ? 0 : d.getTime() } catch(_) { return 0 } }
-    return ms(b) - ms(a)
-  })
+  if (REVIEW_BRAND) filtered = filtered.filter(r => r.service_id === REVIEW_BRAND)
 
   const countEl = $('reviews-count')
   if (countEl) countEl.textContent = filtered.length > 0 ? `${filtered.length}건` : ''
 
   if (filtered.length === 0) {
-    reviewsBody.innerHTML = `
-      <div class="empty-state" style="padding:20px">
-        <p style="font-size:11px">수집된 리뷰가 없습니다.</p>
-      </div>`
+    reviewsBody.innerHTML = `<div class="empty-state" style="padding:20px"><p style="font-size:11px">수집된 리뷰가 없습니다.</p></div>`
     return
   }
 
-  const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
-
   reviewsBody.innerHTML = filtered.map(r => {
-    const title  = r.title || ''
-    const isIos  = r.source_type === 'ios_appstore' || title.startsWith('[iOS')
+    const title = r.title || ''
+    const isIos = r.source_type === 'ios_appstore' || title.startsWith('[iOS')
     const platLabel = isIos ? 'iOS' : 'Android'
     const platCls   = isIos ? 'review-card-platform--ios' : 'review-card-platform--android'
-
-    const svc       = svcById[r.service_id]
+    const svc       = SVC_BY_ID[r.service_id]
     const brandName = svc ? svc.name_ko : (r.service_id || '')
-
     const m     = title.match(/★(\d)/)
     const score = m ? parseInt(m[1]) : 0
     const stars = score > 0 ? '★'.repeat(score) + '☆'.repeat(5 - score) : ''
-
-    // A열(published_at) 우선 표시, 공란이면 J열(collected_at) 표시
     const dateStr = _fmtReviewDate(r.published_at || '') || _fmtReviewDate(r.collected_at || '')
     const content = (r.summary || '').replace(/\n+/g, ' ')
-
     return `<div class="review-card">
       <div class="review-card-date">${esc(dateStr)}</div>
       <div class="review-card-source">
@@ -560,183 +375,73 @@ function _renderReviewCards () {
 
 async function renderReviews () {
   if (!reviewsBody) return
-  try {
-    const reviews = await window.api.getRecentReviews()
-    _allReviews = reviews
+  const reviews = await window.api.getRecentReviews()
+  // 우측 패널 = 타사 리뷰. 자사(모두의주차장) VOC는 CSAT 리포트가 담당.
+  _allReviews = reviews.filter(r => r.service_id !== 'moduparking')
 
-    const svcOrder = SVC_GROUPS.flatMap(g => g.ids)
-    const brandSet = new Set(reviews.map(r => r.service_id).filter(Boolean))
-    const brandIds = [...brandSet].sort((a, b) => {
-      const ia = svcOrder.indexOf(a), ib = svcOrder.indexOf(b)
-      if (ia === -1 && ib === -1) return 0
-      if (ia === -1) return 1
-      if (ib === -1) return -1
-      return ia - ib
-    })
-
-    _renderReviewBrandChips(brandIds)
-    _renderReviewCards()
-  } catch (_) {
-    if (reviewsBody) reviewsBody.innerHTML = ''
-  }
+  const brandSet = new Set(_allReviews.map(r => r.service_id).filter(Boolean))
+  const brandIds = [...brandSet].sort((a, b) => {
+    const ia = RIVAL_ORDER.indexOf(a), ib = RIVAL_ORDER.indexOf(b)
+    if (ia === -1 && ib === -1) return 0
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
+  _renderReviewBrandChips(brandIds)
+  _renderReviewCards()
 }
 
 // ──────────────────────────────────────────────
-// 앱 지표 패널 — 운영사별 사용자 규모 비교
+// 운영사별 현재 별점 (하단)
 // ──────────────────────────────────────────────
-
-function buildRatingChart (sorted) {
-  const W = 400, H = 88
-  const PT = 8, PB = 20, PL = 24, PR = 8
-  const iW = W - PL - PR  // 368
-  const iH = H - PT - PB  // 60
-  const Y_MIN = 2.0, Y_MAX = 5.0
-
-  const N = sorted.length
-  function xOf (i) { return PL + (N > 1 ? i * (iW / (N - 1)) : iW / 2) }
-  function yOf (r) { return PT + iH * (1 - (Math.min(Math.max(r, Y_MIN), Y_MAX) - Y_MIN) / (Y_MAX - Y_MIN)) }
-
-  const aPts = [], iPts = []
-  sorted.forEach(([, { platforms }], i) => {
-    const x  = xOf(i)
-    const gp = platforms.find(p => p.platform === 'google_play')
-    const io = platforms.find(p => p.platform === 'ios')
-    if (gp && gp.rating != null) aPts.push({ x, y: yOf(gp.rating), v: gp.rating })
-    if (io && io.rating != null) iPts.push({ x, y: yOf(io.rating),  v: io.rating  })
+async function renderAppStats () {
+  const stats = await window.api.getAppStats()
+  if (!stats || stats.length === 0) {
+    appstatsList.innerHTML = '<div class="appstats-empty">수집 후 표시됩니다</div>'
+    return
+  }
+  const byService = {}
+  for (const r of stats) {
+    if (!byService[r.service_id]) byService[r.service_id] = { name: r.name_ko, platforms: [] }
+    byService[r.service_id].platforms.push(r)
+  }
+  for (const svc of SERVICES) {
+    if (!byService[svc.id]) {
+      const meta = svc.meta || {}
+      if (meta.appstore_id_google || meta.appstore_id_ios) byService[svc.id] = { name: svc.name_ko, platforms: [] }
+    }
+  }
+  const sorted = Object.entries(byService).sort((a, b) => {
+    if (a[0] === 'moduparking') return -1
+    if (b[0] === 'moduparking') return 1
+    const sumA = a[1].platforms.reduce((s, p) => s + (p.num_ratings || 0), 0)
+    const sumB = b[1].platforms.reduce((s, p) => s + (p.num_ratings || 0), 0)
+    return sumB - sumA
   })
 
-  if (aPts.length === 0 && iPts.length === 0) {
-    return '<div class="chart-no-data">평점 데이터 수집 후 표시됩니다</div>'
-  }
-
-  function smoothPath (pts) {
-    if (pts.length === 0) return ''
-    if (pts.length === 1) return `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`
-    let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`
-    for (let i = 1; i < pts.length; i++) {
-      const prev = pts[i - 1], curr = pts[i]
-      const cpX  = ((prev.x + curr.x) / 2).toFixed(1)
-      d += ` C ${cpX} ${prev.y.toFixed(1)}, ${cpX} ${curr.y.toFixed(1)}, ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`
-    }
-    return d
-  }
-
-  const grids = [2, 3, 4, 5].map(v => {
-    const y = yOf(v).toFixed(1)
-    return `<line x1="${PL}" y1="${y}" x2="${W - PR}" y2="${y}" stroke="#E2E8F0" stroke-width="0.5"/>`
-  }).join('')
-
-  const yLabels = [2, 3, 4, 5].map(v => {
-    const y = yOf(v)
-    return `<text x="${PL - 3}" y="${y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" class="chart-tick">${v}</text>`
-  }).join('')
-
-  const xLabels = sorted.map(([sid, { name }], i) => {
-    const x   = xOf(i).toFixed(1)
-    const raw = name || sid
-    const lbl = raw.length > 5 ? raw.slice(0, 4) + '…' : raw
-    return `<text x="${x}" y="${H - 3}" text-anchor="middle" class="chart-tick">${esc(lbl)}</text>`
-  }).join('')
-
-  const aLine = aPts.length > 1 ? `<path d="${smoothPath(aPts)}" class="chart-line-a"/>` : ''
-  const iLine = iPts.length > 1 ? `<path d="${smoothPath(iPts)}" class="chart-line-i"/>` : ''
-
-  const aDots = aPts.map(p => {
-    const ly = p.y < PT + 11 ? (p.y + 10).toFixed(1) : (p.y - 4).toFixed(1)
-    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" class="chart-dot-a"/>
-<text x="${p.x.toFixed(1)}" y="${ly}" text-anchor="middle" class="chart-val-a">${Number(p.v).toFixed(1)}</text>`
-  }).join('')
-
-  const iDots = iPts.map(p => {
-    const ly = p.y + 12 < H - PB ? (p.y + 10).toFixed(1) : (p.y - 4).toFixed(1)
-    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.5" class="chart-dot-i"/>
-<text x="${p.x.toFixed(1)}" y="${ly}" text-anchor="middle" class="chart-val-i">${Number(p.v).toFixed(1)}</text>`
-  }).join('')
-
-  const lgX = W - PR
-  const legend = `
-    <line x1="${lgX - 88}" y1="${PT + 4}" x2="${lgX - 78}" y2="${PT + 4}" class="chart-line-a"/>
-    <circle cx="${lgX - 83}" cy="${PT + 4}" r="2" class="chart-dot-a"/>
-    <text x="${lgX - 75}" y="${PT + 7}" class="chart-legend">Android</text>
-    <line x1="${lgX - 42}" y1="${PT + 4}" x2="${lgX - 32}" y2="${PT + 4}" class="chart-line-i"/>
-    <circle cx="${lgX - 37}" cy="${PT + 4}" r="2" class="chart-dot-i"/>
-    <text x="${lgX - 29}" y="${PT + 7}" class="chart-legend">iOS</text>`
-
-  return `<svg viewBox="0 0 ${W} ${H}" class="rating-chart" xmlns="http://www.w3.org/2000/svg">
-    ${grids}${yLabels}${aLine}${iLine}${aDots}${iDots}${xLabels}${legend}
-  </svg>`
-}
-
-async function renderAppStats () {
-  try {
-    const stats = await window.api.getAppStats()
-    if (!stats || stats.length === 0) {
-      appstatsChart.innerHTML = ''
-      appstatsList.innerHTML  = '<div class="appstats-empty">수집 후 표시됩니다</div>'
-      return
-    }
-
-    // service_id 기준으로 그루핑
-    const byService = {}
-    for (const r of stats) {
-      if (!byService[r.service_id]) byService[r.service_id] = { name: r.name_ko, platforms: [] }
-      byService[r.service_id].platforms.push(r)
-    }
-
-    // 앱 ID가 있지만 app_info 데이터 없는 서비스도 빈 카드로 표시
-    for (const svc of SERVICES) {
-      if (!byService[svc.id]) {
-        const meta = svc.meta || {}
-        if (meta.appstore_id_google || meta.appstore_id_ios) {
-          byService[svc.id] = { name: svc.name_ko, platforms: [] }
-        }
-      }
-    }
-
-    // 모두의주차장을 가장 왼쪽(첫 번째)으로, 나머지는 리뷰 수 합산 내림차순
-    const sorted = Object.entries(byService).sort((a, b) => {
-      if (a[0] === 'moduparking') return -1
-      if (b[0] === 'moduparking') return  1
-      const sumA = a[1].platforms.reduce((s, p) => s + (p.num_ratings || 0), 0)
-      const sumB = b[1].platforms.reduce((s, p) => s + (p.num_ratings || 0), 0)
-      return sumB - sumA
-    })
-
-    // 꺾은선 차트 (제거됨)
-    appstatsChart.innerHTML = ''
-
-    // 카드 리스트
-    appstatsList.innerHTML = sorted.map(([sid, { name, platforms }]) => {
-      const totalReviews = platforms.reduce((s, p) => s + (p.num_ratings || 0), 0)
-      const totalLabel   = totalReviews > 0 ? `총 ${fmtCount(totalReviews).trim()}리뷰` : ''
-      const rows = platforms.map(p => {
-        const plat   = p.platform === 'google_play' ? 'Android' : 'iOS'
-        const star   = p.rating != null ? `★${Number(p.rating).toFixed(1)}` : '—'
-        const cnt    = p.num_ratings != null ? `${fmtCount(p.num_ratings).trim()}리뷰` : '—'
-        const barPct = p.rating != null ? Math.round((p.rating / 5) * 100) : 0
-        return `<div class="appstats-row">
-          <span class="appstats-plat">${plat}</span>
-          <span class="appstats-star">${star}</span>
-          <div class="appstats-bar-track">
-            <div class="appstats-bar-fill" style="width:${barPct}%"></div>
-          </div>
-          <span class="appstats-cnt">${cnt}</span>
-        </div>`
-      }).join('')
-
-      const noData = platforms.length === 0
-        ? `<div class="appstats-empty" style="font-size:10px;padding:6px 0">수집 중</div>` : ''
-
-      return `<div class="appstats-item">
-        <div class="appstats-name">${esc(name || sid)}</div>
-        ${totalLabel ? `<div class="appstats-total">${totalLabel}</div>` : ''}
-        ${rows}${noData}
+  appstatsList.innerHTML = sorted.map(([sid, { name, platforms }]) => {
+    const totalReviews = platforms.reduce((s, p) => s + (p.num_ratings || 0), 0)
+    const totalLabel   = totalReviews > 0 ? `총 ${fmtCount(totalReviews).trim()}리뷰` : ''
+    const isModu = sid === 'moduparking'
+    const rows = platforms.map(p => {
+      const plat   = p.platform === 'google_play' ? 'Android' : 'iOS'
+      const star   = p.rating != null ? `★${Number(p.rating).toFixed(1)}` : '—'
+      const cnt    = p.num_ratings != null ? `${fmtCount(p.num_ratings).trim()}리뷰` : '—'
+      const barPct = p.rating != null ? Math.round((p.rating / 5) * 100) : 0
+      return `<div class="appstats-row">
+        <span class="appstats-plat">${plat}</span>
+        <span class="appstats-star">${star}</span>
+        <div class="appstats-bar-track"><div class="appstats-bar-fill" style="width:${barPct}%"></div></div>
+        <span class="appstats-cnt">${cnt}</span>
       </div>`
     }).join('')
-  } catch (_) {
-    appstatsChart.innerHTML = ''
-    appstatsList.innerHTML  = ''
-  }
+    const noData = platforms.length === 0 ? `<div class="appstats-empty" style="font-size:10px;padding:6px 0">수집 중</div>` : ''
+    return `<div class="appstats-item${isModu ? ' is-modu' : ''}">
+      <div class="appstats-name">${esc(name || sid)}${isModu ? ' <span class="appstats-tag">자사</span>' : ''}</div>
+      ${totalLabel ? `<div class="appstats-total">${totalLabel}</div>` : ''}
+      ${rows}${noData}
+    </div>`
+  }).join('')
 }
 
 function fmtCount (n) {
@@ -746,124 +451,17 @@ function fmtCount (n) {
 }
 
 // ──────────────────────────────────────────────
-// 인텔리전스 바
-// ──────────────────────────────────────────────
-
-/* 인텔바 패널 자동 롤링 헬퍼 */
-function _intelRoll (el, chips, window_size, interval_ms) {
-  if (!el) return
-  if (!chips || chips.length === 0) return
-  if (chips.length <= window_size) { el.innerHTML = chips.join(''); return }
-
-  let idx = 0
-  function show () {
-    const slice = []
-    for (let i = 0; i < window_size; i++) slice.push(chips[(idx + i) % chips.length])
-    el.style.opacity = '0'
-    el.style.transition = 'opacity 0.25s'
-    setTimeout(() => {
-      el.innerHTML = slice.join('')
-      el.style.opacity = '1'
-    }, 250)
-    idx = (idx + 1) % chips.length
-  }
-  show()
-  setInterval(show, interval_ms)
-}
-
-/* 인텔바 클릭 이벤트 위임 */
-function _setupIntelClicks () {
-  // 급상승 키워드 → Naver 뉴스 검색
-  const tEl = $('trending-list')
-  if (tEl) {
-    tEl.addEventListener('click', e => {
-      const chip = e.target.closest('[data-kw]')
-      if (chip && chip.dataset.kw) {
-        window.open('https://search.naver.com/search.naver?where=news&query=' + encodeURIComponent(chip.dataset.kw + ' 주차'), '_blank')
-      }
-    })
-  }
-  // 경쟁사 동향 → 해당 서비스 타임라인
-  const rEl = $('rival-list')
-  if (rEl) {
-    rEl.addEventListener('click', e => {
-      const chip = e.target.closest('[data-svc]')
-      if (chip && chip.dataset.svc) selectService(chip.dataset.svc)
-    })
-  }
-}
-
-async function renderIntelBar () {
-  try {
-    const [keywords, rivals] = await Promise.all([
-      window.api.getTrendingKeywords(),
-      window.api.getCompetitorActivity(),
-    ])
-
-    // ── 급상승 키워드 (최대 8개, 5초마다 롤링, 창크기 5)
-    const tl = $('trending-list')
-    if (tl) {
-      if (!keywords || keywords.length === 0) {
-        tl.innerHTML = '<span class="intel-loading">데이터 부족</span>'
-      } else {
-        const chips = keywords.map((k, i) => {
-          const arrow = k.prev === 0 ? '<span class="trend-arrow-up">NEW</span>'
-                      : k.curr > k.prev ? '<span class="trend-arrow-up">▲</span>'
-                      : k.curr < k.prev ? '<span class="trend-arrow-down">▼</span>'
-                      : '<span class="trend-arrow-same">—</span>'
-          return `<span class="trend-chip" data-kw="${esc(k.word)}">
-            <span class="trend-rank">${i+1}</span>
-            <span class="trend-word">${esc(k.word)}</span>
-            ${arrow}
-            <span class="trend-cnt">${k.curr}</span>
-          </span>`
-        })
-        _intelRoll(tl, chips, 1, 3000)
-      }
-    }
-
-    // ── 경쟁사 동향 (최대 6개, 5초마다 롤링, 창크기 4)
-    const rl = $('rival-list')
-    if (rl) {
-      if (!rivals || rivals.length === 0) {
-        rl.innerHTML = '<span class="intel-loading">데이터 부족</span>'
-      } else {
-        const svcById = Object.fromEntries(SERVICES.map(s => [s.id, s]))
-        const chips = rivals.map(r => {
-          const name = (svcById[r.service_id] && svcById[r.service_id].name_ko) || r.service_id
-          const deltaEl = r.delta > 0 ? `<span class="rival-delta-up">+${r.delta}</span>`
-                        : r.delta < 0 ? `<span class="rival-delta-down">${r.delta}</span>`
-                        : `<span class="rival-delta-same">±0</span>`
-          const topicEl = r.topic ? `<span class="rival-topic">— ${esc(r.topic)}</span>` : ''
-          return `<span class="rival-chip" data-svc="${esc(r.service_id)}">
-            <span class="rival-name">${esc(name)}</span>
-            ${topicEl}
-            <span class="rival-cnt">${r.count}건</span>
-            ${deltaEl}
-          </span>`
-        })
-        _intelRoll(rl, chips, 1, 4000)
-      }
-    }
-
-    _setupIntelClicks()
-  } catch (_) {
-    // intel bar 실패해도 앱은 계속 동작
-  }
-}
-
-// 수동 수집 제거 — 데이터 수집은 GitHub Actions 크론(매일 KST 07:00) 담당
-
-// ──────────────────────────────────────────────
 // 헬퍼
 // ──────────────────────────────────────────────
-
 function updateLastUpdated () {
-  if (STATUS.last_run && STATUS.last_run.run_at) {
-    const dt = new Date(STATUS.last_run.run_at)
-    lastUpdated.textContent = `마지막 수집: ${fmt(dt)}`
-  } else {
-    lastUpdated.textContent = '마지막 수집: —'
+  // data.json 기반 마지막 수집시각이 있으면 표시
+  if (window.api.getStatus) {
+    window.api.getStatus().then(st => {
+      if (st && st.last_run && st.last_run.run_at) {
+        const dt = new Date(st.last_run.run_at)
+        if (!isNaN(dt.getTime())) lastUpdated.textContent = `마지막 수집: ${fmt(dt)}`
+      }
+    }).catch(() => {})
   }
 }
 
@@ -872,19 +470,41 @@ function fmt (dt) {
   return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`
 }
 
-function _fmtCardDate (raw) {
+// ISO 주차(연도·주차번호) — 기존 가제트 week_num과 동일 체계
+function _isoWeek (dateStr) {
+  const m = (dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  const dayNr = (d.getUTCDay() + 6) % 7          // Mon=0
+  d.setUTCDate(d.getUTCDate() - dayNr + 3)        // 해당 주 목요일
+  const firstThu = new Date(Date.UTC(d.getUTCFullYear(), 0, 4))
+  const firstThuDayNr = (firstThu.getUTCDay() + 6) % 7
+  firstThu.setUTCDate(firstThu.getUTCDate() - firstThuDayNr + 3)
+  const week = 1 + Math.round((d - firstThu) / (7 * 86400000))
+  return { year: d.getUTCFullYear(), week }
+}
+function _weekRange (dateStr) {
+  const m = (dateStr || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return ''
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  const dayNr = (d.getUTCDay() + 6) % 7
+  const mon = new Date(d); mon.setUTCDate(d.getUTCDate() - dayNr)
+  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6)
+  const f = x => `${String(x.getUTCMonth() + 1).padStart(2, '0')}.${String(x.getUTCDate()).padStart(2, '0')}`
+  return `${f(mon)} ~ ${f(sun)}`
+}
+
+function _fmtDate (raw) {
   if (!raw) return ''
-  // 이미 YYYY-MM-DD 형식이면 시간 없이 날짜만
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (iso) return `${iso[1]}.${iso[2]}.${iso[3]}`
-  // Sheets 자동변환 Date 문자열 ("Tue May 19 2026 00:00:00 GMT+0900 ..." 등)
   try {
     const d = new Date(raw)
     if (!isNaN(d.getTime())) {
       const pad = n => String(n).padStart(2, '0')
       return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`
     }
-  } catch(_) {}
+  } catch (_) {}
   return raw.slice(0, 10)
 }
 
@@ -898,50 +518,19 @@ function _fmtReviewDate (raw) {
       const pad = n => String(n).padStart(2, '0')
       return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`
     }
-  } catch(_) {}
+  } catch (_) {}
   return ''
-}
-
-function renderStars (title) {
-  const m = title.match(/★(\d)/)
-  if (!m) return ''
-  const score = parseInt(m[1])
-  return `<span class="card-stars">${'★'.repeat(score)}${'☆'.repeat(5 - score)}</span>`
-}
-
-function srcLabel (type, title) {
-  if (type === 'appstore') {
-    if (title.startsWith('[iOS'))     return 'App Store'
-    if (title.startsWith('[App'))     return 'App Store'
-    if (title.startsWith('[Android')) return 'Google Play'
-    if (title.startsWith('[Google'))  return 'Google Play'
-    return 'Store'
-  }
-  const map = {
-    news:         'Google News',
-    blog:         '블로그',
-    homepage:     '홈페이지',
-    ios_appstore: 'App Store',
-    youtube:      'YouTube',
-  }
-  return map[type] || type || '—'
 }
 
 function esc (str) {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function sleep (ms) { return new Promise(r => setTimeout(r, ms)) }
-
 // ──────────────────────────────────────────────
-// 시작
+// 다크/라이트 테마 토글
 // ──────────────────────────────────────────────
-
-// ── 다크/라이트 테마 토글 ────────────────────────
 ;(function () {
   var saved = localStorage.getItem('theme') || 'light'
   var btn   = document.getElementById('theme-toggle')

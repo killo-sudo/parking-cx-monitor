@@ -236,6 +236,25 @@ async function _loadAppInfo () {
   return _appInfos;
 }
 
+// ── 데일리 종합 에디션 (Claude 루틴이 매일 생성) ──
+var _curated = null;
+async function _loadCurated () {
+  if (_curated) return _curated;
+  if (!_getStoredJwt()) { _showAuthOverlay(); _initGis(); throw new Error('로그인이 필요합니다.'); }
+  var res = await fetch('./curated.json?t=' + Math.floor(Date.now() / 60000));
+  if (!res.ok) throw new Error('curated.json 로드 실패 (' + res.status + ')');
+  var json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'curated.json 오류');
+  (json.articles || []).sort(function (a, b) {
+    var imp = { high: 0, mid: 1, low: 2 };
+    var di = (imp[a.importance] != null ? imp[a.importance] : 1) - (imp[b.importance] != null ? imp[b.importance] : 1);
+    if (di !== 0) return di;
+    return _dateMs(b.published_at) - _dateMs(a.published_at);
+  });
+  _curated = json;
+  return _curated;
+}
+
 // ── window.api ────────────────────────────────
 window.api = {
 
@@ -298,6 +317,8 @@ window.api = {
     }
     return results;
   },
+
+  async getCuratedEdition () { return await _loadCurated(); },
 
   async getAppStats () { return await _loadAppInfo(); },
 
